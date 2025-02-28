@@ -21,11 +21,23 @@ pip install -e .
 To install it in editable mode (for modifying the code and seeing the changes immediately) and with developer dependencies (for testing and code formatting), replace the last line with:
 
 ```bash
-pip install -e '.[dev]'
+pip install -e ".[dev]"
 ```
 
 
-## 🐭 Tests
+## 🔧 Usage
+The code in **notebooks/demo.ipynb** demonstrates the core functionality of the main functions provided in this repository.
+
+
+## 🧪 Running experiments
+
+Running the experiments is as simple as:
+```bash
+python experiments/name_experiments_file.py
+```
+
+
+## 🚨 Tests
 
 The code base comes with a set of unit tests, which can be run using `pytest`:
 
@@ -38,11 +50,3 @@ pytest tests
 
 As of now, the code does not have explicit documentation, but the code is heavily commented and should be easy to understand. 
 The code is also automatically formatted using `black`, linted with `ruff`, and type-checked with `mypy`.
-
-
-## 🧪 Running experiments
-
-Running the experiments is as simple as:
-```bash
-python experiments/experiments.py
-```

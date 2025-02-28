@@ -34,6 +34,10 @@ dependencies = [
     "joblib",
     "tqdm",
     "torch",
+    "sempler",
+    "causalicp",
+    "networkx",
+    "statsmodels",
 ]
 
 [project.optional-dependencies]
