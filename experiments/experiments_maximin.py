@@ -4,7 +4,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from nldg.maximin import MaximinRF
 from nldg.utils import generate_data_example_1, gen_data_maximin
 from tqdm import tqdm
-from experiments.utils import plot_mse_r2
+from utils import plot_mse_r2
 
 
 def sim_step(
@@ -45,7 +45,7 @@ def sim_step(
 
 
 def main():
-    n_sim = 50
+    n_sim = 100
 
     # Simulation 1
     m_try = 4

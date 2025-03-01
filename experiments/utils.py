@@ -21,6 +21,7 @@ def plot_mse_r2(
     mse_df: pd.DataFrame,
     r2_df: pd.DataFrame,
     name_plot: str,
+    name_method: str = 'maximin',
 ) -> None:
     """
     Plots the MSE and R2 comparison between two different methods.
@@ -29,6 +30,8 @@ def plot_mse_r2(
          mse_df: Dataframe containing the MSE values for the two methods.
          r2_df: Dataframe containing the R2 values for the two methods.
          name_plot: Name of the plot to save in the dedicated folder.
+         name_method: Name of the method to compare against the default Random Forest.
+            Accepted values are 'maximin' and 'isd'.
     """
     c = ['tab:blue', 'tab:orange']
     vp_mse = [None] * 2
@@ -69,10 +72,13 @@ def plot_mse_r2(
     ax[1].set_ylabel(r'$R^2$')
 
     ax[0].set_xticks([0, 1])
-    ax[0].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{IsdRF}$'])
-
     ax[1].set_xticks([0, 1])
-    ax[1].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{IsdRF}$'])
+    if name_method == 'maximin':
+        ax[0].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{MaximinRF}$'])
+        ax[1].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{MaximinRF}$'])
+    else:
+        ax[0].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{IsdRF}$'])
+        ax[1].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{IsdRF}$'])
 
     for i in range(2):
         axs0[i].grid(True, which='both', axis='y', color='grey',
@@ -86,10 +92,8 @@ def plot_mse_r2(
 
     plt.tight_layout()
 
-    plot_dir = "plots"
+    plot_dir = os.path.join(os.path.dirname(__file__), "plots")
     os.makedirs(plot_dir, exist_ok=True)
     plot_path = os.path.join(plot_dir, name_plot)
 
     plt.savefig(plot_path, bbox_inches='tight', dpi=300)
-
-    plt.show()

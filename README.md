@@ -10,7 +10,7 @@
 This repository contains the code for the Master's Thesis written by Francesco Freni under the supervision of Prof. Dr. Jonas Peters at ETH Zurich during Spring 2025.
 
 
-## 🚀 Installation
+## ⚙️ Installation
 
 The code is organized as a Python package, and can be installed using `pip`:
 ```bash
@@ -25,7 +25,7 @@ pip install -e ".[dev]"
 ```
 
 
-## 🔧 Usage
+## 🚀 Usage
 The code in **notebooks/demo.ipynb** demonstrates the core functionality of the main functions provided in this repository.
 
 

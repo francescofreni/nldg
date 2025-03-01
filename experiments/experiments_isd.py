@@ -5,7 +5,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from nldg.isd import IsdRF
 from nldg.utils import gen_data_isd
 from tqdm import tqdm
-from experiments.utils import plot_mse_r2
+from utils import plot_mse_r2
 
 
 def main():
@@ -35,7 +35,7 @@ def main():
     # Plot
     mse_df = pd.DataFrame(mse)
     r2_df = pd.DataFrame(r2)
-    plot_mse_r2(mse_df, r2_df, "experiments_isd.pdf")
+    plot_mse_r2(mse_df, r2_df, "experiments_isd.pdf", name_method='isd')
 
 
 if __name__ == "__main__":
