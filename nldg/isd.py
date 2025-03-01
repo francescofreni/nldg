@@ -223,7 +223,7 @@ class IsdRF:
                                                )
                     rf.fit(X_inv, Y_train_fold)
                     # TODO: check if you have to project also to make predictions.
-                    preds = rf.predict(X_val_fold @ (U[:, const_idxs] @ U[:, const_idxs].T))  # TODO: check if this is correct
+                    preds = rf.predict(X_val_fold @ (U[:, const_idxs] @ U[:, const_idxs].T))
                 else:
                     preds = np.zeros((len(Y_val_fold)))
 

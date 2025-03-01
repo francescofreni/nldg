@@ -320,3 +320,97 @@ def gen_data_maximin(
                              columns=['E'] + [f'X{i+1}' for i in range(p)] + ['Y'])
 
     return data_train, data_test
+
+
+def gen_data_isd_v2(
+    n_train: int = 1000,
+    n_test: int = 500,
+    rng_train: np.random.Generator = np.random.default_rng(42),
+    rng_test: np.random.Generator = np.random.default_rng(42),
+) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray, np.ndarray]:
+    """
+    Generates data to be used for Random Forests with Invariant Subspace Decomposition.
+
+    Args:
+        n_train: Number of train data.
+        n_test: Number of test data.
+        rng_train: Random number generator used for the train data.
+        rng_test: Random number generator used for the test data.
+
+    Returns:
+        A tuple of 4 elements:
+        - data_train: Data frame containing the train data.
+        - data_test: Data frame containing the test data.
+        - Sigma_list_train: Covariance matrix of the features of the train data for each environment.
+        - Sigma_list_test: Covariance matrix of the features of the test data for each environment.
+    """
+    n_envs_train = 4
+    # block_sizes = [2, 2, 2]
+    block_sizes = [3, 3, 3]
+    p = sum(block_sizes)
+    X = np.zeros((n_train, p))
+    mu_x = np.zeros(p)
+    Y = np.zeros((n_train))
+    y_mean = 0
+    eps = 0.8 * rng_train.normal(size=(n_train))
+    E = np.zeros((n_train))
+    envs_train = [0, 1, 2, 3]
+    n_e = int(n_train / n_envs_train)
+    starts = [j * n_e for j in range(n_envs_train)]
+    Sigma_list_train = np.zeros((n_envs_train, p, p))
+    OM = ortho_group.rvs(dim=p, random_state=rng_train)
+    rng_sigma = np.random.default_rng(0)
+
+    for i, st in enumerate(starts):
+        E[st:st + n_e] = envs_train[i]
+        A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
+        Sigma = OM.T @ (A @ A.T + 0 * np.eye(p)) @ OM
+        Sigma_list_train[i, :, :] = Sigma
+        X[st:st + n_e, :] = rng_train.multivariate_normal(mean=mu_x, cov=Sigma, size=n_e)
+        if i == 0:
+            Y[st:st + n_e] = (np.sin(X[st:st + n_e, 0]) + X[st:st + n_e, 1] ** 2 +  # invariant part
+                              np.tanh(X[st:st + n_e, 8]) ** 3)
+        elif i == 1:
+            Y[st:st + n_e] = (np.sin(X[st:st + n_e, 0]) + X[st:st + n_e, 1] ** 2 -
+                              4.5 * np.tanh(X[st:st + n_e, 3]) + np.abs(X[st:st + n_e, 7]))
+        elif i == 2:
+            Y[st:st + n_e] = (np.sin(X[st:st + n_e, 0]) + X[st:st + n_e, 1] ** 2 +
+                              2.25 * np.floor(X[st:st + n_e, 7]) - 4.24 * X[st:st + n_e, 6] ** 3)
+        else:
+            Y[st:st + n_e] = (np.sin(X[st:st + n_e, 0]) + X[st:st + n_e, 1] ** 2 +
+                              3.7 * np.cos(X[st:st + n_e, 6] * X[st:st + n_e, 5]))
+    Y = Y + y_mean + eps
+
+    data_train = pd.DataFrame(np.column_stack([E, X, Y]),
+                              columns=['E'] + [f'X{i+1}' for i in range(p)] + ['Y'])
+
+    n_envs_test = 2
+    X = np.zeros((n_test, p))
+    Y = np.zeros((n_test))
+    eps = 0.8 * rng_test.normal(size=(n_test))
+    E = np.zeros((n_test))
+    envs_test = [1, 4]
+    n_e = int(n_test / n_envs_test)
+    starts = [j * n_e for j in range(n_envs_test)]
+    Sigma_list_test = np.zeros((n_envs_test, p, p))
+    OM = ortho_group.rvs(dim=p, random_state=rng_test)
+    rng_sigma = np.random.default_rng(12)
+
+    for i, st in enumerate(starts):
+        E[st:st + n_e] = envs_test[i]
+        A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
+        Sigma = OM.T @ (A @ A.T + 0 * np.eye(p)) @ OM
+        Sigma_list_test[i, :, :] = Sigma
+        X[st:st + n_e, :] = rng_test.multivariate_normal(mean=mu_x, cov=Sigma, size=n_e)
+        if i == 0:  # same as second env in train
+            Y[st:st + n_e] = (np.sin(X[st:st + n_e, 0]) + X[st:st + n_e, 1] ** 2 +
+                              4.5 * np.tanh(X[st:st + n_e, 3]) + np.abs(X[st:st + n_e, 7]))
+        else:
+            Y[st:st + n_e] = (np.sin(X[st:st + n_e, 0]) + X[st:st + n_e, 1] ** 2 +
+                              np.exp(X[st:st + n_e, 7]))
+    Y = Y + y_mean + eps
+
+    data_test = pd.DataFrame(np.column_stack([E, X, Y]),
+                             columns=['E'] + [f'X{i+1}' for i in range(p)] + ['Y'])
+
+    return data_train, data_test, Sigma_list_train, Sigma_list_test

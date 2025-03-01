@@ -31,7 +31,7 @@ def plot_mse_r2(
          r2_df: Dataframe containing the R2 values for the two methods.
          name_plot: Name of the plot to save in the dedicated folder.
          name_method: Name of the method to compare against the default Random Forest.
-            Accepted values are 'maximin' and 'isd'.
+            Accepted values are 'maximin', 'magging' and 'isd'.
     """
     c = ['tab:blue', 'tab:orange']
     vp_mse = [None] * 2
@@ -76,6 +76,9 @@ def plot_mse_r2(
     if name_method == 'maximin':
         ax[0].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{MaximinRF}$'])
         ax[1].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{MaximinRF}$'])
+    elif name_method == 'magging':
+        ax[0].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{MaggingRF}$'])
+        ax[1].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{MaggingRF}$'])
     else:
         ax[0].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{IsdRF}$'])
         ax[1].set_xticklabels([r'$\mathsf{RF}$', r'$\mathsf{IsdRF}$'])
