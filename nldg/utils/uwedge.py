@@ -19,7 +19,10 @@ def uwedge(
     minimize_loss: bool = False,
     n_components: int | None = None,
     condition_threshold: float | None = None,
-) -> tuple[np.ndarray, np.ndarray, bool, int, float] | tuple[np.ndarray, bool, int, float]:
+) -> (
+    tuple[np.ndarray, np.ndarray, bool, int, float]
+    | tuple[np.ndarray, bool, int, float]
+):
     """
     Fast Approximate Joint Diagonalization Incorporating Weight Matrices.
 
@@ -46,19 +49,23 @@ def uwedge(
     if init is None and n_components == d:
         if Rx.shape[0] > 0:
             E, H = lin.eigh(Rx0)
-            V = np.dot(np.diag(1. / np.sqrt(np.abs(E))), H.T.conj())
+            V = np.dot(np.diag(1.0 / np.sqrt(np.abs(E))), H.T.conj())
         else:
             V = np.eye(d)
     elif init is None:
         E, H = lin.eigh(Rx0)
-        mat = np.hstack([np.diag(1. / np.sqrt(np.abs(E[:n_components]))),
-                         np.zeros((n_components, d - n_components))])
+        mat = np.hstack(
+            [
+                np.diag(1.0 / np.sqrt(np.abs(E[:n_components]))),
+                np.zeros((n_components, d - n_components)),
+            ]
+        )
         V = np.dot(mat, H.T.conj())
     else:
         V = init[:n_components, :]
 
     U, D, UU = np.linalg.svd(V, full_matrices=False)
-    V = U@UU
+    V = U @ UU
     V = V / lin.norm(V, axis=1)[:, None]
 
     current_best = [None, np.inf, 0, None]
@@ -73,10 +80,11 @@ def uwedge(
         # 3) Set A1=Id and substitute off-diagonals
         Rsdiag = Rs.diagonal(axis1=1, axis2=2)
         Rsdiagprod = Rsdiag.T.dot(Rsdiag)
-        denom_mat = np.outer(
-            Rsdiagprod.diagonal(),
-            Rsdiagprod.diagonal()) - Rsdiagprod**2
-        Rkl = np.einsum('ill,ikl->kl', Rs, Rs)
+        denom_mat = (
+            np.outer(Rsdiagprod.diagonal(), Rsdiagprod.diagonal())
+            - Rsdiagprod**2
+        )
+        Rkl = np.einsum("ill,ikl->kl", Rs, Rs)
         num_mat = Rsdiagprod.diagonal()[:, None] * Rkl - Rsdiagprod * Rkl.T
         denom_mat[denom_mat == 0] = TINY
         A = num_mat / (denom_mat + np.eye(n_components))
@@ -84,19 +92,18 @@ def uwedge(
 
         # 4) Set new V
         Vold = np.copy(V)
-        V = lin.lstsq(A, Vold,
-                      check_finite=False,
-                      lapack_driver='gelsy')[0]
+        V = lin.lstsq(A, Vold, check_finite=False, lapack_driver="gelsy")[0]
 
         # 5) Normalise V
         U, D, UU = np.linalg.svd(V, full_matrices=False)
-        V = U@UU
+        V = U @ UU
         V = V / lin.norm(V, axis=1)[:, None]
 
         if minimize_loss:
             diagonals = np.stack([V.dot(Rxx.dot(V.T.conj())) for Rxx in Rx])
-            meanoffdiag = np.mean(np.abs(
-                diagonals[:, ~np.eye(n_components, dtype=bool)])**2)
+            meanoffdiag = np.mean(
+                np.abs(diagonals[:, ~np.eye(n_components, dtype=bool)]) ** 2
+            )
             if meanoffdiag < current_best[1]:
                 current_best = [V, meanoffdiag, iteration, diagonals]
 
@@ -110,14 +117,18 @@ def uwedge(
             break
 
         # 7) Check condition number
-        if (condition_threshold is not None
-                and np.linalg.cond(V) > condition_threshold):
+        if (
+            condition_threshold is not None
+            and np.linalg.cond(V) > condition_threshold
+        ):
             converged = False
             V = Vold
             iteration -= 1
-            warnings.warn('Abort uwedge due to unreasonably growing condition '
-                          'number of unmixing matrix V',
-                          UserWarning)
+            warnings.warn(
+                "Abort uwedge due to unreasonably growing condition "
+                "number of unmixing matrix V",
+                UserWarning,
+            )
             break
 
     # Rescale
@@ -125,8 +136,9 @@ def uwedge(
         V, meanoffdiag, iteration, diagonals = current_best
     else:
         diagonals = np.stack([V.dot(Rxx.dot(V.T.conj())) for Rxx in Rx])
-        meanoffdiag = np.mean(np.abs(
-            diagonals[:, ~np.eye(n_components, dtype=bool)])**2)
+        meanoffdiag = np.mean(
+            np.abs(diagonals[:, ~np.eye(n_components, dtype=bool)]) ** 2
+        )
 
     # Return
     if return_diagonals:

@@ -5,7 +5,7 @@ Code inspired from https://github.com/mlazzaretto/Invariant-Subspace-Decompositi
 from __future__ import division
 import numpy as np
 import pandas as pd
-from nldg.jbd import jbd, ajbd
+from nldg.utils.jbd import jbd, ajbd
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import StratifiedKFold
 
@@ -14,6 +14,7 @@ class IsdRF:
     """
     Invariant Subspace Decomposition for Random Forests.
     """
+
     def __init__(
         self,
         n_estimators: int = 50,
@@ -39,6 +40,7 @@ class IsdRF:
         self.Y_train = None
         self.E_train = None
         self.n_train = 0
+        self.n_envs_train = 0
         self.p = 0
 
         self.n_estimators = n_estimators
@@ -83,10 +85,11 @@ class IsdRF:
         for i in range(n_envs):
             X_e = X[E == i, :]
             Y_e = Y[E == i]
-            rf = RandomForestRegressor(n_estimators=self.n_estimators,
-                                       random_state=self.random_state,
-                                       max_features=self.max_features
-                                       )
+            rf = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                random_state=self.random_state,
+                max_features=self.max_features,
+            )
             rf.fit(X_e, Y_e)
             fitted_values = rf.predict(X_e)
             cov_e = np.cov(Y_e - fitted_values, fitted_values, rowvar=False)
@@ -123,8 +126,7 @@ class IsdRF:
             if b == 0:
                 block_idxs = list(range(bs))
             else:
-                block_idxs = [j + sum(blocks_shape[:b])
-                              for j in range(bs)]
+                block_idxs = [j + sum(blocks_shape[:b]) for j in range(bs)]
             if th_const[b] < th:
                 const_blocks[b] = True
                 for idx in block_idxs:
@@ -151,21 +153,24 @@ class IsdRF:
             k_fold: Number of folds for cross-validation for threshold selection.
             diag: True if the estimated covariance matrices are assumed to be jointly diagonalizable.
         """
-        X_train_df = data_train.drop(columns=['E', 'Y'])
-        Y_train_df = data_train['Y']
-        E_train_df = data_train['E']
+        X_train_df = data_train.drop(columns=["E", "Y"])
+        Y_train_df = data_train["Y"]
+        E_train_df = data_train["E"]
 
         self.data_train = data_train
         self.X_train = np.array(X_train_df)
         self.Y_train = np.ravel(Y_train_df)
         self.E_train = np.array(E_train_df).flatten()
         self.n_train = data_train.shape[0]
+        self.n_envs_train = len(np.unique(E_train_df))
         self.p = self.X_train.shape[1]
 
         # 1) Compute the covariance matrices
-        Sigma = np.stack(self.data_train.drop(
-            columns=['E', 'Y']
-        ).groupby(self.data_train['E']).apply(lambda g: g.cov().values))
+        Sigma = np.stack(
+            self.data_train.drop(columns=["E", "Y"])
+            .groupby(self.data_train["E"])
+            .apply(lambda g: g.cov().values)
+        )
 
         # TODO: if I were to fit the Random Forest first and then project the fitted values,
         #  I would have to do it at this point.
@@ -175,7 +180,7 @@ class IsdRF:
             U, _, _, _ = jbd(Sigma, threshold=0, diag=True)
             blocks_shape = list[np.ones(self.p)]
             Sigma_diag = np.zeros_like(Sigma)
-            for k in range(3):
+            for k in range(self.n_envs_train):
                 Sigma_diag[k, :, :] = U @ Sigma[k, :, :] @ U.T.conj()
         else:
             U, blocks_shape, Sigma_diag, _, _ = ajbd(Sigma)
@@ -191,11 +196,13 @@ class IsdRF:
             else:
                 block_idxs = [j + sum(blocks_shape[:b]) for j in range(bs)]
 
-            th_const.append(self._comp_thresholds(self.X_train @ (U[:, block_idxs] @ U[:, block_idxs].T),
-                                                  self.Y_train,
-                                                  self.E_train
-                                                  )
-                            )
+            th_const.append(
+                self._comp_thresholds(
+                    self.X_train @ (U[:, block_idxs] @ U[:, block_idxs].T),
+                    self.Y_train,
+                    self.E_train,
+                )
+            )
         th_const.append(1)
 
         # 3) Search for invariant subspace
@@ -207,28 +214,51 @@ class IsdRF:
         var_th = np.zeros((len(th_const), k_fold))
 
         for th_idx, th in enumerate(th_const):
-            const_blocks, const_idxs, v_idxs = self._check_const(blocks_shape, th_const, th)
-            skf = StratifiedKFold(n_splits=k_fold, shuffle=True, random_state=42)
+            const_blocks, const_idxs, v_idxs = self._check_const(
+                blocks_shape, th_const, th
+            )
+            skf = StratifiedKFold(
+                n_splits=k_fold, shuffle=True, random_state=42
+            )
 
-            for fd_idx, (train_idx, val_idx) in enumerate(skf.split(self.X_train, self.E_train)):
-                X_train_fold, X_val_fold = self.X_train[train_idx], self.X_train[val_idx]
-                Y_train_fold, Y_val_fold = self.Y_train[train_idx], self.Y_train[val_idx]
-                E_train_fold, E_val_fold = self.E_train[train_idx], self.E_train[val_idx]
+            for fd_idx, (train_idx, val_idx) in enumerate(
+                skf.split(self.X_train, self.E_train)
+            ):
+                X_train_fold, X_val_fold = (
+                    self.X_train[train_idx],
+                    self.X_train[val_idx],
+                )
+                Y_train_fold, Y_val_fold = (
+                    self.Y_train[train_idx],
+                    self.Y_train[val_idx],
+                )
+                E_train_fold, E_val_fold = (
+                    self.E_train[train_idx],
+                    self.E_train[val_idx],
+                )
 
                 if const_idxs:
-                    X_inv = X_train_fold @ (U[:, const_idxs] @ U[:, const_idxs].T)
-                    rf = RandomForestRegressor(n_estimators=self.n_estimators,
-                                               random_state=self.random_state,
-                                               max_features=self.max_features
-                                               )
+                    X_inv = X_train_fold @ (
+                        U[:, const_idxs] @ U[:, const_idxs].T
+                    )
+                    rf = RandomForestRegressor(
+                        n_estimators=self.n_estimators,
+                        random_state=self.random_state,
+                        max_features=self.max_features,
+                    )
                     rf.fit(X_inv, Y_train_fold)
                     # TODO: check if you have to project also to make predictions.
-                    preds = rf.predict(X_val_fold @ (U[:, const_idxs] @ U[:, const_idxs].T))
+                    preds = rf.predict(
+                        X_val_fold @ (U[:, const_idxs] @ U[:, const_idxs].T)
+                    )
                 else:
                     preds = np.zeros((len(Y_val_fold)))
 
                 residuals = Y_val_fold - preds
-                rss_per_env = [np.mean((residuals[E_val_fold == e]) ** 2) for e in np.unique(E_val_fold)]
+                rss_per_env = [
+                    np.mean((residuals[E_val_fold == e]) ** 2)
+                    for e in np.unique(E_val_fold)
+                ]
                 var_th[th_idx, fd_idx] = np.var(rss_per_env)
 
             # Average over folds
@@ -255,15 +285,22 @@ class IsdRF:
         Returns:
             preds: predictions made using the invariant subspace.
         """
-        const_blocks, const_idxs, v_idxs = self._check_const(self.blocks_shape, self.th_const, self.th_opt)
+        const_blocks, const_idxs, v_idxs = self._check_const(
+            self.blocks_shape, self.th_const, self.th_opt
+        )
         if const_idxs:
-            X_inv = self.X_train @ (self.U[:, const_idxs] @ self.U[:, const_idxs].T)
-            rf = RandomForestRegressor(n_estimators=self.n_estimators,
-                                       random_state=self.random_state,
-                                       max_features=self.max_features
-                                       )
+            X_inv = self.X_train @ (
+                self.U[:, const_idxs] @ self.U[:, const_idxs].T
+            )
+            rf = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                random_state=self.random_state,
+                max_features=self.max_features,
+            )
             rf.fit(X_inv, self.Y_train)
-            preds = rf.predict(X @ (self.U[:, const_idxs] @ self.U[:, const_idxs].T))
+            preds = rf.predict(
+                X @ (self.U[:, const_idxs] @ self.U[:, const_idxs].T)
+            )
         else:
             preds = np.zeros((X.shape[0]))
 

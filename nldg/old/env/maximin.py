@@ -9,6 +9,7 @@ class MaximinRF(RandomForestRegressor):
     """
     Distribution Generalization with Random Forest Regressor.
     """
+
     def __init__(
         self,
         n_estimators: int = 50,
@@ -23,7 +24,7 @@ class MaximinRF(RandomForestRegressor):
         super().__init__(
             n_estimators=n_estimators,
             random_state=random_state,
-            max_features=max_features
+            max_features=max_features,
         )
 
     def predict_maximin(
@@ -33,7 +34,7 @@ class MaximinRF(RandomForestRegressor):
         E_train: np.ndarray,
         X_test: np.ndarray,
         eps: float = 1e-6,
-        wtype: str = 'inv',
+        wtype: str = "inv",
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Computes the predictions for a given test dataset
@@ -83,7 +84,12 @@ class MaximinRF(RandomForestRegressor):
         n_train = X_train.shape[0]
         errs = np.zeros(self.n_estimators)
         for i, tree in enumerate(self.estimators_):
-            boot_idxs = resample(range(n_train), replace=True, n_samples=n_train, random_state=tree.random_state)
+            boot_idxs = resample(
+                range(n_train),
+                replace=True,
+                n_samples=n_train,
+                random_state=tree.random_state,
+            )
             oob_idxs = np.array(list(set(range(n_train)) - set(boot_idxs)))
             envs = np.unique(E_train[oob_idxs])
             max_err = 0
@@ -95,7 +101,7 @@ class MaximinRF(RandomForestRegressor):
                 max_err = max(env_error, max_err)
             errs[i] = max_err if len(envs) > 0 else np.inf
         eps = 1e-6
-        if wtype == 'inv':
+        if wtype == "inv":
             weights = 1 / (errs + eps)
         else:
             weights = np.exp(-errs)
@@ -107,6 +113,7 @@ class MaggingRF:
     """
     Distribution Generalization with Random Forest Regressor.
     """
+
     def __init__(
         self,
         n_estimators: int = 50,
@@ -163,9 +170,11 @@ class MaggingRF:
         self.n_envs = len(unique_envs)
 
         for env in unique_envs:
-            rf_env = RandomForestRegressor(n_estimators=self.n_estimators,
-                                           random_state=self.random_state,
-                                           max_features=self.max_features)
+            rf_env = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                random_state=self.random_state,
+                max_features=self.max_features,
+            )
 
             env_idx_train = np.where(Etr_v2 == env)[0]
 
@@ -213,11 +222,15 @@ class MaggingRF:
             return np.dot(w.T, np.dot(F.T, F).dot(w))
 
         weights_default = np.array([1 / self.n_envs] * self.n_envs)
-        constraints = {'type': 'eq', 'fun': lambda w: np.sum(w) - 1}
+        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
         bounds = [[0, 1] for _ in range(preds_default_val.shape[1])]
 
-        weights_magging = minimize(objective, weights_default,
-                                   args=(preds_default_val,), bounds=bounds,
-                                   constraints=constraints).x
+        weights_magging = minimize(
+            objective,
+            weights_default,
+            args=(preds_default_val,),
+            bounds=bounds,
+            constraints=constraints,
+        ).x
 
         return weights_magging

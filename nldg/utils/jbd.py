@@ -5,7 +5,7 @@ Original Author: Margherita Lazzaretto
 
 from __future__ import division
 import numpy as np
-from nldg.uwedge import uwedge
+from nldg.utils.uwedge import uwedge
 
 
 def jbd(
@@ -37,7 +37,7 @@ def jbd(
 
     MD_list = np.zeros_like(M_list)
     for k in range(m):
-        MD_list[k, :, :] = V@M_list[k, :, :]@V.T.conj()
+        MD_list[k, :, :] = V @ M_list[k, :, :] @ V.T.conj()
 
     # Compute the auxiliary matrix
     B = np.max(np.abs(MD_list), axis=0)
@@ -46,11 +46,13 @@ def jbd(
     # Detect blocks according to threshold
     U = V.copy()
 
-    blocks = [1, ]
+    blocks = [
+        1,
+    ]
     last = 0
-    for j in range(p-1):
+    for j in range(p - 1):
         b = B.copy()[:, j]
-        b_ord = list(np.argsort(-b[last+1:]) + last + 1)
+        b_ord = list(np.argsort(-b[last + 1 :]) + last + 1)
         while len(b_ord) > 0 and b[b_ord[0]] > threshold:
             blocks[-1] += 1
             last += 1
@@ -59,7 +61,7 @@ def jbd(
             B[:, [last, b_ord[0]]] = B[:, [b_ord[0], last]]
             U[[last, b_ord[0]], :] = U[[b_ord[0], last], :]
             b = B.copy()[:, j]
-            b_ord = list(np.argsort(-b[last+1:]) + last + 1)
+            b_ord = list(np.argsort(-b[last + 1 :]) + last + 1)
         if j == last:
             blocks.append(1)
             last += 1
@@ -67,7 +69,7 @@ def jbd(
     # Compute jointly block diagonalized matrices
     MBD_list = np.zeros_like(M_list)
     for k in range(m):
-        MBD_list[k, :, :] = U@M_list[k, :, :]@U.T.conj()
+        MBD_list[k, :, :] = U @ M_list[k, :, :] @ U.T.conj()
 
     return U, blocks, MBD_list
 
@@ -96,27 +98,30 @@ def boff(
 
     if len(blocks_shape) == 1:
         for j in range(MOD_list.shape[0]):
-            C[j] = np.linalg.norm(MOD_list[j, :, :], 'fro')
-        boff_crit = sum(C)/(m)
+            C[j] = np.linalg.norm(MOD_list[j, :, :], "fro")
+        boff_crit = sum(C) / (m)
     else:
         for b, bs in enumerate(blocks_shape):
             if b == 0:
                 block_idxs = list(range(bs))
             else:
-                block_idxs = [j+sum(blocks_shape[:b]) for j in range(bs)]
-            MOD_list[:, block_idxs[0]:block_idxs[-1]+1,
-                     block_idxs[0]:block_idxs[-1]+1] = 0
+                block_idxs = [j + sum(blocks_shape[:b]) for j in range(bs)]
+            MOD_list[
+                :,
+                block_idxs[0] : block_idxs[-1] + 1,
+                block_idxs[0] : block_idxs[-1] + 1,
+            ] = 0
 
         for j in range(m):
             C[j] = np.linalg.norm(MOD_list[j, :, :], 1)
 
-        boff_crit = sum(C)/(m*(p**2-sum([bs**2 for bs in blocks_shape])))
+        boff_crit = sum(C) / (m * (p**2 - sum([bs**2 for bs in blocks_shape])))
 
     # Compute penalization term
     lam = np.mean([np.min(np.linalg.eigvals(Sigma)) for Sigma in MBD_list])
 
     # Evaluate joint criterion
-    crit = boff_crit + lam*sum([bs**2 for bs in blocks_shape])/(p**2)
+    crit = boff_crit + lam * sum([bs**2 for bs in blocks_shape]) / (p**2)
 
     return crit
 
@@ -124,9 +129,11 @@ def boff(
 def ajbd(
     M_list: np.array,
     diag: bool = False,
-) -> (tuple[np.ndarray, list, np.ndarray, float, float] |
-      tuple[np.ndarray, list, np.ndarray] |
-      tuple[np.ndarray, bool, int, float]):
+) -> (
+    tuple[np.ndarray, list, np.ndarray, float, float]
+    | tuple[np.ndarray, list, np.ndarray]
+    | tuple[np.ndarray, bool, int, float]
+):
     """
     Compute approximate joint block diagonalization of the set of input matrices.
 
@@ -165,7 +172,7 @@ def ajbd(
     U = U_list[idx]
     MBD_list = np.zeros_like(M_list)
     for k in range(m):
-        MBD_list[k, :, :] = U@M_list[k, :, :]@U.T.conj()
+        MBD_list[k, :, :] = U @ M_list[k, :, :] @ U.T.conj()
     t_opt = t_list[idx]
 
     return U, blocks_list[idx], MBD_list, t_opt, boff_list[idx]
