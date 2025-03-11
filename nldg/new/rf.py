@@ -90,9 +90,9 @@ class MaggingRF(RandomForestRegressor):
 
         predictions = np.zeros((X_train.shape[0], self.n_estimators))
         for i, tree in enumerate(self.estimators_):
-            predictions[:,i] = tree.predict(X_train)
+            predictions[:, i] = tree.predict(X_train)
 
-        weights_dft = np.array([1/self.n_estimators] * self.n_estimators)
+        weights_dft = np.array([1 / self.n_estimators] * self.n_estimators)
         constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
         bounds = [[0, 1] for _ in range(predictions.shape[1])]
 
@@ -179,7 +179,7 @@ class DT4DL:
             max_err: Impurity of the node.
         """
         if self.criterion == "mse":
-            max_err = np.sum((y-np.mean(y))**2)
+            max_err = np.sum((y - np.mean(y)) ** 2)
             return max_err
         else:
             max_err = 0
@@ -187,7 +187,7 @@ class DT4DL:
                 if np.sum(E == env) > 0:
                     y_e = y[E == env]
                     m_e = np.mean(y_e)
-                    err = np.sum((y_e-m_e)**2)
+                    err = np.sum((y_e - m_e) ** 2)
                     max_err = max(max_err, err)
             return max_err
 
@@ -210,7 +210,10 @@ class DT4DL:
         Returns:
             cost: Cost due to the split.
         """
-        if np.sum(left_idx) < self.min_samples_leaf or np.sum(right_idx) < self.min_samples_leaf:
+        if (
+            np.sum(left_idx) < self.min_samples_leaf
+            or np.sum(right_idx) < self.min_samples_leaf
+        ):
             return np.inf
         left_y = y[left_idx]
         right_y = y[right_idx]
@@ -243,7 +246,8 @@ class DT4DL:
                 raise ValueError("Invalid string for max_features")
         raise ValueError("max_features must be int, float, str, or None")
 
-    def _best_split(self,
+    def _best_split(
+        self,
         X: np.ndarray,
         y: np.ndarray,
         E: np.ndarray,
@@ -262,21 +266,24 @@ class DT4DL:
             - best_threshold: The threshold of the best feature that leads to the best split.
             - best_cost: The cost due to the best split.
         """
-        if len(X.shape) == 1: X = X.reshape(-1, 1)
+        if len(X.shape) == 1:
+            X = X.reshape(-1, 1)
         n, p = X.shape
         best_cost = np.inf
         best_feature = None
         best_threshold = None
         m_try = self._select_features(p)
-        feature_idxs = np.random.default_rng(self.random_state).choice(p, m_try, replace=False)
+        feature_idxs = np.random.default_rng(self.random_state).choice(
+            p, m_try, replace=False
+        )
 
         for feat in feature_idxs:
             sort_idx = np.argsort(X[:, feat])
             X_sorted = X[sort_idx, feat]
             for i in range(1, n):
-                if X_sorted[i] == X_sorted[i-1]:
+                if X_sorted[i] == X_sorted[i - 1]:
                     continue
-                threshold = (X_sorted[i] + X_sorted[i-1])/2
+                threshold = (X_sorted[i] + X_sorted[i - 1]) / 2
                 left_idx = X[:, feat] <= threshold
                 right_idx = X[:, feat] > threshold
                 cost = self._split_cost(y, E, left_idx, right_idx)
@@ -302,7 +309,9 @@ class DT4DL:
             E: Environment labels.
         """
         n = len(y)
-        if (self.max_depth is not None and depth >= self.max_depth) or n < self.min_samples_split:
+        if (
+            self.max_depth is not None and depth >= self.max_depth
+        ) or n < self.min_samples_split:
             return {"pred": np.mean(y)}
 
         impurity = self._node_impurity(y, E)
@@ -313,13 +322,25 @@ class DT4DL:
         left_idx = X[:, feat] <= thr
         right_idx = X[:, feat] > thr
 
-        if np.sum(left_idx) < self.min_samples_leaf or np.sum(right_idx) < self.min_samples_leaf:
+        if (
+            np.sum(left_idx) < self.min_samples_leaf
+            or np.sum(right_idx) < self.min_samples_leaf
+        ):
             return {"pred": np.mean(y)}
 
-        left_tree = self._build_tree(X[left_idx], y[left_idx], E[left_idx], depth+1)
-        right_tree = self._build_tree(X[right_idx], y[right_idx], E[right_idx], depth + 1)
+        left_tree = self._build_tree(
+            X[left_idx], y[left_idx], E[left_idx], depth + 1
+        )
+        right_tree = self._build_tree(
+            X[right_idx], y[right_idx], E[right_idx], depth + 1
+        )
 
-        return {"feat": feat, "thr": thr, "left": left_tree, "right": right_tree}
+        return {
+            "feat": feat,
+            "thr": thr,
+            "left": left_tree,
+            "right": right_tree,
+        }
 
     def _predict_x(
         self,
@@ -347,7 +368,7 @@ class DT4DL:
         self,
         X: np.ndarray,
         y: np.ndarray,
-        E: np.ndarray | None =None,
+        E: np.ndarray | None = None,
     ) -> None:
         """
         Build a decision tree regressor from the training set.
@@ -357,7 +378,7 @@ class DT4DL:
             y: The target values.
             E: Environment labels.
         """
-        if self.criterion == 'maximin':
+        if self.criterion == "maximin":
             if E is None:
                 raise ValueError("E is necessary when criterion is 'maximin'.")
         else:
@@ -388,6 +409,7 @@ class RF4DL:
     """
     Random Forest for Distribution Generalization.
     """
+
     def __init__(
         self,
         n_estimators: int = 100,
@@ -397,6 +419,7 @@ class RF4DL:
         min_samples_leaf: float | int = 1,
         max_features: int | float | str | None = None,
         random_state: int = 42,
+        disable: bool = False,
     ) -> None:
         """
         Initialize the class instance.
@@ -427,6 +450,7 @@ class RF4DL:
                 - If "log2", then `max_features=log2(n_features)`.
                 - If None, then `max_features=n_features`.
             random_state: Random seed.
+            disable: Whether to disable the progress bar (useful for running simulations).
         """
         if criterion not in ["mse", "maximin"]:
             raise ValueError("Criterion should be either 'mse' or 'maximin'.")
@@ -437,6 +461,7 @@ class RF4DL:
         self.min_samples_leaf = min_samples_leaf
         self.max_features = max_features
         self.random_state = random_state
+        self.disable = disable
         self.forest = [None] * self.n_estimators
 
     def fit(
@@ -454,8 +479,10 @@ class RF4DL:
             E: Environment labels.
         """
         n = X.shape[0]
-        for i in tqdm(range(self.n_estimators)):
-            bootstrap_idx = np.random.default_rng(self.random_state).choice(n, n, replace=True)
+        for i in tqdm(range(self.n_estimators), disable=self.disable):
+            bootstrap_idx = np.random.default_rng(self.random_state).choice(
+                n, n, replace=True
+            )
             tree = DT4DL(
                 self.criterion,
                 self.max_depth,
@@ -482,6 +509,6 @@ class RF4DL:
         """
         preds = np.zeros((X.shape[0], self.n_estimators))
         for i, tree in enumerate(self.forest):
-            preds[:,i] = tree.predict(X)
+            preds[:, i] = tree.predict(X)
         preds = np.mean(preds, axis=1)
         return preds

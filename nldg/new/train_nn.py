@@ -9,9 +9,7 @@ SEED = 42
 
 
 def max_mse_loss(
-    preds: torch.Tensor,
-    targets: torch.Tensor,
-    envs: torch.Tensor
+    preds: torch.Tensor, targets: torch.Tensor, envs: torch.Tensor
 ) -> torch.Tensor:
     """
     Computes the maximum Mean Squared Error (MSE) across different environments.
@@ -29,7 +27,7 @@ def max_mse_loss(
     mse = nn.MSELoss()
 
     for env in unique_envs:
-        mask = (envs == env)
+        mask = envs == env
         if mask.sum() > 0:
             mse_env = mse(preds[mask], targets[mask])
             losses.append(mse_env)
@@ -38,13 +36,13 @@ def max_mse_loss(
 
 
 def train_model(
-        X_train: np.ndarray,
-        Y_train: np.ndarray,
-        E_train: np.ndarray,
-        epochs: int = 100,
-        lr: float = 0.01,
-        verbose: bool = True,
-        default: bool = False
+    X_train: np.ndarray,
+    Y_train: np.ndarray,
+    E_train: np.ndarray,
+    epochs: int = 100,
+    lr: float = 0.01,
+    verbose: bool = True,
+    default: bool = False,
 ) -> torch.nn.Module:
     """
     Trains a neural network on the given training data.

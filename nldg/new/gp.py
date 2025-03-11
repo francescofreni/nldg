@@ -11,7 +11,13 @@ import numpy as np
 import scipy.optimize
 from scipy.linalg import cho_solve, cholesky, solve_triangular
 
-from sklearn.base import BaseEstimator, MultiOutputMixin, RegressorMixin, _fit_context, clone
+from sklearn.base import (
+    BaseEstimator,
+    MultiOutputMixin,
+    RegressorMixin,
+    _fit_context,
+    clone,
+)
 from sklearn.preprocessing._data import _handle_zeros_in_scale
 from sklearn.utils import check_random_state
 from sklearn.utils._param_validation import Interval, StrOptions
@@ -260,7 +266,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
         # Normalize target value
         if self.normalize_y:
             self._y_train_mean = np.mean(y, axis=0)
-            self._y_train_std = _handle_zeros_in_scale(np.std(y, axis=0), copy=False)
+            self._y_train_std = _handle_zeros_in_scale(
+                np.std(y, axis=0), copy=False
+            )
 
             # Remove mean and make unit variance
             y = (y - self._y_train_mean) / self._y_train_std
@@ -293,14 +301,14 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
                     )
                     return -lml, -grad
                 else:
-                    return -self.log_marginal_likelihood(theta, clone_kernel=False)
+                    return -self.log_marginal_likelihood(
+                        theta, clone_kernel=False
+                    )
 
             # First optimize starting from theta specified in kernel
             optima = [
-                (
-                    self._constrained_optimization(
-                        obj_func, self.kernel_.theta, self.kernel_.bounds
-                    )
+                self._constrained_optimization(
+                    obj_func, self.kernel_.theta, self.kernel_.bounds
                 )
             ]
 
@@ -314,9 +322,13 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
                     )
                 bounds = self.kernel_.bounds
                 for iteration in range(self.n_restarts_optimizer):
-                    theta_initial = self._rng.uniform(bounds[:, 0], bounds[:, 1])
+                    theta_initial = self._rng.uniform(
+                        bounds[:, 0], bounds[:, 1]
+                    )
                     optima.append(
-                        self._constrained_optimization(obj_func, theta_initial, bounds)
+                        self._constrained_optimization(
+                            obj_func, theta_initial, bounds
+                        )
                     )
             # Select result from run with minimal (negative) log-marginal
             # likelihood
@@ -399,7 +411,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
         else:
             dtype, ensure_2d = None, False
 
-        X = validate_data(self, X, ensure_2d=ensure_2d, dtype=dtype, reset=False)
+        X = validate_data(
+            self, X, ensure_2d=ensure_2d, dtype=dtype, reset=False
+        )
 
         if not hasattr(self, "X_train_"):  # Unfitted;predict based on GP prior
             if self.kernel is None:
@@ -442,7 +456,10 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
 
             # Alg 2.1, page 19, line 5 -> v = L \ K(X_test, X_train)^T
             V = solve_triangular(
-                self.L_, K_trans.T, lower=GPR_CHOLESKY_LOWER, check_finite=False
+                self.L_,
+                K_trans.T,
+                lower=GPR_CHOLESKY_LOWER,
+                check_finite=False,
             )
 
             if return_cov:
@@ -450,7 +467,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
                 y_cov = self.kernel_(X) - V.T @ V
 
                 # undo normalisation
-                y_cov = np.outer(y_cov, self._y_train_std**2).reshape(*y_cov.shape, -1)
+                y_cov = np.outer(y_cov, self._y_train_std**2).reshape(
+                    *y_cov.shape, -1
+                )
                 # if y_cov has shape (n_samples, n_samples, 1), reshape to
                 # (n_samples, n_samples)
                 if y_cov.shape[2] == 1:
@@ -475,7 +494,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
                     y_var[y_var_negative] = 0.0
 
                 # undo normalisation
-                y_var = np.outer(y_var, self._y_train_std**2).reshape(*y_var.shape, -1)
+                y_var = np.outer(y_var, self._y_train_std**2).reshape(
+                    *y_var.shape, -1
+                )
 
                 # if y_var has shape (n_samples, 1), reshape to (n_samples,)
                 if y_var.shape[1] == 1:
@@ -557,7 +578,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
         """
         if theta is None:
             if eval_gradient:
-                raise ValueError("Gradient can only be evaluated for theta!=None")
+                raise ValueError(
+                    "Gradient can only be evaluated for theta!=None"
+                )
             return self.log_marginal_likelihood_value_
 
         if clone_kernel:
@@ -586,10 +609,16 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
             try:
                 L = cholesky(K, lower=GPR_CHOLESKY_LOWER, check_finite=False)
             except np.linalg.LinAlgError:
-                return (-np.inf, np.zeros_like(theta)) if eval_gradient else -np.inf
+                return (
+                    (-np.inf, np.zeros_like(theta))
+                    if eval_gradient
+                    else -np.inf
+                )
 
             # Alg 2.1, page 19, line 3 -> alpha = L^T \ (L \ y)
-            alpha = cho_solve((L, GPR_CHOLESKY_LOWER), y_train_e, check_finite=False)
+            alpha = cho_solve(
+                (L, GPR_CHOLESKY_LOWER), y_train_e, check_finite=False
+            )
 
             # Alg 2.1, page 19, line 7
             # -0.5 . y^T . alpha - sum(log(diag(L))) - n_samples / 2 log(2*pi)
@@ -601,7 +630,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
             #     log_likelihood_dims[output_idx] = (
             #         y_train[:, [output_idx]] @ alpha[:, [output_idx]]
             #     )
-            log_likelihood_dims = -0.5 * np.einsum("ik,ik->k", y_train_e, alpha)
+            log_likelihood_dims = -0.5 * np.einsum(
+                "ik,ik->k", y_train_e, alpha
+            )
             log_likelihood_dims -= np.log(np.diag(L)).sum()
             log_likelihood_dims -= K.shape[0] / 2 * np.log(2 * np.pi)
             # the log likelihood is sum-up across the outputs
@@ -622,7 +653,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
                 inner_term = np.einsum("ik,jk->ijk", alpha, alpha)
                 # compute K^-1 of shape (n_samples, n_samples)
                 K_inv = cho_solve(
-                    (L, GPR_CHOLESKY_LOWER), np.eye(K.shape[0]), check_finite=False
+                    (L, GPR_CHOLESKY_LOWER),
+                    np.eye(K.shape[0]),
+                    check_finite=False,
                 )
                 # create a new axis to use broadcasting between inner_term and
                 # K_inv
@@ -641,7 +674,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
                     "ijl,jik->kl", inner_term, K_gradient
                 )
                 # the log likelihood gradient is the sum-up across the outputs
-                log_likelihood_gradient = log_likelihood_gradient_dims.sum(axis=-1)
+                log_likelihood_gradient = log_likelihood_gradient_dims.sum(
+                    axis=-1
+                )
 
         if eval_gradient:
             return min_loglik, log_likelihood_gradient
@@ -660,7 +695,9 @@ class MaximinGPR(MultiOutputMixin, RegressorMixin, BaseEstimator):
             _check_optimize_result("lbfgs", opt_res)
             theta_opt, func_min = opt_res.x, opt_res.fun
         elif callable(self.optimizer):
-            theta_opt, func_min = self.optimizer(obj_func, initial_theta, bounds=bounds)
+            theta_opt, func_min = self.optimizer(
+                obj_func, initial_theta, bounds=bounds
+            )
         else:
             raise ValueError(f"Unknown optimizer {self.optimizer}.")
 

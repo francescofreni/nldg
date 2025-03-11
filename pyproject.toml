@@ -101,4 +101,4 @@ line-length = 79
 target-version = "py310"
 
 [tool.setuptools]
-packages = ["nldg"]
+packages = ["nldg", "experiments"]
