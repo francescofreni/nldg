@@ -100,7 +100,6 @@ class MaximinRF(RandomForestRegressor):
                 env_error = np.mean((Y_true - Y_pred) ** 2)
                 max_err = max(env_error, max_err)
             errs[i] = max_err if len(envs) > 0 else np.inf
-        eps = 1e-6
         if wtype == "inv":
             weights = 1 / (errs + eps)
         else:
