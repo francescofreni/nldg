@@ -165,6 +165,7 @@ def gen_data_v3(
     n_train: int = 500,
     n_test: int = 100,
     random_state: int = 0,
+    setting: int = 1,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates train data from three environments.
@@ -173,12 +174,16 @@ def gen_data_v3(
         n_train: Number of training samples.
         n_test: Number of test samples.
         random_state: Random seed.
+        setting: Data setting. Current accepted values are 1 or 2
 
     Returns:
         A tuple containing:
         - df_train: DataFrame with training data (X1, X2, Y, E).
         - df_test: DataFrame with test data (X1, X2, Y, E).
     """
+    possible_settings = [1, 2]
+    if setting not in [1, 2]:
+        raise ValueError(f"setting must be in {possible_settings}.")
     rng = np.random.default_rng(random_state)
     Sigma = np.array([[1, 0.0], [0.0, 1]])
     sigma = 0.3
@@ -208,7 +213,10 @@ def gen_data_v3(
 
     X = rng.multivariate_normal(mean=[0, 0], cov=Sigma, size=n_test)
     eps = rng.normal(0, 1, size=n_test)
-    Y = 5 * np.sin(X[:, 0]) + eps
+    if setting == 1:
+        Y = 5 * np.sin(X[:, 0]) + eps
+    else:
+        Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 0] * np.exp(X[:, 0])) + eps
     df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
 
     return df_train, df_test

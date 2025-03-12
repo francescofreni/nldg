@@ -38,6 +38,7 @@ dependencies = [
     "causalicp",
     "networkx",
     "statsmodels",
+    "pre-commit",
 ]
 
 [project.optional-dependencies]

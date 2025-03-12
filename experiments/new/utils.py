@@ -20,10 +20,11 @@ HEIGHT = 6.0
 
 
 def plot_mse_r2(
-        mse_df: pd.DataFrame,
-        r2_df: pd.DataFrame,
-        name_plot: str,
-        out: bool = True,
+    mse_df: pd.DataFrame,
+    r2_df: pd.DataFrame,
+    name_plot: str,
+    plots_folder: str,
+    out: bool = True,
 ) -> None:
     """
     Plots the MSE and R2 comparison between different methods.
@@ -32,6 +33,7 @@ def plot_mse_r2(
          mse_df: DataFrame containing the MSE values for the methods.
          r2_df: DataFrame containing the R2 values for the methods.
          name_plot: Name of the plot to save in the dedicated folder.
+         plots_folder: Folder where to save the plots.
          out: If true, the results refer to the test data.
     """
     c = ["tab:blue", "tab:orange", "tab:green", "tab:purple"]
@@ -39,9 +41,17 @@ def plot_mse_r2(
 
     fig, ax = plt.subplots(1, 2, figsize=(WIDTH * 2, HEIGHT))
     if out:
-        fig.suptitle(r"$\mathsf{MSE}$ and $R^2$ comparison - Test data", fontsize=22, fontweight="bold")
+        fig.suptitle(
+            r"$\mathsf{MSE}$ and $R^2$ comparison - Test data",
+            fontsize=22,
+            fontweight="bold",
+        )
     else:
-        fig.suptitle(r"$\mathsf{MSE}$ and $R^2$ comparison - Train data", fontsize=22, fontweight="bold")
+        fig.suptitle(
+            r"$\mathsf{MSE}$ and $R^2$ comparison - Train data",
+            fontsize=22,
+            fontweight="bold",
+        )
 
     # Create violin plots
     vp_mse = ax[0].violinplot(
@@ -86,39 +96,53 @@ def plot_mse_r2(
     ax[0].set_xticks(range(n_methods))
     ax[1].set_xticks(range(n_methods))
 
-    labels = [r"$\mathsf{RF}$", r"$\mathsf{MaximinRF}$", r"$\mathsf{MaggingRF}$", r"$\mathsf{MaggingRF2}$"]
+    labels = [
+        r"$\mathsf{RF}$",
+        r"$\mathsf{MaximinRF}$",
+        r"$\mathsf{MaggingRF}$",
+        r"$\mathsf{MaggingRF2}$",
+    ]
     ax[0].set_xticklabels(labels)
     ax[1].set_xticklabels(labels)
 
-    ax[0].grid(True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3)
-    ax[1].grid(True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3)
+    ax[0].grid(
+        True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
+    )
+    ax[1].grid(
+        True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
+    )
 
     plt.tight_layout()
 
     # Save plot
-    plot_dir = os.path.join(os.path.dirname(__file__), "results")
-    os.makedirs(plot_dir, exist_ok=True)
-    plot_path = os.path.join(plot_dir, name_plot)
+    plot_path = os.path.join(plots_folder, name_plot)
     plt.savefig(plot_path, bbox_inches="tight", dpi=300)
     plt.close()
 
 
 def plot_maxmse(
     maxmse_df: pd.DataFrame,
-    name_plot: str
+    name_plot: str,
+    plots_folder: str,
 ) -> None:
     """
     Plots the maximum MSE across environments to compare different methods.
 
     Args:
-         maxmse_df: DataFrame containing the maximum MSE values for the methods.
+         maxmse_df: DataFrame containing the maximum MSE values
+            for the methods.
          name_plot: Name of the plot to save in the dedicated folder.
+         plots_folder: Folder where to save the plots.
     """
     c = ["tab:blue", "tab:orange", "tab:green", "tab:purple"]
     n_methods = 4
 
     fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
-    fig.suptitle(r"Maximum $\mathsf{MSE}$ across environments", fontsize=22, fontweight="bold")
+    fig.suptitle(
+        r"Maximum $\mathsf{MSE}$ across environments",
+        fontsize=22,
+        fontweight="bold",
+    )
 
     vp_maxmse = ax.violinplot(
         [maxmse_df.iloc[:, i] for i in range(n_methods)],
@@ -142,7 +166,12 @@ def plot_maxmse(
     ax.set_ylabel(r"$\mathsf{MSE}$")
     ax.set_xticks(range(n_methods))
     ax.set_xticklabels(
-        [r"$\mathsf{RF}$", r"$\mathsf{MaximinRF}$", r"$\mathsf{MaggingRF}$", r"$\mathsf{MaggingRF2}$"]
+        [
+            r"$\mathsf{RF}$",
+            r"$\mathsf{MaximinRF}$",
+            r"$\mathsf{MaggingRF}$",
+            r"$\mathsf{MaggingRF2}$",
+        ]
     )
 
     ax.grid(
@@ -157,30 +186,32 @@ def plot_maxmse(
 
     plt.tight_layout()
 
-    plot_dir = os.path.join(os.path.dirname(__file__), "results")
-    os.makedirs(plot_dir, exist_ok=True)
-    plot_path = os.path.join(plot_dir, name_plot)
-
+    plot_path = os.path.join(plots_folder, name_plot)
     plt.savefig(plot_path, bbox_inches="tight", dpi=300)
     plt.close()
 
 
 def plot_weights_magging(
     maxmse_df: pd.DataFrame,
-    name_plot: str
+    name_plot: str,
+    plots_folder: str,
 ) -> None:
     """
     Plots the weights used for magging.
 
     Args:
-         maxmse_df: DataFrame containing the maximum MSE values for the methods.
+         maxmse_df: DataFrame containing the maximum MSE values
+            for the methods.
          name_plot: Name of the plot to save in the dedicated folder.
+         plots_folder: Folder where to save the plots.
     """
     c = ["tab:blue", "tab:orange", "tab:green"]
     n_envs = 3
 
     fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
-    fig.suptitle(r"Weights used in $\mathsf{MaggingRF}$", fontsize=22, fontweight="bold")
+    fig.suptitle(
+        r"Weights used in $\mathsf{MaggingRF}$", fontsize=22, fontweight="bold"
+    )
 
     vp_w = ax.violinplot(
         [maxmse_df.iloc[:, i] for i in range(n_envs)],
@@ -202,9 +233,7 @@ def plot_weights_magging(
 
     # Labels and formatting
     ax.set_xticks(range(n_envs))
-    ax.set_xticklabels(
-        [r"Env $1$", r"Env $2$", r"Env $3$"]
-    )
+    ax.set_xticklabels([r"Env $1$", r"Env $2$", r"Env $3$"])
 
     ax.grid(
         True,
@@ -217,9 +246,7 @@ def plot_weights_magging(
     )
 
     plt.tight_layout()
-    plot_dir = os.path.join(os.path.dirname(__file__), "results")
-    os.makedirs(plot_dir, exist_ok=True)
-    plot_path = os.path.join(plot_dir, name_plot)
 
+    plot_path = os.path.join(plots_folder, name_plot)
     plt.savefig(plot_path, bbox_inches="tight", dpi=300)
     plt.close()
