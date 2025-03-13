@@ -182,14 +182,18 @@ class DT4DL:
             max_err = np.sum((y - np.mean(y)) ** 2)
             return max_err
         else:
-            max_err = 0
+            max_mean_err = 0
+            max_sum_err = 0
             for env in np.unique(E):
                 if np.sum(E == env) > 0:
                     y_e = y[E == env]
                     m_e = np.mean(y_e)
-                    err = np.sum((y_e - m_e) ** 2)
-                    max_err = max(max_err, err)
-            return max_err
+                    sum_err = np.sum((y_e - m_e) ** 2)
+                    mean_err = np.mean((y_e - m_e) ** 2)
+                    if mean_err > max_mean_err:
+                        max_mean_err = mean_err
+                        max_sum_err = sum_err
+            return max_sum_err
 
     def _split_cost(
         self,
@@ -221,7 +225,7 @@ class DT4DL:
         right_E = E[right_idx]
         left_err = self._node_impurity(left_y, left_E)
         right_err = self._node_impurity(right_y, right_E)
-        cost = left_err + right_err
+        cost = (left_err + right_err) / len(y)
         return cost
 
     def _select_features(
