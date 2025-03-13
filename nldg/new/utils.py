@@ -219,7 +219,7 @@ def gen_data_v3(
     if setting == 1:
         Y = 5 * np.sin(X[:, 0]) + eps
     else:
-        Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 0] * np.exp(X[:, 0])) + eps
+        Y = 5 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps
     df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
 
     return df_train, df_test
