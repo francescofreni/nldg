@@ -190,6 +190,7 @@ class DT4DL:
                     m_e = np.mean(y_e)
                     sum_err = np.sum((y_e - m_e) ** 2)
                     mean_err = np.mean((y_e - m_e) ** 2)
+                    # max_sum_err = max(max_sum_err, sum_err)
                     if mean_err > max_mean_err:
                         max_mean_err = mean_err
                         max_sum_err = sum_err
@@ -226,6 +227,7 @@ class DT4DL:
         left_err = self._node_impurity(left_y, left_E)
         right_err = self._node_impurity(right_y, right_E)
         cost = (left_err + right_err) / len(y)
+        # cost = (left_err + right_err)
         return cost
 
     def _select_features(
