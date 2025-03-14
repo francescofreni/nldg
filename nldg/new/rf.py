@@ -1,7 +1,9 @@
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
 from scipy.optimize import minimize
 from tqdm import tqdm
+from nldg.utils.jbd import ajbd
+from sklearn.metrics import accuracy_score
 
 
 # =======
@@ -14,7 +16,7 @@ class MaggingRF(RandomForestRegressor):
 
     def __init__(
         self,
-        n_estimators: int = 50,
+        n_estimators: int = 100,
         random_state: int = 42,
         max_features: int | str | None | float = 1.0,
         min_samples_split: float | int = 2,
@@ -517,4 +519,144 @@ class RF4DL:
         for i, tree in enumerate(self.forest):
             preds[:, i] = tree.predict(X)
         preds = np.mean(preds, axis=1)
+        return preds
+
+
+class IsdRF:
+    """
+    Invariant Subspace Decomposition for Random Forests.
+    """
+
+    def __init__(
+        self,
+        n_estimators: int = 100,
+        max_depth: int | None = None,
+        min_samples_split: float | int = 2,
+        min_samples_leaf: float | int = 1,
+        max_features: int | float | str | None = None,
+        random_state: int = 42,
+    ) -> None:
+        """
+        Initialize the class instance.
+
+        Args:
+            n_estimators: The number of trees in the forest.
+            max_depth: The maximum depth of the tree. If None, then nodes are expanded
+                until all leaves are pure or until all leaves contain less than
+                min_samples_split samples.
+            min_samples_split: The minimum number of samples required to split an internal node.
+            min_samples_leaf: The minimum number of samples required to be at a leaf node.
+                A split point at any depth will only be considered if it leaves at
+                least `min_samples_leaf` training samples in each of the left and
+                right branches.
+            max_features : int, float or {"sqrt", "log2"}, default=None
+                The number of features to consider when looking for the best split:
+                - If int, then consider `max_features` features at each split.
+                - If float, then `max_features` is a fraction and
+                  `max(1, int(max_features * n_features_in_))` features are considered at each
+                  split.
+                - If "sqrt", then `max_features=sqrt(n_features)`.
+                - If "log2", then `max_features=log2(n_features)`.
+                - If None, then `max_features=n_features`.
+            random_state: Random seed.
+        """
+        self.n_estimators = n_estimators
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.max_features = max_features
+        self.random_state = random_state
+        self.Xtr = None
+        self.Ytr = None
+        self.const_idxs = []
+        self.U = None
+
+    def find_invariant(
+        self,
+        X: np.ndarray,
+        Y: np.ndarray,
+        E: np.ndarray,
+    ) -> None:
+        """
+        Find the invariant subspace from the training set.
+
+        Args:
+            X: The training input samples.
+            Y: The target values.
+            E: Environment labels.
+        """
+        self.Xtr = X
+        self.Ytr = Y
+        n, p = X.shape
+        n_envs = len(np.unique(E))
+
+        Sigma = np.zeros((n_envs, p, p))
+        for i, e in enumerate(np.unique(E)):
+            n_e = np.sum(E == e)
+            X_e = X[(i * n_e) : ((i + 1) * n_e)]
+            Sigma[i, :, :] = np.cov(X_e, rowvar=False)
+
+        U, blocks_shape, Sigma_diag, _, _ = ajbd(Sigma)
+        self.U = U
+
+        for b, bs in enumerate(blocks_shape):
+            block_idxs = [j + sum(blocks_shape[:b]) for j in range(bs)]
+            U_tmp = U.T[:, block_idxs]
+            X_tmp = X @ U_tmp
+            rfr = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                max_features=self.max_features,
+                random_state=self.random_state,
+            )
+            rfr.fit(X_tmp, Y)
+            residuals = (Y - rfr.predict(X_tmp)).reshape(-1, 1)
+            rfc = RandomForestClassifier(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                max_features=self.max_features,
+                random_state=self.random_state,
+            )
+            rfc.fit(residuals, E)
+            fitted_E = rfc.predict(residuals)
+
+            acc = accuracy_score(E, fitted_E)
+            if (
+                acc < 0.6
+            ):  # TODO: Maybe choose this threshold with cross-validation?
+                self.const_idxs.extend(block_idxs)
+
+    def predict_zeroshot(
+        self,
+        X: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Returns the predictions obtained using the invariant subspace.
+
+        Args:
+            X: The input samples.
+
+        Returns:
+            preds: The predicted values.
+        """
+        idxs = np.array(self.const_idxs)
+        if len(idxs) == 0:
+            idxs = np.arange(
+                X.shape[1]
+            )  # TODO: remove this after accounting also for the residual part
+        X_inv = (self.Xtr @ self.U.T[:, idxs]).reshape(-1, 1)
+        rfr = RandomForestRegressor(
+            n_estimators=self.n_estimators,
+            max_depth=self.max_depth,
+            min_samples_split=self.min_samples_split,
+            min_samples_leaf=self.min_samples_leaf,
+            max_features=self.max_features,
+            random_state=self.random_state,
+        )
+        rfr.fit(X_inv, self.Ytr)
+        preds = rfr.predict((X @ self.U.T[:, idxs]).reshape(-1, 1))
         return preds

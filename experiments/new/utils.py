@@ -25,6 +25,7 @@ def plot_mse_r2(
     name_plot: str,
     plots_folder: str,
     out: bool = True,
+    isd: bool = False,
 ) -> None:
     """
     Plots the MSE and R2 comparison between different methods.
@@ -35,9 +36,13 @@ def plot_mse_r2(
          name_plot: Name of the plot to save in the dedicated folder.
          plots_folder: Folder where to save the plots.
          out: If true, the results refer to the test data.
+         isd: If true, include the results of Invariant Subspace Decomposition.
     """
-    c = ["tab:blue", "tab:orange", "tab:green", "tab:purple"]
-    n_methods = 4
+    c = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:red"]
+    if isd:
+        n_methods = 5
+    else:
+        n_methods = 4
 
     fig, ax = plt.subplots(1, 2, figsize=(WIDTH * 2, HEIGHT))
     if out:
@@ -96,12 +101,21 @@ def plot_mse_r2(
     ax[0].set_xticks(range(n_methods))
     ax[1].set_xticks(range(n_methods))
 
-    labels = [
-        r"$\mathsf{RF}$",
-        r"$\mathsf{MaximinRF}$",
-        r"$\mathsf{MaggingRF}$",
-        r"$\mathsf{MaggingRF2}$",
-    ]
+    if isd:
+        labels = [
+            r"$\mathsf{RF}$",
+            r"$\mathsf{MaximinRF}$",
+            r"$\mathsf{MaggingRF}$",
+            r"$\mathsf{MaggingRF2}$",
+            r"$\mathsf{IsdRF}$",
+        ]
+    else:
+        labels = [
+            r"$\mathsf{RF}$",
+            r"$\mathsf{MaximinRF}$",
+            r"$\mathsf{MaggingRF}$",
+            r"$\mathsf{MaggingRF2}$",
+        ]
     ax[0].set_xticklabels(labels)
     ax[1].set_xticklabels(labels)
 
@@ -124,6 +138,7 @@ def plot_maxmse(
     maxmse_df: pd.DataFrame,
     name_plot: str,
     plots_folder: str,
+    isd: bool = False,
 ) -> None:
     """
     Plots the maximum MSE across environments to compare different methods.
@@ -133,9 +148,13 @@ def plot_maxmse(
             for the methods.
          name_plot: Name of the plot to save in the dedicated folder.
          plots_folder: Folder where to save the plots.
+         isd: If true, include the results of Invariant Subspace Decomposition.
     """
-    c = ["tab:blue", "tab:orange", "tab:green", "tab:purple"]
-    n_methods = 4
+    c = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:red"]
+    if isd:
+        n_methods = 5
+    else:
+        n_methods = 4
 
     fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
     fig.suptitle(
@@ -165,14 +184,25 @@ def plot_maxmse(
     # Labels and formatting
     ax.set_ylabel(r"$\mathsf{MSE}$")
     ax.set_xticks(range(n_methods))
-    ax.set_xticklabels(
-        [
-            r"$\mathsf{RF}$",
-            r"$\mathsf{MaximinRF}$",
-            r"$\mathsf{MaggingRF}$",
-            r"$\mathsf{MaggingRF2}$",
-        ]
-    )
+    if isd:
+        ax.set_xticklabels(
+            [
+                r"$\mathsf{RF}$",
+                r"$\mathsf{MaximinRF}$",
+                r"$\mathsf{MaggingRF}$",
+                r"$\mathsf{MaggingRF2}$",
+                r"$\mathsf{IsdRF}$",
+            ]
+        )
+    else:
+        ax.set_xticklabels(
+            [
+                r"$\mathsf{RF}$",
+                r"$\mathsf{MaximinRF}$",
+                r"$\mathsf{MaggingRF}$",
+                r"$\mathsf{MaggingRF2}$",
+            ]
+        )
 
     ax.grid(
         True,

@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import random
 import torch
+from scipy.stats import ortho_group
+from scipy.linalg import block_diag
 
 
 # ===============
@@ -194,16 +196,16 @@ def gen_data_v3(
         eps = sigma * rng.normal(0, 1, size=n)
 
         if env_id == 0:
-            # Y = 5 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps  # results
-            Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 1]) + eps  # results_3
+            Y = 5 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps  # results
+            # Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 1]) + eps  # results_3
             # Y = 5 * np.sin(X[:, 0]) + (X[:, 1] + 1) ** 2 + eps  # results_4
         elif env_id == 1:
-            # Y = 5 * np.sin(X[:, 0]) - 2 * X[:, 1] + eps  # results
-            Y = 5 * np.sin(X[:, 0]) - np.exp(X[:, 1] / 3) + eps  # results_3
+            Y = 5 * np.sin(X[:, 0]) - 2 * X[:, 1] + eps  # results
+            # Y = 5 * np.sin(X[:, 0]) - np.exp(X[:, 1] / 3) + eps  # results_3
             # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + 1 + eps  # results_4
         elif env_id == 2:
-            # Y = 5 * np.sin(X[:, 0]) + X[:, 1] ** 2 + eps  # results
-            Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + eps  # results_3
+            Y = 5 * np.sin(X[:, 0]) + X[:, 1] ** 2 + eps  # results
+            # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + eps  # results_3
             # Y = 5 * np.sin(X[:, 0]) + 6 * np.sin(X[:, 1]) + eps  # results_4
         else:
             raise ValueError("Invalid environment ID")
@@ -223,6 +225,71 @@ def gen_data_v3(
         Y = 5 * np.sin(X[:, 0]) + eps
     else:
         Y = 5 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps
+    df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
+
+    return df_train, df_test
+
+
+def gen_data_isd(
+    n_train: int = 1500,
+    n_test: int = 500,
+    p: int = 2,
+    block_sizes: list = [1, 1],
+    random_state: int = 0,
+    setting: int = 1,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Generates train data from three environments.
+
+    Args:
+        n_train: Number of training samples.
+        n_test: Number of test samples.
+        p: Number of variables.
+        random_state: Random seed.
+        setting: Data setting. Current accepted values are 1 or 2
+
+    Returns:
+        A tuple containing:
+        - df_train: DataFrame with training data (X1, X2, Y, E).
+        - df_test: DataFrame with test data (X1, X2, Y, E).
+    """
+    sigma = 0.5
+    rng = np.random.default_rng(random_state)
+    rng_sigma = np.random.default_rng(42)
+    OM = ortho_group.rvs(dim=p, random_state=rng)
+    n_envs = 3
+    n_e = n_train // n_envs
+    eps = sigma * rng.normal(0, 1, size=n_train)
+
+    X = np.zeros((n_train, p))
+    E = np.zeros((n_train,))
+    for e in range(n_envs):
+        A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
+        Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
+        X_e = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_e)
+        X[(e * n_e) : ((e + 1) * n_e)] = X_e
+        E[(e * n_e) : ((e + 1) * n_e)] = e
+
+    X_rot = X @ OM.T
+    for e in range(n_envs):
+        if e == 0:
+            Y = 5 * np.sin(X_rot[:, 0]) + 2 * X_rot[:, 1] + eps
+        elif e == 1:
+            Y = 5 * np.sin(X_rot[:, 0]) - 2 * X_rot[:, 1] + eps
+        else:
+            Y = 5 * np.sin(X_rot[:, 0]) + X_rot[:, 1] ** 2 + eps
+
+    df_train = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": E})
+
+    eps = sigma * rng.normal(0, 1, size=n_test)
+    A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
+    Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
+    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
+    X_rot = X @ OM.T
+    if setting == 1:
+        Y = 5 * np.sin(X_rot[:, 0]) + eps
+    else:
+        Y = 5 * np.sin(X_rot[:, 0]) + 3 * np.cos(X_rot[:, 0]) + eps
     df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
 
     return df_train, df_test

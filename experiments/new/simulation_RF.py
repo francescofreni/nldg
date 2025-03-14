@@ -3,9 +3,8 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
-from nldg.new.utils import gen_data_v3, max_mse
-from nldg.new.rf import RF4DL
-from nldg.new.rf import MaggingRF
+from nldg.new.utils import gen_data_v3, max_mse, gen_data_isd
+from nldg.new.rf import RF4DL, MaggingRF, IsdRF
 from scipy.optimize import minimize
 from tqdm import tqdm
 from experiments.new.utils import (
@@ -27,20 +26,68 @@ def main(
     n_estimators: int,
     min_samples_leaf: int,
     results_folder: str,
+    isd: bool,
 ):
-    mse_in = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
-    r2_in = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
-    mse_out = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
-    r2_out = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
-    maxmse = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
+    if isd:
+        mse_in = {
+            "RF": [],
+            "MaximinRF": [],
+            "MaggingRF": [],
+            "MaggingRF2": [],
+            "IsdRF": [],
+        }
+        r2_in = {
+            "RF": [],
+            "MaximinRF": [],
+            "MaggingRF": [],
+            "MaggingRF2": [],
+            "IsdRF": [],
+        }
+        mse_out = {
+            "RF": [],
+            "MaximinRF": [],
+            "MaggingRF": [],
+            "MaggingRF2": [],
+            "IsdRF": [],
+        }
+        r2_out = {
+            "RF": [],
+            "MaximinRF": [],
+            "MaggingRF": [],
+            "MaggingRF2": [],
+            "IsdRF": [],
+        }
+        maxmse = {
+            "RF": [],
+            "MaximinRF": [],
+            "MaggingRF": [],
+            "MaggingRF2": [],
+            "IsdRF": [],
+        }
+    else:
+        mse_in = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
+        r2_in = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
+        mse_out = {
+            "RF": [],
+            "MaximinRF": [],
+            "MaggingRF": [],
+            "MaggingRF2": [],
+        }
+        r2_out = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
+        maxmse = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
     # TODO: Maybe in the future we could generalize the code to arbitrary
     #  datasets. At the moment, it only considers 3 environments.
     weights_magging = np.zeros((nsim, 3))
 
     for i in tqdm(range(nsim)):
-        dtr, dts = gen_data_v3(
-            n_train=n_train, n_test=n_test, random_state=i, setting=setting
-        )
+        if isd:
+            dtr, dts = gen_data_isd(
+                n_train=n_train, n_test=n_test, random_state=i, setting=setting
+            )
+        else:
+            dtr, dts = gen_data_v3(
+                n_train=n_train, n_test=n_test, random_state=i, setting=setting
+            )
         Xtr, Xts = (
             np.array(dtr.drop(columns=["E", "Y"])),
             np.array(dts.drop(columns=["E", "Y"])),
@@ -111,6 +158,13 @@ def main(
         preds_magging_rf_2 = magging_rf_2.predict(Xts)
         fitted_magging_rf_2 = magging_rf_2.predict(Xtr)
 
+        # ISD RF
+        if isd:
+            isd_rf = IsdRF(n_estimators=50, min_samples_leaf=min_samples_leaf)
+            isd_rf.find_invariant(Xtr, Ytr, Etr)
+            preds_isd = isd_rf.predict_zeroshot(Xts)
+            fitted_isd = isd_rf.predict_zeroshot(Xtr)
+
         # Save results
         mse_in["RF"].append(mean_squared_error(Ytr, fitted_rf))
         mse_in["MaximinRF"].append(mean_squared_error(Ytr, fitted_maximin_rf))
@@ -141,6 +195,13 @@ def main(
         maxmse["MaggingRF"].append(max_mse(Ytr, fitted_magging_rf, Etr))
         maxmse["MaggingRF2"].append(max_mse(Ytr, fitted_magging_rf_2, Etr))
 
+        if isd:
+            mse_in["IsdRF"].append(mean_squared_error(Ytr, fitted_isd))
+            r2_in["IsdRF"].append(r2_score(Ytr, fitted_isd))
+            mse_out["IsdRF"].append(mean_squared_error(Yts, preds_isd))
+            r2_out["IsdRF"].append(r2_score(Yts, preds_isd))
+            maxmse["IsdRF"].append(max_mse(Ytr, fitted_isd, Etr))
+
     # Plot and save
     mse_in_df = pd.DataFrame(mse_in)
     r2_in_df = pd.DataFrame(r2_in)
@@ -153,10 +214,17 @@ def main(
     os.makedirs(results_dir, exist_ok=True)
 
     plot_mse_r2(
-        mse_in_df, r2_in_df, "sim_mse_r2_in.pdf", results_dir, out=False
+        mse_in_df,
+        r2_in_df,
+        "sim_mse_r2_in.pdf",
+        results_dir,
+        out=False,
+        isd=isd,
     )
-    plot_mse_r2(mse_out_df, r2_out_df, "sim_mse_r2_out.pdf", results_dir)
-    plot_maxmse(maxmse_df, "sim_maxmse.pdf", results_dir)
+    plot_mse_r2(
+        mse_out_df, r2_out_df, "sim_mse_r2_out.pdf", results_dir, isd=isd
+    )
+    plot_maxmse(maxmse_df, "sim_maxmse.pdf", results_dir, isd=isd)
     plot_weights_magging(
         weights_magging, "sim_weights_magging.pdf", results_dir
     )
@@ -215,6 +283,12 @@ if __name__ == "__main__":
         default="results",
         help="Name of the folder to save results (default: 'results')",
     )
+    parser.add_argument(
+        "--isd",
+        type=bool,
+        default=False,
+        help="Whether to include ISD (default: False)",
+    )
     args = parser.parse_args()
 
     main(
@@ -225,4 +299,5 @@ if __name__ == "__main__":
         args.n_estimators,
         args.min_samples_leaf,
         args.results_folder,
+        args.isd,
     )
