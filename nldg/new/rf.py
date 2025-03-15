@@ -138,11 +138,11 @@ class DT4DL:
                 mean squared error across environments.
             max_depth: The maximum depth of the tree. If None, then nodes are expanded
                 until all leaves are pure or until all leaves contain less than
-                min_samples_split samples.
-            min_samples_split: The minimum number of samples required to split an internal node.
-            min_samples_leaf: The minimum number of samples required to be at a leaf node.
+                min_samples_split observations.
+            min_samples_split: The minimum number of observations required to split an internal node.
+            min_samples_leaf: The minimum number of observations required to be at a leaf node.
                 A split point at any depth will only be considered if it leaves at
-                least ``min_samples_leaf`` training samples in each of the left and
+                least ``min_samples_leaf`` training observations in each of the left and
                 right branches.
             max_features : int, float or {"sqrt", "log2"}, default=None
                 The number of features to consider when looking for the best split:
@@ -402,7 +402,7 @@ class DT4DL:
         Predict the regression values for X.
 
         Args:
-            X: The input samples.
+            X: The input observations.
 
         Returns:
             preds: The predicted values.
@@ -442,11 +442,11 @@ class RF4DL:
                 mean squared error across environments.
             max_depth: The maximum depth of the tree. If None, then nodes are expanded
                 until all leaves are pure or until all leaves contain less than
-                min_samples_split samples.
-            min_samples_split: The minimum number of samples required to split an internal node.
-            min_samples_leaf: The minimum number of samples required to be at a leaf node.
+                min_samples_split observations.
+            min_samples_split: The minimum number of observations required to split an internal node.
+            min_samples_leaf: The minimum number of observations required to be at a leaf node.
                 A split point at any depth will only be considered if it leaves at
-                least ``min_samples_leaf`` training samples in each of the left and
+                least ``min_samples_leaf`` training observations in each of the left and
                 right branches.
             max_features : int, float or {"sqrt", "log2"}, default=None
                 The number of features to consider when looking for the best split:
@@ -482,7 +482,7 @@ class RF4DL:
         Build a forest of trees from the training set (X, y)
 
         Args:
-            X: The training input samples.
+            X: The training input observations.
             y: The target values.
             E: Environment labels.
         """
@@ -510,7 +510,7 @@ class RF4DL:
         Predict the regression values for X.
 
         Args:
-            X: The input samples.
+            X: The input observations.
 
         Returns:
             preds: The predicted values.
@@ -543,11 +543,11 @@ class IsdRF:
             n_estimators: The number of trees in the forest.
             max_depth: The maximum depth of the tree. If None, then nodes are expanded
                 until all leaves are pure or until all leaves contain less than
-                min_samples_split samples.
-            min_samples_split: The minimum number of samples required to split an internal node.
-            min_samples_leaf: The minimum number of samples required to be at a leaf node.
+                min_samples_split observations.
+            min_samples_split: The minimum number of observations required to split an internal node.
+            min_samples_leaf: The minimum number of observations required to be at a leaf node.
                 A split point at any depth will only be considered if it leaves at
-                least `min_samples_leaf` training samples in each of the left and
+                least `min_samples_leaf` training observations in each of the left and
                 right branches.
             max_features : int, float or {"sqrt", "log2"}, default=None
                 The number of features to consider when looking for the best split:
@@ -581,7 +581,7 @@ class IsdRF:
         Find the invariant subspace from the training set.
 
         Args:
-            X: The training input samples.
+            X: The training input observations.
             Y: The target values.
             E: Environment labels.
         """
@@ -638,7 +638,7 @@ class IsdRF:
         Returns the predictions obtained using the invariant subspace.
 
         Args:
-            X: The input samples.
+            X: Test set.
 
         Returns:
             preds: The predicted values.
@@ -659,4 +659,68 @@ class IsdRF:
         )
         rfr.fit(X_inv, self.Ytr)
         preds = rfr.predict((X @ self.U.T[:, idxs]))
+        return preds
+
+    def adaption(
+        self,
+        Xad: np.ndarray,
+        Yad: np.ndarray,
+        Xts: np.ndarray,
+    ) -> np.ndarray:
+        """
+        Performs the adaption step.
+
+        Args:
+            Xad: Adaption data.
+            Yad: Response vector in adaption data.
+            Xts: Test data.
+
+        Returns:
+            preds: The predicted values.
+        """
+        const_idxs = np.array(self.const_idxs)
+        var_idxs = np.array(
+            set(np.arange(self.Xtr.shape[1])) - set(const_idxs)
+        )
+
+        if (
+            len(const_idxs) == 0
+        ):  # no invariant part, remains only the residual part
+            rfr_res = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                max_features=self.max_features,
+                random_state=self.random_state,
+            )
+            rfr_res.fit(Xad @ self.U.T[:, var_idxs], Yad)
+            preds = rfr_res.predict(Xts @ self.U.T[:, var_idxs])
+
+        else:
+            X_inv = self.Xtr @ self.U.T[:, const_idxs]
+            rfr = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                max_features=self.max_features,
+                random_state=self.random_state,
+            )
+            rfr.fit(X_inv, self.Ytr)
+            preds_ad_inv = rfr.predict((Xad @ self.U.T[:, const_idxs]))
+            res_ad = Yad - preds_ad_inv
+            rfr_res = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                max_features=self.max_features,
+                random_state=self.random_state,
+            )
+            rfr_res.fit(Xad @ self.U.T[:, var_idxs], res_ad)
+            preds = rfr.predict(
+                Xts @ self.U.T[:, const_idxs]
+            ) + rfr_res.predict(Xts @ self.U.T[:, var_idxs])
+
         return preds
