@@ -646,9 +646,9 @@ class IsdRF:
         idxs = np.array(self.const_idxs)
         if len(idxs) == 0:
             idxs = np.arange(
-                X.shape[1]
+                self.Xtr.shape[1]
             )  # TODO: remove this after accounting also for the residual part
-        X_inv = (self.Xtr @ self.U.T[:, idxs]).reshape(-1, 1)
+        X_inv = self.Xtr @ self.U.T[:, idxs]
         rfr = RandomForestRegressor(
             n_estimators=self.n_estimators,
             max_depth=self.max_depth,
@@ -658,5 +658,5 @@ class IsdRF:
             random_state=self.random_state,
         )
         rfr.fit(X_inv, self.Ytr)
-        preds = rfr.predict((X @ self.U.T[:, idxs]).reshape(-1, 1))
+        preds = rfr.predict((X @ self.U.T[:, idxs]))
         return preds
