@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
-from nldg.new.utils import gen_data_v3, max_mse, gen_data_isd
+from nldg.new.utils import gen_data_v3, max_mse, gen_data_isd, gen_data_isd_v2
 from nldg.new.rf import RF4DL, MaggingRF, IsdRF
 from scipy.optimize import minimize
 from tqdm import tqdm
@@ -27,6 +27,7 @@ def main(
     min_samples_leaf: int,
     results_folder: str,
     isd: bool,
+    isd_genfun: int,
 ):
     if isd:
         mse_in = {
@@ -81,9 +82,20 @@ def main(
 
     for i in tqdm(range(nsim)):
         if isd:
-            dtr, dts = gen_data_isd(
-                n_train=n_train, n_test=n_test, random_state=i, setting=setting
-            )
+            if isd_genfun == 1:
+                dtr, dts = gen_data_isd(
+                    n_train=n_train,
+                    n_test=n_test,
+                    random_state=i,
+                    setting=setting,
+                )
+            else:
+                dtr, dts = gen_data_isd_v2(
+                    n_train=n_train,
+                    n_test=n_test,
+                    random_state=i,
+                    setting=setting,
+                )
         else:
             dtr, dts = gen_data_v3(
                 n_train=n_train, n_test=n_test, random_state=i, setting=setting
@@ -289,6 +301,12 @@ if __name__ == "__main__":
         default=False,
         help="Whether to include ISD (default: False)",
     )
+    parser.add_argument(
+        "--isd_genfun",
+        type=int,
+        default=1,
+        help="If isd, function to generate data. Value in {1,2} (default: 1)",
+    )
     args = parser.parse_args()
 
     main(
@@ -300,4 +318,5 @@ if __name__ == "__main__":
         args.min_samples_leaf,
         args.results_folder,
         args.isd,
+        args.isd_genfun,
     )
