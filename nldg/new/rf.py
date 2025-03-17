@@ -706,19 +706,22 @@ class IsdRF:
                 random_state=self.random_state,
             )
             rfr.fit(X_inv, self.Ytr)
-            preds_ad_inv = rfr.predict((Xad @ self.U.T[:, const_idxs]))
-            res_ad = Yad - preds_ad_inv
-            rfr_res = RandomForestRegressor(
-                n_estimators=self.n_estimators,
-                max_depth=self.max_depth,
-                min_samples_split=self.min_samples_split,
-                min_samples_leaf=self.min_samples_leaf,
-                max_features=self.max_features,
-                random_state=self.random_state,
-            )
-            rfr_res.fit(Xad @ self.U.T[:, var_idxs], res_ad)
-            preds = rfr.predict(
-                Xts @ self.U.T[:, const_idxs]
-            ) + rfr_res.predict(Xts @ self.U.T[:, var_idxs])
+            if len(const_idxs) == self.Xtr.shape[1]:
+                preds = rfr.predict(Xts @ self.U.T[:, const_idxs])
+            else:
+                preds_ad_inv = rfr.predict((Xad @ self.U.T[:, const_idxs]))
+                res_ad = Yad - preds_ad_inv
+                rfr_res = RandomForestRegressor(
+                    n_estimators=self.n_estimators,
+                    max_depth=self.max_depth,
+                    min_samples_split=self.min_samples_split,
+                    min_samples_leaf=self.min_samples_leaf,
+                    max_features=self.max_features,
+                    random_state=self.random_state,
+                )
+                rfr_res.fit(Xad @ self.U.T[:, var_idxs], res_ad)
+                preds = rfr.predict(
+                    Xts @ self.U.T[:, const_idxs]
+                ) + rfr_res.predict(Xts @ self.U.T[:, var_idxs])
 
         return preds
