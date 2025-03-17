@@ -374,7 +374,7 @@ def plot_mse_r2_adapt(
         r"$\mathsf{MaggingRF}$",
         r"$\mathsf{MaggingRF2}$",
         r"$\mathsf{IsdRF}$",
-        r"$\mathsf{IsdRFad}}$",
+        r"$\mathsf{IsdRFad}$",
         r"$\mathsf{RFad}$",
     ]
 
