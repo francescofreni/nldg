@@ -645,9 +645,7 @@ class IsdRF:
         """
         idxs = np.array(self.const_idxs)
         if len(idxs) == 0:
-            idxs = np.arange(
-                self.Xtr.shape[1]
-            )  # TODO: remove this after accounting also for the residual part
+            idxs = np.arange(self.Xtr.shape[1])
         X_inv = self.Xtr @ self.U.T[:, idxs]
         rfr = RandomForestRegressor(
             n_estimators=self.n_estimators,
@@ -680,7 +678,7 @@ class IsdRF:
         """
         const_idxs = np.array(self.const_idxs)
         var_idxs = np.array(
-            set(np.arange(self.Xtr.shape[1])) - set(const_idxs)
+            list(set(np.arange(self.Xtr.shape[1])) - set(const_idxs))
         )
 
         if (

@@ -280,3 +280,117 @@ def plot_weights_magging(
     plot_path = os.path.join(plots_folder, name_plot)
     plt.savefig(plot_path, bbox_inches="tight", dpi=300)
     plt.close()
+
+
+def plot_mse_r2_adapt(
+    mse_df: pd.DataFrame,
+    r2_df: pd.DataFrame,
+    name_plot: str,
+    plots_folder: str,
+    out: bool = True,
+) -> None:
+    """
+    Plots the MSE and R2 comparison between different methods.
+
+    Args:
+         mse_df: DataFrame containing the MSE values for the methods.
+         r2_df: DataFrame containing the R2 values for the methods.
+         name_plot: Name of the plot to save in the dedicated folder.
+         plots_folder: Folder where to save the plots.
+         out: If true, the results refer to the test data.
+         isd: If true, include the results of Invariant Subspace Decomposition.
+    """
+    c = [
+        "tab:blue",
+        "tab:orange",
+        "tab:green",
+        "tab:purple",
+        "tab:red",
+        "tab:olive",
+        "tab:cyan",
+    ]
+    n_methods = 7
+
+    fig, ax = plt.subplots(1, 2, figsize=(WIDTH * 2, HEIGHT))
+    if out:
+        fig.suptitle(
+            r"$\mathsf{MSE}$ and $R^2$ comparison - Test data",
+            fontsize=22,
+            fontweight="bold",
+        )
+    else:
+        fig.suptitle(
+            r"$\mathsf{MSE}$ and $R^2$ comparison - Train data",
+            fontsize=22,
+            fontweight="bold",
+        )
+
+    # Create violin plots
+    vp_mse = ax[0].violinplot(
+        [mse_df.iloc[:, i] for i in range(n_methods)],
+        showmeans=True,
+        showextrema=False,
+        widths=0.4,
+        positions=range(n_methods),
+    )
+
+    vp_r2 = ax[1].violinplot(
+        [r2_df.iloc[:, i] for i in range(n_methods)],
+        showmeans=True,
+        showextrema=False,
+        widths=0.4,
+        positions=range(n_methods),
+    )
+
+    # Set colors for MSE violins
+    for i, vp in enumerate(vp_mse["bodies"]):
+        vp.set_facecolor(c[i])
+        vp.set_edgecolor(c[i])
+        vp.set_alpha(0.7)
+
+    # Set colors for R² violins
+    for i, vp in enumerate(vp_r2["bodies"]):
+        vp.set_facecolor(c[i])
+        vp.set_edgecolor(c[i])
+        vp.set_alpha(0.7)
+
+    # Set colors for mean lines
+    vp_mse["cmeans"].set_color(c)
+    vp_mse["cmeans"].set_linewidth(2.5)
+
+    vp_r2["cmeans"].set_color(c)
+    vp_r2["cmeans"].set_linewidth(2.5)
+
+    # Labels and formatting
+    ax[0].set_ylabel(r"$\mathsf{MSE}$")
+    ax[1].set_ylabel(r"$R^2$")
+
+    ax[0].set_xticks(range(n_methods))
+    ax[1].set_xticks(range(n_methods))
+
+    labels = [
+        r"$\mathsf{RF}$",
+        r"$\mathsf{MaximinRF}$",
+        r"$\mathsf{MaggingRF}$",
+        r"$\mathsf{MaggingRF2}$",
+        r"$\mathsf{IsdRF}$",
+        r"$\mathsf{IsdRFad}}$",
+        r"$\mathsf{RFad}$",
+    ]
+
+    ax[0].set_xticklabels(labels)
+    ax[1].set_xticklabels(labels)
+
+    ax[0].grid(
+        True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
+    )
+    ax[1].grid(
+        True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
+    )
+
+    plt.tight_layout()
+
+    # Save plot
+    plot_path = os.path.join(plots_folder, name_plot)
+    plt.savefig(plot_path, bbox_inches="tight", dpi=300)
+    plt.close()

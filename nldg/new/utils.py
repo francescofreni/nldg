@@ -376,6 +376,84 @@ def gen_data_isd_v2(
     return df_train, df_test
 
 
+def gen_data_isd_v3(
+    n_train: int = 1500,
+    n_test: int = 500,
+    p: int = 2,
+    block_sizes: list = [1, 1],
+    random_state: int = 0,
+    prop_ad: float = 0.1,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """
+    Generates train data from three environments.
+
+    Args:
+        n_train: Number of training samples.
+        n_test: Number of test samples.
+        p: Number of variables.
+        random_state: Random seed.
+        prop_ad: Proportion of the test data to be destined to the adaption data.
+
+    Returns:
+        A tuple containing:
+        - df_train: DataFrame with training data (X1, X2, Y, E).
+        - df_adapt: DataFrame with adaptation data (X1, X2, Y, E).
+        - df_test: DataFrame with test data (X1, X2, Y, E).
+    """
+    sigma = 0.5
+    rng = np.random.default_rng(random_state)
+    rng_sigma = np.random.default_rng(42)
+    OM = ortho_group.rvs(dim=p, random_state=rng)
+    n_envs = 3
+    n_e = n_train // n_envs
+    eps = sigma * rng.normal(0, 1, size=n_train)
+
+    X = np.zeros((n_train, p))
+    E = np.zeros((n_train,))
+    for e in range(n_envs):
+        A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
+        Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
+        X_e = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_e)
+        X[(e * n_e) : ((e + 1) * n_e)] = X_e
+        E[(e * n_e) : ((e + 1) * n_e)] = e
+
+    X_rot = X @ OM.T
+
+    Y = np.zeros((n_train,))
+    for e in range(n_envs):
+        idxs = np.arange((e * n_e), ((e + 1) * n_e))
+        if e == 0:
+            Y[idxs] = (
+                5 * np.sin(X_rot[idxs, 0]) + 2 * X_rot[idxs, 1] + eps[idxs]
+            )
+        elif e == 1:
+            Y[idxs] = (
+                5 * np.sin(X_rot[idxs, 0]) - 2 * X_rot[idxs, 1] + eps[idxs]
+            )
+        else:
+            Y[idxs] = (
+                5 * np.sin(X_rot[idxs, 0]) + X_rot[idxs, 1] ** 2 + eps[idxs]
+            )
+
+    df_train = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": E})
+
+    eps = sigma * rng.normal(0, 1, size=n_test)
+    A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
+    Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
+    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
+    X_rot = X @ OM.T
+    Y = 5 * np.sin(X_rot[:, 0]) + 3 * np.cos(X_rot[:, 0]) + eps
+    n_adapt = int(prop_ad * n_test)
+    df_adapt = pd.DataFrame(
+        {"X1": X[:n_adapt, 0], "X2": X[:n_adapt, 1], "Y": Y[:n_adapt], "E": -1}
+    )
+    df_test = pd.DataFrame(
+        {"X1": X[n_adapt:, 0], "X2": X[n_adapt:, 1], "Y": Y[n_adapt:], "E": -1}
+    )
+
+    return df_train, df_adapt, df_test
+
+
 # ========================
 # NEURAL NETWORK UTILITIES
 # ========================
