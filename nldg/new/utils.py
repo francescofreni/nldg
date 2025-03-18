@@ -196,11 +196,11 @@ def gen_data_v3(
         eps = sigma * rng.normal(0, 1, size=n)
 
         if env_id == 0:
-            Y = 5 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps  # results
+            Y = 5 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps  # results_1
             # Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 1]) + eps  # results_3
             # Y = 5 * np.sin(X[:, 0]) + (X[:, 1] + 1) ** 2 + eps  # results_4
         elif env_id == 1:
-            Y = 5 * np.sin(X[:, 0]) - 2 * X[:, 1] + eps  # results
+            Y = 5 * np.sin(X[:, 0]) - 2 * X[:, 1] + eps  # results_1
             # Y = 5 * np.sin(X[:, 0]) - np.exp(X[:, 1] / 3) + eps  # results_3
             # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + 1 + eps  # results_4
         elif env_id == 2:
@@ -222,9 +222,9 @@ def gen_data_v3(
     X = rng.multivariate_normal(mean=[0, 0], cov=Sigma, size=n_test)
     eps = rng.normal(0, 1, size=n_test)
     if setting == 1:
-        Y = 5 * np.sin(X[:, 0]) + eps
+        Y = 5 * np.sin(X[:, 0]) + eps  # results_1, results_3, results_4
     else:
-        Y = 5 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps
+        Y = 5 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps  # results_2
     df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
 
     return df_train, df_test

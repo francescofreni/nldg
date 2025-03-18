@@ -486,10 +486,9 @@ class RF4DL:
             E: Environment labels.
         """
         n = X.shape[0]
+        rng = np.random.default_rng(self.random_state)
         for i in tqdm(range(self.n_estimators), disable=self.disable):
-            bootstrap_idx = np.random.default_rng(self.random_state).choice(
-                n, n, replace=True
-            )
+            bootstrap_idx = rng.choice(n, n, replace=True)
             tree = DT4DL(
                 self.criterion,
                 self.max_depth,
