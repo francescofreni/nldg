@@ -197,16 +197,16 @@ def gen_data_v3(
 
         if env_id == 0:
             # Y = 5 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps  # results_1
-            Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 1]) + eps  # results_3
-            # Y = 5 * np.sin(X[:, 0]) + (X[:, 1] + 1) ** 2 + eps  # results_4
+            # Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 1]) + eps  # results_3
+            Y = 5 * np.sin(X[:, 0]) + (X[:, 1] + 1) ** 2 + eps  # results_4
         elif env_id == 1:
             # Y = 5 * np.sin(X[:, 0]) - 2 * X[:, 1] + eps  # results_1
-            Y = 5 * np.sin(X[:, 0]) - np.exp(X[:, 1] / 3) + eps  # results_3
-            # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + 1 + eps  # results_4
+            # Y = 5 * np.sin(X[:, 0]) - np.exp(X[:, 1] / 3) + eps  # results_3
+            Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + 1 + eps  # results_4
         elif env_id == 2:
             # Y = 5 * np.sin(X[:, 0]) + X[:, 1] ** 2 + eps  # results
-            Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + eps  # results_3
-            # Y = 5 * np.sin(X[:, 0]) + 6 * np.sin(X[:, 1]) + eps  # results_4
+            # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + eps  # results_3
+            Y = 5 * np.sin(X[:, 0]) + 6 * np.sin(X[:, 1]) + eps  # results_4
         else:
             raise ValueError("Invalid environment ID")
 
