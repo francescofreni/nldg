@@ -17,6 +17,7 @@ class MaggingRF(RandomForestRegressor):
         self,
         n_estimators: int = 100,
         random_state: int = 42,
+        max_depth: int | None = None,
         max_features: int | str | None | float = 1.0,
         min_samples_split: float | int = 2,
         min_samples_leaf: float | int = 1,
@@ -29,6 +30,7 @@ class MaggingRF(RandomForestRegressor):
         super().__init__(
             n_estimators=n_estimators,
             random_state=random_state,
+            max_depth=max_depth,
             max_features=max_features,
             min_samples_leaf=min_samples_leaf,
             min_samples_split=min_samples_split,
@@ -106,6 +108,102 @@ class MaggingRF(RandomForestRegressor):
         ).x
 
         return weights_magging
+
+
+class MaggingRF_PB(RandomForestRegressor):
+    """
+    Distribution Generalization with Random Forest Regressor.
+    """
+
+    def __init__(
+        self,
+        n_estimators: int = 100,
+        random_state: int = 42,
+        max_depth: int | None = None,
+        max_features: int | str | None | float = 1.0,
+        min_samples_split: float | int = 2,
+        min_samples_leaf: float | int = 1,
+    ) -> None:
+        """
+        Initialize the class instance.
+
+        For default parameters, see documentation of `sklearn.ensemble.RandomForestRegressor`.
+        """
+        self.n_estimators = n_estimators
+        self.random_state = random_state
+        self.max_depth = max_depth
+        self.max_features = max_features
+        self.min_samples_split = min_samples_split
+        self.min_samples_leaf = min_samples_leaf
+        self.weights_magging = None
+
+    def get_weights(self) -> np.ndarray | None:
+        return self.weights_magging
+
+    def fit_predict_magging(
+        self,
+        X_train: np.ndarray,
+        Y_train: np.ndarray,
+        E_train: np.ndarray,
+        X_test: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """
+        Computes the predictions for a given test dataset
+        promoting those trees in the Random Forest that
+        minimize the OOB prediction error.
+
+        Args:
+            X_train: Feature matrix of the training data.
+            Y_train: Response vector of the training data.
+            E_train: Environment label of the training data.
+            X_test: Feature matrix of the test data.
+
+        Returns:
+            A tuple of 2 numpy arrays:
+            - wfitted: Weighted fitted values.
+            - wpreds: Weighted predictions.
+        """
+
+        def objective(w: np.ndarray, F: np.ndarray) -> float:
+            return np.dot(w.T, np.dot(F.T, F).dot(w))
+
+        n_envs = len(np.unique(E_train))
+        winit = np.array([1 / n_envs] * n_envs)
+        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
+        bounds = [[0, 1] for _ in range(n_envs)]
+
+        preds_envs = []
+        fitted_envs = []
+        for env in np.unique(E_train):
+            Xtr_e = X_train[E_train == env]
+            Ytr_e = Y_train[E_train == env]
+            Etr_e = E_train[E_train == env]
+            rfm = RF4DL(
+                criterion="mse",
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                max_features=self.max_features,
+                random_state=self.random_state,
+            )
+            rfm.fit(Xtr_e, Ytr_e, Etr_e)
+            preds_envs.append(rfm.predict(X_test))
+            fitted_envs.append(rfm.predict(X_train))
+        preds_envs = np.column_stack(preds_envs)
+        fitted_envs = np.column_stack(fitted_envs)
+
+        wmag = minimize(
+            objective,
+            winit,
+            args=(fitted_envs,),
+            bounds=bounds,
+            constraints=constraints,
+        ).x
+        wpreds = np.dot(wmag, preds_envs.T)
+        wfitted = np.dot(wmag, fitted_envs.T)
+
+        return wfitted, wpreds
 
 
 # =======
