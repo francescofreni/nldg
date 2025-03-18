@@ -3,7 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
-from nldg.new.utils import gen_data_v3, max_mse, gen_data_isd, gen_data_isd_v2
+from nldg.new.utils import gen_data_v3, max_mse, gen_data_isd, gen_data_isd_v4
 from nldg.new.rf import RF4DL, MaggingRF, IsdRF
 from scipy.optimize import minimize
 from tqdm import tqdm
@@ -89,7 +89,7 @@ def main(
                     random_state=i,
                 )
             else:
-                dtr, dts = gen_data_isd_v2(
+                dtr, dts = gen_data_isd_v4(
                     n_train=n_train,
                     n_test=n_test,
                     random_state=i,
@@ -176,6 +176,7 @@ def main(
             isd_rf.find_invariant(Xtr, Ytr, Etr)
             preds_isd = isd_rf.predict_zeroshot(Xts)
             fitted_isd = isd_rf.predict_zeroshot(Xtr)
+            print(isd_rf.const_idxs)
 
         # Save results
         mse_in["RF"].append(mean_squared_error(Ytr, fitted_rf))

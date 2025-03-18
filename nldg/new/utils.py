@@ -456,8 +456,8 @@ def gen_data_isd_v4(
 
     Returns:
         A tuple containing:
-        - df_train: DataFrame with training data (X1, X2, ..., X7, Y, E).
-        - df_test: DataFrame with test data (X1, X2, ..., X7, Y, E).
+        - df_train: DataFrame with training data.
+        - df_test: DataFrame with test data.
     """
     sigma = 0.5
     block_sizes = [3, 1]
@@ -480,18 +480,18 @@ def gen_data_isd_v4(
 
     X_rot = X @ OM.T
 
-    Y = 5 * np.sin(X_rot[:, 0]) - 6 * np.cos(X_rot[:, 1]) + X_rot[:, 2]
+    Y = 5 * np.sin(X_rot[:, 0]) - 6 * np.cos(X_rot[:, 1]) - X_rot[:, 2] ** 2
     for e in range(n_envs):
         idxs = np.arange((e * n_e), ((e + 1) * n_e))
         Y[idxs] += eps[idxs]
 
         # Environment-dependent contribution from the last 3 variables
         if e == 0:
-            Y[idxs] += 2 * X_rot[idxs, 3]
+            Y[idxs] += np.sqrt(np.abs(X_rot[idxs, 3]))
         elif e == 1:
             Y[idxs] += -2 * X_rot[idxs, 3]
         else:
-            Y[idxs] += np.cos(X_rot[idxs, 3]) + 3
+            Y[idxs] += -np.cos(X_rot[idxs, 3]) - 1
 
     df_train = pd.DataFrame(
         {f"X{i+1}": X[:, i] for i in range(p)} | {"Y": Y, "E": E}
@@ -503,7 +503,12 @@ def gen_data_isd_v4(
     Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
     X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
     X_rot = X @ OM.T
-    Y = 5 * np.sin(X_rot[:, 0]) - 6 * np.cos(X_rot[:, 1]) + X_rot[:, 2] + eps
+    Y = (
+        5 * np.sin(X_rot[:, 0])
+        - 6 * np.cos(X_rot[:, 1])
+        - X_rot[:, 2] ** 2
+        + eps
+    )
 
     df_test = pd.DataFrame(
         {f"X{i+1}": X[:, i] for i in range(p)} | {"Y": Y, "E": -1}

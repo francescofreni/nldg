@@ -1,9 +1,8 @@
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from sklearn.ensemble import RandomForestRegressor
 from scipy.optimize import minimize
 from tqdm import tqdm
 from nldg.utils.jbd import ajbd
-from sklearn.metrics import accuracy_score
 
 
 # =======
