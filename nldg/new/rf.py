@@ -570,6 +570,9 @@ class IsdRF:
         self.Ytr = None
         self.const_idxs = []
         self.U = None
+        self.blocks_shape = None
+        self.th_const = None
+        self.th_opt = None
 
     def find_invariant(
         self,
@@ -585,25 +588,74 @@ class IsdRF:
             Y: The target values.
             E: Environment labels.
         """
+
+        def comp_thresholds(X, Y, E, rf):
+            n_envs = len(np.unique(E))
+            c = np.zeros((n_envs,))
+            v = np.zeros((n_envs,))
+            for e in range(n_envs):
+                X_e = X[E == e]
+                Y_e = Y[E == e]
+                fitted_values = rf.predict(X_e)
+                cov_w = np.cov(
+                    Y_e - fitted_values, fitted_values, rowvar=False
+                )
+                c[e] = cov_w[0, 1]
+                v[e] = np.sqrt(cov_w[0, 0] * cov_w[1, 1])
+
+            T = np.mean([np.abs((c[e]) / v[e]) for e in range(n_envs)])
+            return T
+
+        def check_const(blocks_shape, th_const, th):
+            const_blocks = np.zeros(len(blocks_shape), dtype=bool)
+            const_idxs = []
+            v_idxs = []
+            for b, bs in enumerate(blocks_shape):
+                if b == 0:
+                    block_idxs = list(range(bs))
+                else:
+                    block_idxs = [j + sum(blocks_shape[:b]) for j in range(bs)]
+                if th_const[b] < th:
+                    const_blocks[b] = True
+                    for idx in block_idxs:
+                        const_idxs.append(idx)
+                else:
+                    for idx in block_idxs:
+                        v_idxs.append(idx)
+            return const_blocks, const_idxs, v_idxs
+
+        def xpl_var(Y, Yhat):
+            n = len(Y)
+            return (1 / n) * (2 * Y.T @ Yhat - Yhat.T @ Yhat)
+
         self.Xtr = X
         self.Ytr = Y
         n, p = X.shape
         n_envs = len(np.unique(E))
 
+        # Compute covariance matrices
         Sigma = np.zeros((n_envs, p, p))
         for i, e in enumerate(np.unique(E)):
             n_e = np.sum(E == e)
             X_e = X[(i * n_e) : ((i + 1) * n_e)]
             Sigma[i, :, :] = np.cov(X_e, rowvar=False)
 
+        # Joint block diagonalization
         U, blocks_shape, Sigma_diag, _, _ = ajbd(Sigma)
         self.U = U
+        self.blocks_shape = blocks_shape
 
-        for b, bs in enumerate(blocks_shape):
-            block_idxs = [j + sum(blocks_shape[:b]) for j in range(bs)]
-            U_tmp = U.T[:, block_idxs]
-            X_tmp = X @ U_tmp
-            rfr = RandomForestRegressor(
+        # Compute constant thresholds for every estimated block
+        th_const = []
+        for b, bs in enumerate(self.blocks_shape):
+            if b == 0:
+                block_idxs = list(range(bs))
+            else:
+                block_idxs = [
+                    j + sum(self.blocks_shape[:b]) for j in range(bs)
+                ]
+
+            rf = RandomForestRegressor(
                 n_estimators=self.n_estimators,
                 max_depth=self.max_depth,
                 min_samples_split=self.min_samples_split,
@@ -611,24 +663,50 @@ class IsdRF:
                 max_features=self.max_features,
                 random_state=self.random_state,
             )
-            rfr.fit(X_tmp, Y)
-            residuals = (Y - rfr.predict(X_tmp)).reshape(-1, 1)
-            rfc = RandomForestClassifier(
-                n_estimators=self.n_estimators,
-                max_depth=self.max_depth,
-                min_samples_split=self.min_samples_split,
-                min_samples_leaf=self.min_samples_leaf,
-                max_features=self.max_features,
-                random_state=self.random_state,
+            rf.fit(self.Xtr @ (self.U.T[:, block_idxs]), self.Ytr)
+            th_const.append(
+                comp_thresholds(
+                    self.Xtr @ (self.U.T[:, block_idxs]),
+                    self.Ytr,
+                    E,
+                    rf,
+                )
             )
-            rfc.fit(residuals, E)
-            fitted_E = rfc.predict(residuals)
+        th_const.append(1)
+        self.th_const = th_const
 
-            acc = accuracy_score(E, fitted_E)
-            if (
-                acc < 0.6
-            ):  # TODO: Maybe choose this threshold with cross-validation?
-                self.const_idxs.extend(block_idxs)
+        # Invariant parameter estimation
+        # Cross-validation for threshold selection
+        cv_score = np.zeros(len(th_const))
+        cv_score_th = np.zeros((len(th_const), len(np.unique(E))))
+        for th_idx, th in enumerate(th_const):
+            const_blocks, const_idxs, v_idxs = check_const(
+                self.blocks_shape, th_const, th
+            )
+            self.const_idxs = const_idxs
+            for i, e in enumerate(np.unique(E)):
+                Xtr_tmp = self.Xtr[E != e]
+                Ytr_tmp = self.Ytr[E != e]
+                Xts_tmp = self.Xtr[E == e]
+                Yts_tmp = self.Ytr[E == e]
+                n_ts = Xts_tmp.shape[0]
+                n_ad = int(0.2 * n_ts)
+                Xad_tmp = Xts_tmp[:n_ad]
+                Yad_tmp = Yts_tmp[:n_ad]
+                Xts_tmp = Xts_tmp[n_ad:]
+                Yts_tmp = Yts_tmp[n_ad:]
+                preds_tmp = self.adaption(
+                    Xtr_tmp, Ytr_tmp, Xad_tmp, Yad_tmp, Xts_tmp
+                )
+                cv_score_th[th_idx, i] = xpl_var(Yts_tmp, preds_tmp)
+            cv_score[th_idx] = np.mean(cv_score_th[th_idx, :])
+
+        th_opt = th_const[np.argmax(cv_score)]
+        self.th_opt = th_opt
+        const_blocks, const_idxs, v_idxs = check_const(
+            self.blocks_shape, th_const, th_opt
+        )
+        self.const_idxs = const_idxs
 
     def predict_zeroshot(
         self,
@@ -645,22 +723,25 @@ class IsdRF:
         """
         idxs = np.array(self.const_idxs)
         if len(idxs) == 0:
-            idxs = np.arange(self.Xtr.shape[1])
-        X_inv = self.Xtr @ self.U.T[:, idxs]
-        rfr = RandomForestRegressor(
-            n_estimators=self.n_estimators,
-            max_depth=self.max_depth,
-            min_samples_split=self.min_samples_split,
-            min_samples_leaf=self.min_samples_leaf,
-            max_features=self.max_features,
-            random_state=self.random_state,
-        )
-        rfr.fit(X_inv, self.Ytr)
-        preds = rfr.predict((X @ self.U.T[:, idxs]))
+            preds = np.zeros(X.shape[0])
+        else:
+            X_inv = self.Xtr @ self.U.T[:, idxs]
+            rfr = RandomForestRegressor(
+                n_estimators=self.n_estimators,
+                max_depth=self.max_depth,
+                min_samples_split=self.min_samples_split,
+                min_samples_leaf=self.min_samples_leaf,
+                max_features=self.max_features,
+                random_state=self.random_state,
+            )
+            rfr.fit(X_inv, self.Ytr)
+            preds = rfr.predict((X @ self.U.T[:, idxs]))
         return preds
 
     def adaption(
         self,
+        Xtr: np.ndarray,
+        Ytr: np.ndarray,
         Xad: np.ndarray,
         Yad: np.ndarray,
         Xts: np.ndarray,
@@ -669,6 +750,8 @@ class IsdRF:
         Performs the adaption step.
 
         Args:
+            Xtr: Training data.
+            Ytr: Response vector in training data.
             Xad: Adaption data.
             Yad: Response vector in adaption data.
             Xts: Test data.
@@ -696,7 +779,7 @@ class IsdRF:
             preds = rfr_res.predict(Xts @ self.U.T[:, var_idxs])
 
         else:
-            X_inv = self.Xtr @ self.U.T[:, const_idxs]
+            X_inv = Xtr @ self.U.T[:, const_idxs]
             rfr = RandomForestRegressor(
                 n_estimators=self.n_estimators,
                 max_depth=self.max_depth,
@@ -705,8 +788,8 @@ class IsdRF:
                 max_features=self.max_features,
                 random_state=self.random_state,
             )
-            rfr.fit(X_inv, self.Ytr)
-            if len(const_idxs) == self.Xtr.shape[1]:
+            rfr.fit(X_inv, Ytr)
+            if len(const_idxs) == Xtr.shape[1]:
                 preds = rfr.predict(Xts @ self.U.T[:, const_idxs])
             else:
                 preds_ad_inv = rfr.predict((Xad @ self.U.T[:, const_idxs]))

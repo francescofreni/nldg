@@ -87,14 +87,12 @@ def main(
                     n_train=n_train,
                     n_test=n_test,
                     random_state=i,
-                    setting=setting,
                 )
             else:
                 dtr, dts = gen_data_isd_v2(
                     n_train=n_train,
                     n_test=n_test,
                     random_state=i,
-                    setting=setting,
                 )
         else:
             dtr, dts = gen_data_v3(

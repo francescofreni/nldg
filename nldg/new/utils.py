@@ -233,26 +233,23 @@ def gen_data_v3(
 def gen_data_isd(
     n_train: int = 1500,
     n_test: int = 500,
-    p: int = 2,
-    block_sizes: list = [1, 1],
     random_state: int = 0,
-    setting: int = 1,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Generates train data from three environments.
+    Generates train data from three environments, variable covariance matrices.
 
     Args:
         n_train: Number of training samples.
         n_test: Number of test samples.
-        p: Number of variables.
         random_state: Random seed.
-        setting: Data setting. Current accepted values are 1 or 2
 
     Returns:
         A tuple containing:
         - df_train: DataFrame with training data (X1, X2, Y, E).
         - df_test: DataFrame with test data (X1, X2, Y, E).
     """
+    block_sizes = [1, 1]
+    p = np.sum(block_sizes)
     sigma = 0.5
     rng = np.random.default_rng(random_state)
     rng_sigma = np.random.default_rng(42)
@@ -295,10 +292,7 @@ def gen_data_isd(
     Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
     X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
     X_rot = X @ OM.T
-    if setting == 1:
-        Y = 5 * np.sin(X_rot[:, 0]) + eps
-    else:
-        Y = 5 * np.sin(X_rot[:, 0]) + 3 * np.cos(X_rot[:, 0]) + eps
+    Y = 5 * np.sin(X_rot[:, 0]) + eps
     df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
 
     return df_train, df_test
@@ -307,26 +301,23 @@ def gen_data_isd(
 def gen_data_isd_v2(
     n_train: int = 1500,
     n_test: int = 500,
-    p: int = 2,
-    block_sizes: list = [1, 1],
     random_state: int = 0,
-    setting: int = 1,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
-    Generates train data from three environments.
+    Generates train data from three environments, constant covariance matrices.
 
     Args:
         n_train: Number of training samples.
         n_test: Number of test samples.
-        p: Number of variables.
         random_state: Random seed.
-        setting: Data setting. Current accepted values are 1 or 2
 
     Returns:
         A tuple containing:
         - df_train: DataFrame with training data (X1, X2, Y, E).
         - df_test: DataFrame with test data (X1, X2, Y, E).
     """
+    block_sizes = [1, 1]
+    p = np.sum(block_sizes)
     sigma = 0.5
     rng = np.random.default_rng(random_state)
     rng_sigma = np.random.default_rng(42)
@@ -367,10 +358,7 @@ def gen_data_isd_v2(
     eps = sigma * rng.normal(0, 1, size=n_test)
     X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
     X_rot = X @ OM.T
-    if setting == 1:
-        Y = 5 * np.sin(X_rot[:, 0]) + eps
-    else:
-        Y = 5 * np.sin(X_rot[:, 0]) + 3 * np.cos(X_rot[:, 0]) + eps
+    Y = 5 * np.sin(X_rot[:, 0]) + eps
     df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
 
     return df_train, df_test
@@ -379,18 +367,15 @@ def gen_data_isd_v2(
 def gen_data_isd_v3(
     n_train: int = 1500,
     n_test: int = 500,
-    p: int = 2,
-    block_sizes: list = [1, 1],
     random_state: int = 0,
     prop_ad: float = 0.1,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Generates train data from three environments.
+    Generates train data from three environments, adaption and test data.
 
     Args:
         n_train: Number of training samples.
         n_test: Number of test samples.
-        p: Number of variables.
         random_state: Random seed.
         prop_ad: Proportion of the test data to be destined to the adaption data.
 
@@ -400,6 +385,8 @@ def gen_data_isd_v3(
         - df_adapt: DataFrame with adaptation data (X1, X2, Y, E).
         - df_test: DataFrame with test data (X1, X2, Y, E).
     """
+    block_sizes = [1, 1]
+    p = np.sum(block_sizes)
     sigma = 0.5
     rng = np.random.default_rng(random_state)
     rng_sigma = np.random.default_rng(42)
@@ -452,6 +439,77 @@ def gen_data_isd_v3(
     )
 
     return df_train, df_adapt, df_test
+
+
+def gen_data_isd_v4(
+    n_train: int = 1500,
+    n_test: int = 500,
+    random_state: int = 0,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Generates data from 3 environments with larger blocks.
+
+    Args:
+        n_train: Number of training samples.
+        n_test: Number of test samples.
+        random_state: Random seed.
+
+    Returns:
+        A tuple containing:
+        - df_train: DataFrame with training data (X1, X2, ..., X7, Y, E).
+        - df_test: DataFrame with test data (X1, X2, ..., X7, Y, E).
+    """
+    sigma = 0.5
+    block_sizes = [3, 1]
+    p = np.sum(block_sizes)
+    rng = np.random.default_rng(random_state)
+    rng_sigma = np.random.default_rng(42)
+    OM = ortho_group.rvs(dim=p, random_state=rng)
+    n_envs = 3
+    n_e = n_train // n_envs
+    eps = sigma * rng.normal(0, 1, size=n_train)
+
+    X = np.zeros((n_train, p))
+    E = np.zeros((n_train,))
+    for e in range(n_envs):
+        A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
+        Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
+        X_e = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_e)
+        X[(e * n_e) : ((e + 1) * n_e)] = X_e
+        E[(e * n_e) : ((e + 1) * n_e)] = e
+
+    X_rot = X @ OM.T
+
+    Y = 5 * np.sin(X_rot[:, 0]) - 6 * np.cos(X_rot[:, 1]) + X_rot[:, 2]
+    for e in range(n_envs):
+        idxs = np.arange((e * n_e), ((e + 1) * n_e))
+        Y[idxs] += eps[idxs]
+
+        # Environment-dependent contribution from the last 3 variables
+        if e == 0:
+            Y[idxs] += 2 * X_rot[idxs, 3]
+        elif e == 1:
+            Y[idxs] += -2 * X_rot[idxs, 3]
+        else:
+            Y[idxs] += np.cos(X_rot[idxs, 3]) + 3
+
+    df_train = pd.DataFrame(
+        {f"X{i+1}": X[:, i] for i in range(p)} | {"Y": Y, "E": E}
+    )
+
+    # Generate test set only using invariant variables (X1-X4)
+    eps = sigma * rng.normal(0, 1, size=n_test)
+    A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
+    Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
+    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
+    X_rot = X @ OM.T
+    Y = 5 * np.sin(X_rot[:, 0]) - 6 * np.cos(X_rot[:, 1]) + X_rot[:, 2] + eps
+
+    df_test = pd.DataFrame(
+        {f"X{i+1}": X[:, i] for i in range(p)} | {"Y": Y, "E": -1}
+    )
+
+    return df_train, df_test
 
 
 # ========================
