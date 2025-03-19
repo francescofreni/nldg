@@ -129,7 +129,7 @@ def main(
         fitted_isd = isd_rf.predict_zeroshot(Xtr)
 
         # ISD RF - adaptation step
-        preds_isd_ad = isd_rf.adaption(Xad, Yad, Xts)
+        preds_isd_ad = isd_rf.adaption(Xtr, Ytr, Xad, Yad, Xts)
 
         # Default RF - adaptation step
         rf_ad = RandomForestRegressor(
