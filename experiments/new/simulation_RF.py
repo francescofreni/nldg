@@ -165,8 +165,8 @@ def main(
             n_estimators=n_estimators, min_samples_leaf=min_samples_leaf
         )
         magging_rf_2.fit(Xtr, Ytr)
-        preds_magging_rf_2 = magging_rf_2.predict(Xts)
-        fitted_magging_rf_2 = magging_rf_2.predict(Xtr)
+        preds_magging_rf_2, _ = magging_rf_2.predict_maximin(Xtr, Xts)
+        fitted_magging_rf_2, _ = magging_rf_2.predict_maximin(Xtr, Xtr)
 
         # ISD RF
         if isd:
