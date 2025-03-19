@@ -84,7 +84,7 @@ def main(
         maxmse = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
     # TODO: Maybe in the future we could generalize the code to arbitrary
     #  datasets. At the moment, it only considers 3 environments.
-    weights_magging = np.zeros((nsim, 3))
+    weights_magging = np.zeros((nsim, 5))
 
     for i in tqdm(range(nsim)):
         if isd:
