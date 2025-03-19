@@ -3,6 +3,7 @@ from sklearn.ensemble import RandomForestRegressor
 from scipy.optimize import minimize
 from tqdm import tqdm
 from nldg.utils.jbd import ajbd
+from joblib import Parallel, delayed
 
 
 # =======
@@ -525,6 +526,7 @@ class RF4DL:
         max_features: int | float | str | None = None,
         random_state: int = 42,
         disable: bool = False,
+        parallel: bool = False,
     ) -> None:
         """
         Initialize the class instance.
@@ -556,6 +558,7 @@ class RF4DL:
                 - If None, then `max_features=n_features`.
             random_state: Random seed.
             disable: Whether to disable the progress bar (useful for running simulations).
+            parallel: Whether to run the algorithm in parallel.
         """
         if criterion not in ["mse", "maximin"]:
             raise ValueError("Criterion should be either 'mse' or 'maximin'.")
@@ -567,6 +570,7 @@ class RF4DL:
         self.max_features = max_features
         self.random_state = random_state
         self.disable = disable
+        self.parallel = parallel
         self.forest = [None] * self.n_estimators
 
     def fit(
@@ -583,10 +587,16 @@ class RF4DL:
             y: The target values.
             E: Environment labels.
         """
-        n = X.shape[0]
-        rng = np.random.default_rng(self.random_state)
-        for i in tqdm(range(self.n_estimators), disable=self.disable):
-            bootstrap_idx = rng.choice(n, n, replace=True)
+
+        def _fit_tree(
+            X: np.ndarray,
+            y: np.ndarray,
+            E: np.ndarray,
+            bootstrap_idx: np.ndarray,
+        ) -> DT4DL:
+            """
+            Fit a Regression tree on a bootstrap sample.
+            """
             tree = DT4DL(
                 self.criterion,
                 self.max_depth,
@@ -596,7 +606,33 @@ class RF4DL:
                 self.random_state,
             )
             tree.fit(X[bootstrap_idx], y[bootstrap_idx], E[bootstrap_idx])
-            self.forest[i] = tree
+            return tree
+
+        n = X.shape[0]
+        rng = np.random.default_rng(self.random_state)
+
+        if self.parallel:
+            bootstrap_indices = []
+            for _ in range(self.n_estimators):
+                idx = rng.choice(n, n, replace=True)
+                bootstrap_indices.append(idx)
+            self.forest = Parallel(n_jobs=-1)(
+                delayed(_fit_tree)(X, y, E, bootstrap_indices[i])
+                for i in tqdm(range(self.n_estimators), disable=self.disable)
+            )
+        else:
+            for i in tqdm(range(self.n_estimators), disable=self.disable):
+                bootstrap_idx = rng.choice(n, n, replace=True)
+                tree = DT4DL(
+                    self.criterion,
+                    self.max_depth,
+                    self.min_samples_split,
+                    self.min_samples_leaf,
+                    self.max_features,
+                    self.random_state,
+                )
+                tree.fit(X[bootstrap_idx], y[bootstrap_idx], E[bootstrap_idx])
+                self.forest[i] = tree
 
     def predict(
         self,
@@ -773,6 +809,33 @@ class IsdRF:
 
         # Invariant parameter estimation
         # Cross-validation for threshold selection
+        # cv_score = np.zeros(len(th_const))
+        # cv_score_th = np.zeros((len(th_const), len(np.unique(E))))
+        ##for th_idx, th in enumerate(th_const):
+        #    const_blocks, const_idxs, v_idxs = check_const(
+        #        self.blocks_shape, th_const, th
+        #    )
+        #    self.const_idxs = const_idxs
+        #    for i, e in enumerate(np.unique(E)):
+        #        Xtr_tmp = self.Xtr[E != e]
+        #        Ytr_tmp = self.Ytr[E != e]
+        #        Xts_tmp = self.Xtr[E == e]
+        #        Yts_tmp = self.Ytr[E == e]
+        #        n_ts = Xts_tmp.shape[0]
+        #        n_ad = int(0.2 * n_ts)
+        #        Xad_tmp = Xts_tmp[:n_ad]
+        #        Yad_tmp = Yts_tmp[:n_ad]
+        #        Xts_tmp = Xts_tmp[n_ad:]
+        #        Yts_tmp = Yts_tmp[n_ad:]
+        #        preds_tmp = self.adaption(
+        #            Xtr_tmp, Ytr_tmp, Xad_tmp, Yad_tmp, Xts_tmp
+        #        )
+        #        cv_score_th[th_idx, i] = xpl_var(Yts_tmp, preds_tmp)
+        #    cv_score[th_idx] = np.mean(cv_score_th[th_idx, :])
+        # print(cv_score)
+        # th_opt = th_const[np.argmax(cv_score)]
+        # self.th_opt = th_opt
+
         cv_score = np.zeros(len(th_const))
         cv_score_th = np.zeros((len(th_const), len(np.unique(E))))
         for th_idx, th in enumerate(th_const):
@@ -783,22 +846,58 @@ class IsdRF:
             for i, e in enumerate(np.unique(E)):
                 Xtr_tmp = self.Xtr[E != e]
                 Ytr_tmp = self.Ytr[E != e]
-                Xts_tmp = self.Xtr[E == e]
-                Yts_tmp = self.Ytr[E == e]
-                n_ts = Xts_tmp.shape[0]
-                n_ad = int(0.2 * n_ts)
-                Xad_tmp = Xts_tmp[:n_ad]
-                Yad_tmp = Yts_tmp[:n_ad]
-                Xts_tmp = Xts_tmp[n_ad:]
-                Yts_tmp = Yts_tmp[n_ad:]
-                preds_tmp = self.adaption(
-                    Xtr_tmp, Ytr_tmp, Xad_tmp, Yad_tmp, Xts_tmp
-                )
-                cv_score_th[th_idx, i] = xpl_var(Yts_tmp, preds_tmp)
-            cv_score[th_idx] = np.mean(cv_score_th[th_idx, :])
+                Xts_env = self.Xtr[E == e]
+                Yts_env = self.Ytr[E == e]
 
-        th_opt = th_const[np.argmax(cv_score)]
+                n_env = Xts_env.shape[0]
+                fold_size = n_env // 10
+                fold_scores = []
+
+                for f_idx in range(10):
+                    start = f_idx * fold_size
+                    end = (f_idx + 1) * fold_size if f_idx < 9 else n_env
+
+                    Xad_tmp = Xts_env[start:end]
+                    Yad_tmp = Yts_env[start:end]
+
+                    Xts_tmp = np.concatenate(
+                        [Xts_env[:start], Xts_env[end:]], axis=0
+                    )
+                    Yts_tmp = np.concatenate(
+                        [Yts_env[:start], Yts_env[end:]], axis=0
+                    )
+
+                    preds_tmp = self.adaption(
+                        Xtr_tmp, Ytr_tmp, Xad_tmp, Yad_tmp, Xts_tmp
+                    )
+
+                    fold_scores.append(xpl_var(Yts_tmp, preds_tmp))
+
+                cv_score_th[th_idx, i] = np.mean(fold_scores)
+            cv_score[th_idx] = np.mean(cv_score_th[th_idx, :])
+        # Standard error across folds for all thresholds
+        std_th = (1 / len(np.unique(E))) * np.std(cv_score_th, axis=1)
+        # Minimum explained variance across folds for all thresholds
+        cv_score_min = np.min(cv_score_th, axis=1)
+
+        # print(cv_score_th)
+        # print(cv_score)
+
+        # Optimal threshold selection
+        if np.all(cv_score_min[:-1] <= 0):
+            th_opt = 0
+        else:
+            sort_th = np.argsort(th_const)
+            cv_score_s = cv_score[sort_th]
+            cs_max_idx = np.argmax(cv_score_s)
+            cs_max = cv_score_s[cs_max_idx]
+            cs_min = cs_max - std_th[sort_th][cs_max_idx]
+            # print(cs_min)
+            th_cand = np.where(cv_score_s[0 : cs_max_idx + 1] >= cs_min)[0][0]
+            th_opt = np.array(th_const)[sort_th][th_cand]
+
         self.th_opt = th_opt
+
         const_blocks, const_idxs, v_idxs = check_const(
             self.blocks_shape, th_const, th_opt
         )

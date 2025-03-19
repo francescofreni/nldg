@@ -95,7 +95,7 @@ def main(
                     random_state=i,
                 )
             else:
-                dtr, dts = gen_data_isd_v2(
+                dtr, dts = gen_data_isd_v4(
                     n_train=n_train,
                     n_test=n_test,
                     random_state=i,
@@ -117,6 +117,7 @@ def main(
             n_estimators=n_estimators,
             min_samples_leaf=min_samples_leaf,
             disable=True,
+            parallel=True,
         )
         rf.fit(Xtr, Ytr, Etr)
         preds_rf = rf.predict(Xts)
@@ -128,6 +129,7 @@ def main(
             n_estimators=n_estimators,
             min_samples_leaf=min_samples_leaf,
             disable=True,
+            parallel=True,
         )
         maximin_rf.fit(Xtr, Ytr, Etr)
         preds_maximin_rf = maximin_rf.predict(Xts)
@@ -149,6 +151,7 @@ def main(
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,
                 disable=True,
+                parallel=True,
             )
             magging_rf.fit(Xtr_e, Ytr_e, Etr_e)
             preds_envs.append(magging_rf.predict(Xts))

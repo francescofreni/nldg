@@ -465,7 +465,7 @@ def gen_data_isd_v4(
     rng = np.random.default_rng(random_state)
     rng_sigma = np.random.default_rng(42)
     OM = ortho_group.rvs(dim=p, random_state=rng)
-    n_envs = 3
+    n_envs = 5
     n_e = n_train // n_envs
     eps = sigma * rng.normal(0, 1, size=n_train)
 
@@ -480,24 +480,32 @@ def gen_data_isd_v4(
 
     X_rot = X @ OM.T
 
-    Y = 5 * np.sin(X_rot[:, 0]) - 6 * np.cos(X_rot[:, 1]) - X_rot[:, 2] ** 2
+    Y = (
+        5 * np.sin(X_rot[:, 0])
+        + 2 * np.cos(X_rot[:, 1])
+        - 4 * np.sin(X_rot[:, 2])
+    )
     for e in range(n_envs):
         idxs = np.arange((e * n_e), ((e + 1) * n_e))
         Y[idxs] += eps[idxs]
 
         # Environment-dependent contribution from the last 3 variables
         if e == 0:
-            Y[idxs] += np.sqrt(np.abs(X_rot[idxs, 3]))
+            Y[idxs] += X_rot[idxs, 3] - 6
         elif e == 1:
-            Y[idxs] += -2 * X_rot[idxs, 3]
+            Y[idxs] += -X_rot[idxs, 3] - 2
+        elif e == 2:
+            Y[idxs] += -((X_rot[idxs, 3]) ** 2) - 2
+        elif e == 3:
+            Y[idxs] += np.tanh(X_rot[idxs, 3]) - 1
         else:
-            Y[idxs] += -np.cos(X_rot[idxs, 3]) - 1
+            Y[idxs] += np.exp(X_rot[idxs, 3] / 2) - X_rot[idxs, 3]
 
     df_train = pd.DataFrame(
-        {f"X{i+1}": X[:, i] for i in range(p)} | {"Y": Y, "E": E}
+        {f"X{i + 1}": X[:, i] for i in range(p)} | {"Y": Y, "E": E}
     )
 
-    # Generate test set only using invariant variables (X1-X4)
+    # Generate test set only using invariant variables
     eps = sigma * rng.normal(0, 1, size=n_test)
     A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
     Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
@@ -505,13 +513,13 @@ def gen_data_isd_v4(
     X_rot = X @ OM.T
     Y = (
         5 * np.sin(X_rot[:, 0])
-        - 6 * np.cos(X_rot[:, 1])
-        - X_rot[:, 2] ** 2
+        + 2 * np.cos(X_rot[:, 1])
+        - 4 * np.sin(X_rot[:, 2])
         + eps
     )
 
     df_test = pd.DataFrame(
-        {f"X{i+1}": X[:, i] for i in range(p)} | {"Y": Y, "E": -1}
+        {f"X{i + 1}": X[:, i] for i in range(p)} | {"Y": Y, "E": -1}
     )
 
     return df_train, df_test
