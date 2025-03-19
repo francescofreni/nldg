@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import copy
 from sklearn.metrics import r2_score, mean_squared_error
-from nldg.new.utils import gen_data_isd_v4
+from nldg.new.utils import gen_data_isd_v3
 from nldg.new.rf import RF4DL, MaggingRF, IsdRF
 from sklearn.ensemble import RandomForestRegressor
 from scipy.optimize import minimize
@@ -40,7 +40,7 @@ def main(
     r2_out = copy.deepcopy(results_dict)
 
     for i in tqdm(range(nsim)):
-        dtr, dad, dts = gen_data_isd_v4(
+        dtr, dad, dts = gen_data_isd_v3(
             n_train=n_train,
             n_test=n_test,
             random_state=i,
