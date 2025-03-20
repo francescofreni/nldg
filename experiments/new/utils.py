@@ -235,7 +235,7 @@ def plot_invrec(
          plots_folder: Folder where to save the plots.
     """
     c = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:red"]
-    n_methods = 4
+    n_methods = 5
 
     fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
 
