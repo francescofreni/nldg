@@ -445,7 +445,7 @@ def gen_data_isd_v4(
     n_train: int = 1500,
     n_test: int = 500,
     random_state: int = 0,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
+) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
     """
     Generates data from 3 environments with larger blocks.
 
@@ -458,6 +458,7 @@ def gen_data_isd_v4(
         A tuple containing:
         - df_train: DataFrame with training data.
         - df_test: DataFrame with test data.
+        - OM: Matrix used to rotate the data.
     """
     sigma = 0.5
     block_sizes = [3, 1]
@@ -522,7 +523,7 @@ def gen_data_isd_v4(
         {f"X{i + 1}": X[:, i] for i in range(p)} | {"Y": Y, "E": -1}
     )
 
-    return df_train, df_test
+    return df_train, df_test, OM
 
 
 # ========================

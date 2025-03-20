@@ -221,6 +221,72 @@ def plot_maxmse(
     plt.close()
 
 
+def plot_invrec(
+    invrec_df: pd.DataFrame,
+    name_plot: str,
+    plots_folder: str,
+) -> None:
+    """
+    Plots the maximum MSE across environments to compare different methods.
+
+    Args:
+         invrec_df: DataFrame containing the MSE comparing the fitted values and the true response values.
+         name_plot: Name of the plot to save in the dedicated folder.
+         plots_folder: Folder where to save the plots.
+    """
+    c = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:red"]
+    n_methods = 4
+
+    fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
+
+    vp_invrec = ax.violinplot(
+        [invrec_df.iloc[:, i] for i in range(n_methods)],
+        showmeans=True,
+        showextrema=False,
+        widths=0.4,
+        positions=range(n_methods),
+    )
+
+    # Set colors for the violins
+    for i, vp in enumerate(vp_invrec["bodies"]):
+        vp.set_facecolor(c[i])
+        vp.set_edgecolor(c[i])
+        vp.set_alpha(0.7)
+
+    # Customize the mean markers
+    vp_invrec["cmeans"].set_color(c)
+    vp_invrec["cmeans"].set_linewidth(2.5)
+
+    # Labels and formatting
+    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.set_xticks(range(n_methods))
+    ax.set_xticklabels(
+        [
+            r"$\mathsf{RF}$",
+            r"$\mathsf{MaximinRF}$",
+            r"$\mathsf{MaggingRF}$",
+            r"$\mathsf{MaggingRF2}$",
+            r"$\mathsf{IsdRF}$",
+        ]
+    )
+
+    ax.grid(
+        True,
+        which="both",
+        axis="y",
+        color="grey",
+        linestyle="--",
+        linewidth=0.3,
+        alpha=0.3,
+    )
+
+    plt.tight_layout()
+
+    plot_path = os.path.join(plots_folder, name_plot)
+    plt.savefig(plot_path, bbox_inches="tight", dpi=300)
+    plt.close()
+
+
 def plot_weights_magging(
     maxmse_df: pd.DataFrame,
     name_plot: str,

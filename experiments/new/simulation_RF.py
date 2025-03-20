@@ -17,6 +17,7 @@ from experiments.new.utils import (
     plot_mse_r2,
     plot_maxmse,
     plot_weights_magging,
+    plot_invrec,
 )
 
 
@@ -84,7 +85,20 @@ def main(
         maxmse = {"RF": [], "MaximinRF": [], "MaggingRF": [], "MaggingRF2": []}
     # TODO: Maybe in the future we could generalize the code to arbitrary
     #  datasets. At the moment, it only considers 3 environments.
-    weights_magging = np.zeros((nsim, 5))
+    if isd:
+        if isd_genfun == 1:
+            weights_magging = np.zeros((nsim, 3))
+        else:
+            weights_magging = np.zeros((nsim, 5))
+            inv_rec = {
+                "RF": [],
+                "MaximinRF": [],
+                "MaggingRF": [],
+                "MaggingRF2": [],
+                "IsdRF": [],
+            }
+    else:
+        weights_magging = np.zeros((nsim, 3))
 
     for i in tqdm(range(nsim)):
         if isd:
@@ -95,7 +109,7 @@ def main(
                     random_state=i,
                 )
             else:
-                dtr, dts = gen_data_isd_v4(
+                dtr, dts, OM = gen_data_isd_v4(
                     n_train=n_train,
                     n_test=n_test,
                     random_state=i,
@@ -224,6 +238,25 @@ def main(
             r2_out["IsdRF"].append(r2_score(Yts, preds_isd))
             maxmse["IsdRF"].append(max_mse(Ytr, fitted_isd, Etr))
 
+            if isd_genfun == 2:
+                X_rot = Xtr @ OM.T
+                Y_true = (
+                    5 * np.sin(X_rot[:, 0])
+                    + 2 * np.cos(X_rot[:, 1])
+                    - 4 * np.sin(X_rot[:, 2])
+                )
+                inv_rec["RF"].append(mean_squared_error(Y_true, fitted_rf))
+                inv_rec["MaximinRF"].append(
+                    mean_squared_error(Y_true, fitted_maximin_rf)
+                )
+                inv_rec["MaggingRF"].append(
+                    mean_squared_error(Y_true, fitted_magging_rf)
+                )
+                inv_rec["MaggingRF2"].append(
+                    mean_squared_error(Y_true, fitted_magging_rf_2)
+                )
+                inv_rec["IsdRF"].append(mean_squared_error(Y_true, fitted_isd))
+
     # Plot and save
     mse_in_df = pd.DataFrame(mse_in)
     r2_in_df = pd.DataFrame(r2_in)
@@ -250,6 +283,12 @@ def main(
     plot_weights_magging(
         weights_magging, "sim_weights_magging.pdf", results_dir
     )
+    if isd and isd_genfun == 2:
+        inv_rec_df = pd.DataFrame(inv_rec)
+        plot_invrec(inv_rec_df, "sim_inv_rec.pdf", results_dir)
+        inv_rec_df.to_csv(
+            os.path.join(results_dir, "inv_rec.csv"), index=False
+        )
 
     mse_in_df.to_csv(os.path.join(results_dir, "mse_in.csv"), index=False)
     r2_in_df.to_csv(os.path.join(results_dir, "r2_in.csv"), index=False)
