@@ -23,7 +23,8 @@ def main(
     nsim: int,
     n_train: int,
     n_test: int,
-    setting: int,
+    train_setting: int,
+    test_setting: int,
     n_estimators: int,
     min_samples_leaf: int,
     results_folder: str,
@@ -64,7 +65,11 @@ def main(
 
     for i in tqdm(range(nsim)):
         dtr, dts = gen_data_v3(
-            n_train=n_train, n_test=n_test, random_state=i, setting=setting
+            n_train=n_train,
+            n_test=n_test,
+            random_state=i,
+            train_setting=train_setting,
+            test_setting=test_setting,
         )
         Xtr, Xts = (
             np.array(dtr.drop(columns=["E", "Y"])),
@@ -230,10 +235,16 @@ if __name__ == "__main__":
         help="Number of observations in the test data (default: 500)",
     )
     parser.add_argument(
-        "--setting",
+        "--train_setting",
         type=int,
         default=1,
-        help="Data setting. Value in {1,2} (default: 1)",
+        help="Train data setting. Value in {1,2} (default: 1)",
+    )
+    parser.add_argument(
+        "--test_setting",
+        type=int,
+        default=1,
+        help="Test data setting. Value in {1,2} (default: 1)",
     )
     parser.add_argument(
         "--n_estimators",
@@ -259,7 +270,8 @@ if __name__ == "__main__":
         args.nsim,
         args.n_train,
         args.n_test,
-        args.setting,
+        args.train_setting,
+        args.test_setting,
         args.n_estimators,
         args.min_samples_leaf,
         args.results_folder,

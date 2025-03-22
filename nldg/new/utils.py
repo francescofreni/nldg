@@ -167,7 +167,8 @@ def gen_data_v3(
     n_train: int = 500,
     n_test: int = 100,
     random_state: int = 0,
-    setting: int = 1,
+    train_setting: int = 1,
+    test_setting: int = 1,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates train data from three environments.
@@ -176,7 +177,8 @@ def gen_data_v3(
         n_train: Number of training samples.
         n_test: Number of test samples.
         random_state: Random seed.
-        setting: Data setting. Current accepted values are 1 or 2
+        train_setting: Train data setting. Current accepted values are 1 or 2
+        test_setting: Test data setting. Current accepted values are 1 or 2
 
     Returns:
         A tuple containing:
@@ -184,7 +186,7 @@ def gen_data_v3(
         - df_test: DataFrame with test data (X1, X2, Y, E).
     """
     possible_settings = [1, 2]
-    if setting not in [1, 2]:
+    if (train_setting not in [1, 2]) and (test_setting not in [1, 2]):
         raise ValueError(f"setting must be in {possible_settings}.")
     rng = np.random.default_rng(random_state)
     Sigma = np.array([[1, 0.0], [0.0, 1]])
@@ -195,20 +197,30 @@ def gen_data_v3(
         X = rng.multivariate_normal(mean=[0, 0], cov=Sigma, size=n)
         eps = sigma * rng.normal(0, 1, size=n)
 
-        if env_id == 0:
-            Y = 5 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps  # results_1
-            # Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 1]) + eps  # results_3
-            # Y = 5 * np.sin(X[:, 0]) + (X[:, 1] + 1) ** 2 + eps  # results_4
-        elif env_id == 1:
-            Y = 5 * np.sin(X[:, 0]) - 2 * X[:, 1] + eps  # results_1
-            # Y = 5 * np.sin(X[:, 0]) - np.exp(X[:, 1] / 3) + eps  # results_3
-            # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + 1 + eps  # results_4
-        elif env_id == 2:
-            Y = 5 * np.sin(X[:, 0]) + X[:, 1] ** 2 + eps  # results
-            # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + eps  # results_3
-            # Y = 5 * np.sin(X[:, 0]) + 6 * np.sin(X[:, 1]) + eps  # results_4
+        if train_setting == 1:
+            if env_id == 0:
+                Y = 5 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps  # results_1
+                # Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 1]) + eps  # results_3
+                # Y = 5 * np.sin(X[:, 0]) + (X[:, 1] + 1) ** 2 + eps  # results_4
+            elif env_id == 1:
+                Y = 5 * np.sin(X[:, 0]) - 2 * X[:, 1] + eps  # results_1
+                # Y = 5 * np.sin(X[:, 0]) - np.exp(X[:, 1] / 3) + eps  # results_3
+                # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + 1 + eps  # results_4
+            elif env_id == 2:
+                Y = 5 * np.sin(X[:, 0]) + X[:, 1] ** 2 + eps  # results
+                # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + eps  # results_3
+                # Y = 5 * np.sin(X[:, 0]) + 6 * np.sin(X[:, 1]) + eps  # results_4
+            else:
+                raise ValueError("Invalid environment ID")
         else:
-            raise ValueError("Invalid environment ID")
+            if env_id == 0:
+                Y = np.sin(X[:, 0]) + 4 * X[:, 1] + eps
+            elif env_id == 1:
+                Y = np.sin(X[:, 0]) - 4 * X[:, 1] + eps
+            elif env_id == 2:
+                Y = np.sin(X[:, 0]) + 4 * X[:, 1] ** 2 + eps
+            else:
+                raise ValueError("Invalid environment ID")
 
         return pd.DataFrame(
             {"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": env_id}
@@ -221,10 +233,16 @@ def gen_data_v3(
 
     X = rng.multivariate_normal(mean=[0, 0], cov=Sigma, size=n_test)
     eps = rng.normal(0, 1, size=n_test)
-    if setting == 1:
-        Y = 5 * np.sin(X[:, 0]) + eps  # results_1, results_3, results_4
+    if test_setting == 1:
+        if train_setting == 1:
+            Y = 5 * np.sin(X[:, 0]) + eps  # results_1, results_3, results_4
+        else:
+            Y = np.sin(X[:, 0]) + eps
     else:
-        Y = 5 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps  # results_2
+        if train_setting == 1:
+            Y = 5 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps  # results_2
+        else:
+            Y = np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps
     df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
 
     return df_train, df_test
