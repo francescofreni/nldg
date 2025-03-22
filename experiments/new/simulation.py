@@ -3,21 +3,15 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
-from nldg.new.utils import (
-    gen_data_v3,
-    max_mse,
-    gen_data_isd,
-    gen_data_isd_v2,
-    gen_data_isd_v4,
-)
-from nldg.new.rf import RF4DL, MaggingRF, IsdRF
+from nldg.new.utils import gen_data_v3, max_mse
+from nldg.new.rf import MaggingRF
+from nldg.new.rf2 import RF4DL
 from scipy.optimize import minimize
 from tqdm import tqdm
 from experiments.new.utils import (
     plot_mse_r2,
     plot_maxmse,
     plot_weights_magging,
-    plot_invrec,
 )
 
 
@@ -33,111 +27,45 @@ def main(
     n_estimators: int,
     min_samples_leaf: int,
     results_folder: str,
-    isd: bool,
-    isd_genfun: int,
 ):
-    if isd:
-        mse_in = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-            "IsdRF": [],
-        }
-        r2_in = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-            "IsdRF": [],
-        }
-        mse_out = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-            "IsdRF": [],
-        }
-        r2_out = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-            "IsdRF": [],
-        }
-        maxmse = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-            "IsdRF": [],
-        }
-    else:
-        mse_in = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-        }
-        r2_in = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-        }
-        mse_out = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-        }
-        r2_out = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-        }
-        maxmse = {
-            "RF": [],
-            "MaximinRF": [],
-            "MaggingRF-forest": [],
-            "MaggingRF-trees": [],
-        }
+    mse_in = {
+        "RF": [],
+        "MaximinRF": [],
+        "MaggingRF-forest": [],
+        "MaggingRF-trees": [],
+    }
+    r2_in = {
+        "RF": [],
+        "MaximinRF": [],
+        "MaggingRF-forest": [],
+        "MaggingRF-trees": [],
+    }
+    mse_out = {
+        "RF": [],
+        "MaximinRF": [],
+        "MaggingRF-forest": [],
+        "MaggingRF-trees": [],
+    }
+    r2_out = {
+        "RF": [],
+        "MaximinRF": [],
+        "MaggingRF-forest": [],
+        "MaggingRF-trees": [],
+    }
+    maxmse = {
+        "RF": [],
+        "MaximinRF": [],
+        "MaggingRF-forest": [],
+        "MaggingRF-trees": [],
+    }
     # TODO: Maybe in the future we could generalize the code to arbitrary
     #  datasets. At the moment, it only considers 3 environments.
-    if isd:
-        if isd_genfun == 1:
-            weights_magging = np.zeros((nsim, 3))
-        else:
-            weights_magging = np.zeros((nsim, 5))
-            inv_rec = {
-                "RF": [],
-                "MaximinRF": [],
-                "MaggingRF-forest": [],
-                "MaggingRF-trees": [],
-                "IsdRF": [],
-            }
-    else:
-        weights_magging = np.zeros((nsim, 3))
+    weights_magging = np.zeros((nsim, 3))
 
     for i in tqdm(range(nsim)):
-        if isd:
-            if isd_genfun == 1:
-                dtr, dts = gen_data_isd(
-                    n_train=n_train,
-                    n_test=n_test,
-                    random_state=i,
-                )
-            else:
-                dtr, dts, OM = gen_data_isd_v4(
-                    n_train=n_train,
-                    n_test=n_test,
-                    random_state=i,
-                )
-        else:
-            dtr, dts = gen_data_v3(
-                n_train=n_train, n_test=n_test, random_state=i, setting=setting
-            )
+        dtr, dts = gen_data_v3(
+            n_train=n_train, n_test=n_test, random_state=i, setting=setting
+        )
         Xtr, Xts = (
             np.array(dtr.drop(columns=["E", "Y"])),
             np.array(dts.drop(columns=["E", "Y"])),
@@ -211,16 +139,6 @@ def main(
         preds_magging_rf_2, _ = magging_rf_2.predict_maximin(Xtr, Xts)
         fitted_magging_rf_2, _ = magging_rf_2.predict_maximin(Xtr, Xtr)
 
-        # ISD RF
-        if isd:
-            isd_rf = IsdRF(
-                n_estimators=n_estimators, min_samples_leaf=min_samples_leaf
-            )
-            isd_rf.find_invariant(Xtr, Ytr, Etr)
-            preds_isd = isd_rf.predict_zeroshot(Xts)
-            fitted_isd = isd_rf.predict_zeroshot(Xtr)
-            print(isd_rf.const_idxs)
-
         # Save results
         mse_in["RF"].append(mean_squared_error(Ytr, fitted_rf))
         mse_in["MaximinRF"].append(mean_squared_error(Ytr, fitted_maximin_rf))
@@ -257,32 +175,6 @@ def main(
             max_mse(Ytr, fitted_magging_rf_2, Etr)
         )
 
-        if isd:
-            mse_in["IsdRF"].append(mean_squared_error(Ytr, fitted_isd))
-            r2_in["IsdRF"].append(r2_score(Ytr, fitted_isd))
-            mse_out["IsdRF"].append(mean_squared_error(Yts, preds_isd))
-            r2_out["IsdRF"].append(r2_score(Yts, preds_isd))
-            maxmse["IsdRF"].append(max_mse(Ytr, fitted_isd, Etr))
-
-            if isd_genfun == 2:
-                X_rot = Xtr @ OM.T
-                Y_true = (
-                    5 * np.sin(X_rot[:, 0])
-                    + 2 * np.cos(X_rot[:, 1])
-                    - 4 * np.sin(X_rot[:, 2])
-                )
-                inv_rec["RF"].append(mean_squared_error(Y_true, fitted_rf))
-                inv_rec["MaximinRF"].append(
-                    mean_squared_error(Y_true, fitted_maximin_rf)
-                )
-                inv_rec["MaggingRF-forest"].append(
-                    mean_squared_error(Y_true, fitted_magging_rf)
-                )
-                inv_rec["MaggingRF-trees"].append(
-                    mean_squared_error(Y_true, fitted_magging_rf_2)
-                )
-                inv_rec["IsdRF"].append(mean_squared_error(Y_true, fitted_isd))
-
     # Plot and save
     mse_in_df = pd.DataFrame(mse_in)
     r2_in_df = pd.DataFrame(r2_in)
@@ -300,21 +192,12 @@ def main(
         "sim_mse_r2_in.pdf",
         results_dir,
         out=False,
-        isd=isd,
     )
-    plot_mse_r2(
-        mse_out_df, r2_out_df, "sim_mse_r2_out.pdf", results_dir, isd=isd
-    )
-    plot_maxmse(maxmse_df, "sim_maxmse.pdf", results_dir, isd=isd)
+    plot_mse_r2(mse_out_df, r2_out_df, "sim_mse_r2_out.pdf", results_dir)
+    plot_maxmse(maxmse_df, "sim_maxmse.pdf", results_dir)
     plot_weights_magging(
         weights_magging, "sim_weights_magging.pdf", results_dir
     )
-    if isd and isd_genfun == 2:
-        inv_rec_df = pd.DataFrame(inv_rec)
-        plot_invrec(inv_rec_df, "sim_inv_rec.pdf", results_dir)
-        inv_rec_df.to_csv(
-            os.path.join(results_dir, "inv_rec.csv"), index=False
-        )
 
     mse_in_df.to_csv(os.path.join(results_dir, "mse_in.csv"), index=False)
     r2_in_df.to_csv(os.path.join(results_dir, "r2_in.csv"), index=False)
@@ -370,18 +253,6 @@ if __name__ == "__main__":
         default="results",
         help="Name of the folder to save results (default: 'results')",
     )
-    parser.add_argument(
-        "--isd",
-        type=bool,
-        default=False,
-        help="Whether to include ISD (default: False)",
-    )
-    parser.add_argument(
-        "--isd_genfun",
-        type=int,
-        default=1,
-        help="If isd, function to generate data. Value in {1,2} (default: 1)",
-    )
     args = parser.parse_args()
 
     main(
@@ -392,6 +263,4 @@ if __name__ == "__main__":
         args.n_estimators,
         args.min_samples_leaf,
         args.results_folder,
-        args.isd,
-        args.isd_genfun,
     )

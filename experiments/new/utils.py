@@ -61,7 +61,7 @@ def plot_mse_r2(
     # Create violin plots
     vp_mse = ax[0].violinplot(
         [mse_df.iloc[:, i] for i in range(n_methods)],
-        showmeans=True,
+        showmedians=True,
         showextrema=False,
         widths=0.4,
         positions=range(n_methods),
@@ -69,7 +69,7 @@ def plot_mse_r2(
 
     vp_r2 = ax[1].violinplot(
         [r2_df.iloc[:, i] for i in range(n_methods)],
-        showmeans=True,
+        showmedians=True,
         showextrema=False,
         widths=0.4,
         positions=range(n_methods),
@@ -88,11 +88,11 @@ def plot_mse_r2(
         vp.set_alpha(0.7)
 
     # Set colors for mean lines
-    vp_mse["cmeans"].set_color(c)
-    vp_mse["cmeans"].set_linewidth(2.5)
+    vp_mse["cmedians"].set_color(c)
+    vp_mse["cmedians"].set_linewidth(2.5)
 
-    vp_r2["cmeans"].set_color(c)
-    vp_r2["cmeans"].set_linewidth(2.5)
+    vp_r2["cmedians"].set_color(c)
+    vp_r2["cmedians"].set_linewidth(2.5)
 
     # Labels and formatting
     ax[0].set_ylabel(r"$\mathsf{MSE}$")
@@ -105,16 +105,16 @@ def plot_mse_r2(
         labels = [
             r"$\mathsf{RF}$",
             r"$\mathsf{MaximinRF}$",
-            r"$\mathsf{MaggingRF}$",
-            r"$\mathsf{MaggingRF2}$",
+            r"$\mathsf{MaggingRF-forest}$",
+            r"$\mathsf{MaggingRF-trees}$",
             r"$\mathsf{IsdRF}$",
         ]
     else:
         labels = [
             r"$\mathsf{RF}$",
             r"$\mathsf{MaximinRF}$",
-            r"$\mathsf{MaggingRF}$",
-            r"$\mathsf{MaggingRF2}$",
+            r"$\mathsf{MaggingRF-forest}$",
+            r"$\mathsf{MaggingRF-trees}$",
         ]
     ax[0].set_xticklabels(labels)
     ax[1].set_xticklabels(labels)
@@ -165,7 +165,7 @@ def plot_maxmse(
 
     vp_maxmse = ax.violinplot(
         [maxmse_df.iloc[:, i] for i in range(n_methods)],
-        showmeans=True,
+        showmedians=True,
         showextrema=False,
         widths=0.4,
         positions=range(n_methods),
@@ -178,8 +178,8 @@ def plot_maxmse(
         vp.set_alpha(0.7)
 
     # Customize the mean markers
-    vp_maxmse["cmeans"].set_color(c)
-    vp_maxmse["cmeans"].set_linewidth(2.5)
+    vp_maxmse["cmedians"].set_color(c)
+    vp_maxmse["cmedians"].set_linewidth(2.5)
 
     # Labels and formatting
     ax.set_ylabel(r"$\mathsf{MSE}$")
@@ -189,8 +189,8 @@ def plot_maxmse(
             [
                 r"$\mathsf{RF}$",
                 r"$\mathsf{MaximinRF}$",
-                r"$\mathsf{MaggingRF}$",
-                r"$\mathsf{MaggingRF2}$",
+                r"$\mathsf{MaggingRF-forest}$",
+                r"$\mathsf{MaggingRF-trees}$",
                 r"$\mathsf{IsdRF}$",
             ]
         )
@@ -199,8 +199,8 @@ def plot_maxmse(
             [
                 r"$\mathsf{RF}$",
                 r"$\mathsf{MaximinRF}$",
-                r"$\mathsf{MaggingRF}$",
-                r"$\mathsf{MaggingRF2}$",
+                r"$\mathsf{MaggingRF-forest}$",
+                r"$\mathsf{MaggingRF-trees}$",
             ]
         )
 
@@ -241,7 +241,7 @@ def plot_invrec(
 
     vp_invrec = ax.violinplot(
         [invrec_df.iloc[:, i] for i in range(n_methods)],
-        showmeans=True,
+        showmedians=True,
         showextrema=False,
         widths=0.4,
         positions=range(n_methods),
@@ -254,8 +254,8 @@ def plot_invrec(
         vp.set_alpha(0.7)
 
     # Customize the mean markers
-    vp_invrec["cmeans"].set_color(c)
-    vp_invrec["cmeans"].set_linewidth(2.5)
+    vp_invrec["cmedians"].set_color(c)
+    vp_invrec["cmedians"].set_linewidth(2.5)
 
     # Labels and formatting
     ax.set_ylabel(r"$\mathsf{MSE}$")
@@ -264,8 +264,8 @@ def plot_invrec(
         [
             r"$\mathsf{RF}$",
             r"$\mathsf{MaximinRF}$",
-            r"$\mathsf{MaggingRF}$",
-            r"$\mathsf{MaggingRF2}$",
+            r"$\mathsf{MaggingRF-forest}$",
+            r"$\mathsf{MaggingRF-trees}$",
             r"$\mathsf{IsdRF}$",
         ]
     )
@@ -311,7 +311,7 @@ def plot_weights_magging(
 
     vp_w = ax.violinplot(
         [maxmse_df.iloc[:, i] for i in range(n_envs)],
-        showmeans=True,
+        showmedians=True,
         showextrema=False,
         widths=0.4,
         positions=range(n_envs),
@@ -324,8 +324,8 @@ def plot_weights_magging(
         vp.set_alpha(0.7)
 
     # Customize the mean markers
-    vp_w["cmeans"].set_color(c)
-    vp_w["cmeans"].set_linewidth(2.5)
+    vp_w["cmedians"].set_color(c)
+    vp_w["cmedians"].set_linewidth(2.5)
 
     # Labels and formatting
     ax.set_xticks(range(n_envs))
@@ -394,7 +394,7 @@ def plot_mse_r2_adapt(
     # Create violin plots
     vp_mse = ax[0].violinplot(
         [mse_df.iloc[:, i] for i in range(n_methods)],
-        showmeans=True,
+        showmedians=True,
         showextrema=False,
         widths=0.4,
         positions=range(n_methods),
@@ -402,7 +402,7 @@ def plot_mse_r2_adapt(
 
     vp_r2 = ax[1].violinplot(
         [r2_df.iloc[:, i] for i in range(n_methods)],
-        showmeans=True,
+        showmedians=True,
         showextrema=False,
         widths=0.4,
         positions=range(n_methods),
@@ -421,11 +421,11 @@ def plot_mse_r2_adapt(
         vp.set_alpha(0.7)
 
     # Set colors for mean lines
-    vp_mse["cmeans"].set_color(c)
-    vp_mse["cmeans"].set_linewidth(2.5)
+    vp_mse["cmedians"].set_color(c)
+    vp_mse["cmedians"].set_linewidth(2.5)
 
-    vp_r2["cmeans"].set_color(c)
-    vp_r2["cmeans"].set_linewidth(2.5)
+    vp_r2["cmedians"].set_color(c)
+    vp_r2["cmedians"].set_linewidth(2.5)
 
     # Labels and formatting
     ax[0].set_ylabel(r"$\mathsf{MSE}$")
@@ -437,8 +437,8 @@ def plot_mse_r2_adapt(
     labels = [
         r"$\mathsf{RF}$",
         r"$\mathsf{MaximinRF}$",
-        r"$\mathsf{MaggingRF}$",
-        r"$\mathsf{MaggingRF2}$",
+        r"$\mathsf{MaggingRF-forest}$",
+        r"$\mathsf{MaggingRF-trees}$",
         r"$\mathsf{IsdRF}$",
         r"$\mathsf{IsdRFad}$",
         r"$\mathsf{RFad}$",
