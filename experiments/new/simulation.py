@@ -273,8 +273,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--random_state",
         type=int,
-        default=0,
-        help="Random state used for the Random Forest. (default: 0)",
+        default=42,
+        help="Random state used for the Random Forest. (default: 42)",
     )
     parser.add_argument(
         "--results_folder",

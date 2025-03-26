@@ -404,7 +404,7 @@ class DT4DG:
             # n_e_worst_left = np.sum(E[left_idx] == e_worst_left)
             # n_e_worst_right = np.sum(E[right_idx] == e_worst_right)
             # cost = (left_err + right_err) / (n_e_worst_left + n_e_worst_right)
-            cost = left_err + right_err
+            cost = (left_err + right_err) / len(y)
         return cost
 
     def _select_features(
