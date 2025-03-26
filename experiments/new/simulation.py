@@ -14,10 +14,6 @@ from experiments.new.utils import (
 )
 
 
-def objective(w: np.ndarray, F: np.ndarray) -> float:
-    return np.dot(w.T, np.dot(F.T, F).dot(w))
-
-
 def main(
     nsim: int,
     n_train: int,

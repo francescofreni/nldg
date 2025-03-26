@@ -26,6 +26,7 @@ def plot_mse_r2(
     plots_folder: str,
     out: bool = True,
     isd: bool = False,
+    nn: bool = False,
 ) -> None:
     """
     Plots the MSE and R2 comparison between different methods.
@@ -37,10 +38,13 @@ def plot_mse_r2(
          plots_folder: Folder where to save the plots.
          out: If true, the results refer to the test data.
          isd: If true, include the results of Invariant Subspace Decomposition.
+         nn: True if the data is relative to the neural networks example.
     """
     c = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:red"]
     if isd:
         n_methods = 5
+    elif nn:
+        n_methods = 3
     else:
         n_methods = 4
 
@@ -109,6 +113,12 @@ def plot_mse_r2(
             r"$\mathsf{MaggingRF-Trees}$",
             r"$\mathsf{IsdRF}$",
         ]
+    elif nn:
+        labels = [
+            r"$\mathsf{NN}$",
+            r"$\mathsf{MaximinNN}$",
+            r"$\mathsf{MaggingNN}$",
+        ]
     else:
         labels = [
             r"$\mathsf{RF}$",
@@ -139,6 +149,7 @@ def plot_maxmse(
     name_plot: str,
     plots_folder: str,
     isd: bool = False,
+    nn: bool = False,
 ) -> None:
     """
     Plots the maximum MSE across environments to compare different methods.
@@ -149,10 +160,13 @@ def plot_maxmse(
          name_plot: Name of the plot to save in the dedicated folder.
          plots_folder: Folder where to save the plots.
          isd: If true, include the results of Invariant Subspace Decomposition.
+         nn: True if the data is relative to the neural networks example.
     """
     c = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:red"]
     if isd:
         n_methods = 5
+    elif nn:
+        n_methods = 3
     else:
         n_methods = 4
 
@@ -192,6 +206,14 @@ def plot_maxmse(
                 r"$\mathsf{MaggingRF-Forest}$",
                 r"$\mathsf{MaggingRF-Trees}$",
                 r"$\mathsf{IsdRF}$",
+            ]
+        )
+    elif nn:
+        ax.set_xticklabels(
+            [
+                r"$\mathsf{NN}$",
+                r"$\mathsf{MaximinNN}$",
+                r"$\mathsf{MaggingNN}$",
             ]
         )
     else:
