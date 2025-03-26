@@ -1,5 +1,6 @@
 import numpy as np
 from sklearn.ensemble import RandomForestRegressor
+from adaXT.random_forest import RandomForest
 from scipy.optimize import minimize
 from tqdm import tqdm
 from nldg.utils.jbd import ajbd
@@ -124,12 +125,34 @@ class MaggingRF_PB(RandomForestRegressor):
         max_features: int | str | None | float = 1.0,
         min_samples_split: float | int = 2,
         min_samples_leaf: float | int = 1,
+        backend: str = "RF4DG",
+        disable: bool = False,
+        parallel: bool = False,
     ) -> None:
         """
         Initialize the class instance.
 
-        For default parameters, see documentation of `sklearn.ensemble.RandomForestRegressor`.
+        Args:
+            For default parameters, see documentation of `sklearn.ensemble.RandomForestRegressor`.
+            backend: Backend to use for fitting the forests.
+                Possible values are {"RF4DG", "sklearn", "adaXT"}
+            disable: Whether to disable the progress bar (useful for running simulations).
+                Only available if backend is "RF4DG".
+            parallel: Whether to run the algorithm in parallel.
+                It can be used only if backend is "RF4DG".
         """
+        if backend not in ["RF4DG", "sklearn", "adaXT"]:
+            raise ValueError(
+                "backend must be one of 'RF4DG', 'sklearn', 'adaXT'."
+            )
+        if backend != "RF4DG" and parallel:
+            raise ValueError(
+                "parallel may be set to True when backend is 'RF4DG'."
+            )
+        if backend != "RF4DG" and disable:
+            raise ValueError(
+                "disable may be set to True when backend is 'RF4DG'."
+            )
         self.n_estimators = n_estimators
         self.random_state = random_state
         self.max_depth = max_depth
@@ -137,6 +160,9 @@ class MaggingRF_PB(RandomForestRegressor):
         self.min_samples_split = min_samples_split
         self.min_samples_leaf = min_samples_leaf
         self.weights_magging = None
+        self.backend = backend
+        self.disable = disable
+        self.parallel = parallel
 
     def get_weights(self) -> np.ndarray | None:
         return self.weights_magging
@@ -179,16 +205,42 @@ class MaggingRF_PB(RandomForestRegressor):
             Xtr_e = X_train[E_train == env]
             Ytr_e = Y_train[E_train == env]
             Etr_e = E_train[E_train == env]
-            rfm = RF4DL(
-                criterion="mse",
-                n_estimators=self.n_estimators,
-                max_depth=self.max_depth,
-                min_samples_split=self.min_samples_split,
-                min_samples_leaf=self.min_samples_leaf,
-                max_features=self.max_features,
-                random_state=self.random_state,
-            )
-            rfm.fit(Xtr_e, Ytr_e, Etr_e)
+            if self.backend == "RF4DG":
+                rfm = RF4DG(
+                    criterion="mse",
+                    n_estimators=self.n_estimators,
+                    max_depth=self.max_depth,
+                    min_samples_split=self.min_samples_split,
+                    min_samples_leaf=self.min_samples_leaf,
+                    max_features=self.max_features,
+                    random_state=self.random_state,
+                    disable=self.disable,
+                    parallel=self.parallel,
+                )
+                rfm.fit(Xtr_e, Ytr_e, Etr_e)
+            elif self.backend == "sklearn":
+                rfm = RandomForestRegressor(
+                    n_estimators=self.n_estimators,
+                    max_depth=self.max_depth,
+                    min_samples_split=self.min_samples_split,
+                    min_samples_leaf=self.min_samples_leaf,
+                    max_features=self.max_features,
+                    random_state=self.random_state,
+                )
+                rfm.fit(Xtr_e, Ytr_e)
+            else:
+                if self.max_depth is None:
+                    self.max_depth = 2**31 - 1
+                rfm = RandomForest(
+                    forest_type="Regression",
+                    n_estimators=self.n_estimators,
+                    max_depth=self.max_depth,
+                    min_samples_split=self.min_samples_split,
+                    min_samples_leaf=self.min_samples_leaf,
+                    max_features=self.max_features,
+                    seed=self.random_state,
+                )
+                rfm.fit(Xtr_e, Ytr_e)
             preds_envs.append(rfm.predict(X_test))
             fitted_envs.append(rfm.predict(X_train))
         preds_envs = np.column_stack(preds_envs)
@@ -201,6 +253,7 @@ class MaggingRF_PB(RandomForestRegressor):
             bounds=bounds,
             constraints=constraints,
         ).x
+        self.weights_magging = wmag
         wpreds = np.dot(wmag, preds_envs.T)
         wfitted = np.dot(wmag, fitted_envs.T)
 
@@ -210,7 +263,7 @@ class MaggingRF_PB(RandomForestRegressor):
 # =======
 # MAXIMIN
 # =======
-class DT4DL:
+class DT4DG:
     """
     Decision Tree for Distribution Generalization
     """
@@ -267,16 +320,20 @@ class DT4DL:
         self,
         y: np.ndarray,
         E: np.ndarray,
-    ) -> float:
+        e_worst_prev: float | None = None,
+    ) -> float | tuple[float, int]:
         """
         Compute the impurity of a node according to the specified criterion.
 
         Args:
             y: Response vector.
             E: Environment labels, only used if criterion is "maximin".
+            e_worst_prev: id of the environment that was worst-case in the previous split.
 
         Returns:
             max_err: Impurity of the node.
+            if self.criterion == "maximin":
+                e_worst: id of the environment that leads to the maximum impurity.
         """
         if self.criterion == "mse":
             max_err = np.sum((y - np.mean(y)) ** 2)
@@ -284,17 +341,24 @@ class DT4DL:
         else:
             max_mean_err = 0
             max_sum_err = 0
+            e_worst = None
+            if e_worst_prev is not None and np.sum(E == e_worst_prev) > 0:
+                pred = np.mean(y[E == e_worst_prev])
+            else:
+                # if e_worst_prev is None, we are in the root node
+                # and the prediction should be the overall mean.
+                pred = np.mean(y)
             for env in np.unique(E):
                 if np.sum(E == env) > 0:
                     y_e = y[E == env]
-                    m_e = np.mean(y_e)
-                    sum_err = np.sum((y_e - m_e) ** 2)
-                    mean_err = np.mean((y_e - m_e) ** 2)
+                    sum_err = np.sum((y_e - pred) ** 2)
+                    mean_err = np.mean((y_e - pred) ** 2)
                     # max_sum_err = max(max_sum_err, sum_err)
                     if mean_err > max_mean_err:
                         max_mean_err = mean_err
                         max_sum_err = sum_err
-            return max_sum_err
+                        e_worst = env
+            return max_sum_err, e_worst
 
     def _split_cost(
         self,
@@ -302,6 +366,7 @@ class DT4DL:
         E: np.ndarray,
         left_idx: np.ndarray,
         right_idx: np.ndarray,
+        e_worst_prev: float | None = None,
     ) -> float:
         """
         Compute the cost of a split.
@@ -311,6 +376,7 @@ class DT4DL:
             E: Environment labels.
             left_idx: Indices of the observations to the left of the split value.
             right_idx: Indices of the observations to the right of the split value.
+            e_worst_prev: id of the environment that was worst-case in the previous split.
 
         Returns:
             cost: Cost due to the split.
@@ -324,10 +390,20 @@ class DT4DL:
         right_y = y[right_idx]
         left_E = E[left_idx]
         right_E = E[right_idx]
-        left_err = self._node_impurity(left_y, left_E)
-        right_err = self._node_impurity(right_y, right_E)
-        cost = (left_err + right_err) / len(y)
-        # cost = left_err + right_err
+        if self.criterion == "mse":
+            left_err = self._node_impurity(left_y, left_E)
+            right_err = self._node_impurity(right_y, right_E)
+            cost = (left_err + right_err) / len(y)
+        else:
+            left_err, e_worst_left = self._node_impurity(
+                left_y, left_E, e_worst_prev
+            )
+            right_err, e_worst_right = self._node_impurity(
+                right_y, right_E, e_worst_prev
+            )
+            n_e_worst_left = np.sum(E[left_idx] == e_worst_left)
+            n_e_worst_right = np.sum(E[right_idx] == e_worst_right)
+            cost = (left_err + right_err) / (n_e_worst_left + n_e_worst_right)
         return cost
 
     def _select_features(
@@ -357,6 +433,7 @@ class DT4DL:
         X: np.ndarray,
         y: np.ndarray,
         E: np.ndarray,
+        e_worst_prev: float | None = None,
     ) -> tuple[int, float, float]:
         """
         Find the best split.
@@ -365,6 +442,7 @@ class DT4DL:
             X: Feature matrix.
             y: Response vector.
             E: Environment labels.
+            e_worst_prev: id of the environment that was worst-case in the previous split.
 
         Returns:
             Tuple of 3 elements:
@@ -392,7 +470,9 @@ class DT4DL:
                 threshold = (X_sorted[i] + X_sorted[i - 1]) / 2
                 left_idx = X[:, feat] <= threshold
                 right_idx = X[:, feat] > threshold
-                cost = self._split_cost(y, E, left_idx, right_idx)
+                cost = self._split_cost(
+                    y, E, left_idx, right_idx, e_worst_prev
+                )
                 if cost < best_cost:
                     best_cost = cost
                     best_feature = feat
@@ -405,6 +485,7 @@ class DT4DL:
         y: np.ndarray,
         E: np.ndarray,
         depth: int,
+        e_worst_prev: float | None = None,
     ) -> dict:
         """
         Build a tree recursively.
@@ -413,17 +494,35 @@ class DT4DL:
             X: Feature matrix.
             y: Response vector.
             E: Environment labels.
+            e_worst_prev: id of the environment that was worst-case in the previous split.
         """
         n = len(y)
         if (
             self.max_depth is not None and depth >= self.max_depth
         ) or n < self.min_samples_split:
-            return {"pred": np.mean(y)}
+            if self.criterion == "mse":
+                pred = np.mean(y)
+            else:
+                if e_worst_prev is not None and np.sum(E == e_worst_prev) > 0:
+                    pred = np.mean(y[E == e_worst_prev])
+                else:
+                    pred = np.mean(y)
+            return {"pred": pred}
 
-        impurity = self._node_impurity(y, E)
-        feat, thr, cost = self._best_split(X, y, E)
-        if cost >= impurity:
-            return {"pred": np.mean(y)}
+        if self.criterion == "mse":
+            impurity = self._node_impurity(y, E)
+            feat, thr, cost = self._best_split(X, y, E)
+            if cost >= impurity:
+                return {"pred": np.mean(y)}
+        else:
+            impurity, e_worst = self._node_impurity(y, E, e_worst_prev)
+            feat, thr, cost = self._best_split(X, y, E, e_worst)
+            if cost >= impurity:
+                if np.sum(E == e_worst_prev) > 0:
+                    pred = np.mean(y[E == e_worst_prev])
+                else:
+                    pred = np.mean(y)
+                return {"pred": pred}
 
         left_idx = X[:, feat] <= thr
         right_idx = X[:, feat] > thr
@@ -432,14 +531,29 @@ class DT4DL:
             np.sum(left_idx) < self.min_samples_leaf
             or np.sum(right_idx) < self.min_samples_leaf
         ):
-            return {"pred": np.mean(y)}
+            if self.criterion == "mse":
+                pred = np.mean(y)
+            else:
+                if np.sum(E == e_worst_prev) > 0:
+                    pred = np.mean(y[E == e_worst_prev])
+                else:
+                    pred = np.mean(y)
+            return {"pred": pred}
 
-        left_tree = self._build_tree(
-            X[left_idx], y[left_idx], E[left_idx], depth + 1
-        )
-        right_tree = self._build_tree(
-            X[right_idx], y[right_idx], E[right_idx], depth + 1
-        )
+        if self.criterion == "mse":
+            left_tree = self._build_tree(
+                X[left_idx], y[left_idx], E[left_idx], depth + 1
+            )
+            right_tree = self._build_tree(
+                X[right_idx], y[right_idx], E[right_idx], depth + 1
+            )
+        else:
+            left_tree = self._build_tree(
+                X[left_idx], y[left_idx], E[left_idx], depth + 1, e_worst
+            )
+            right_tree = self._build_tree(
+                X[right_idx], y[right_idx], E[right_idx], depth + 1, e_worst
+            )
 
         return {
             "feat": feat,
@@ -490,7 +604,7 @@ class DT4DL:
         else:
             E = np.zeros(len(y))
 
-        self.tree = self._build_tree(X, y, E, 0)
+        self.tree = self._build_tree(X, y, E, 0, None)
 
     def predict(
         self,
@@ -511,7 +625,7 @@ class DT4DL:
         return preds
 
 
-class RF4DL:
+class RF4DG:
     """
     Random Forest for Distribution Generalization.
     """
@@ -593,11 +707,11 @@ class RF4DL:
             y: np.ndarray,
             E: np.ndarray,
             bootstrap_idx: np.ndarray,
-        ) -> DT4DL:
+        ) -> DT4DG:
             """
             Fit a Regression tree on a bootstrap sample.
             """
-            tree = DT4DL(
+            tree = DT4DG(
                 self.criterion,
                 self.max_depth,
                 self.min_samples_split,
@@ -623,7 +737,7 @@ class RF4DL:
         else:
             for i in tqdm(range(self.n_estimators), disable=self.disable):
                 bootstrap_idx = rng.choice(n, n, replace=True)
-                tree = DT4DL(
+                tree = DT4DG(
                     self.criterion,
                     self.max_depth,
                     self.min_samples_split,

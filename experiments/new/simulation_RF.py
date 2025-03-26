@@ -10,7 +10,7 @@ from nldg.new.utils import (
     gen_data_isd_v2,
     gen_data_isd_v4,
 )
-from nldg.new.rf import RF4DL, MaggingRF, IsdRF
+from nldg.new.rf import RF4DG, MaggingRF, IsdRF
 from scipy.optimize import minimize
 from tqdm import tqdm
 from experiments.new.utils import (
@@ -146,7 +146,7 @@ def main(
         Etr = np.array(dtr["E"])
 
         # Default RF
-        rf = RF4DL(
+        rf = RF4DG(
             criterion="mse",
             n_estimators=n_estimators,
             min_samples_leaf=min_samples_leaf,
@@ -158,7 +158,7 @@ def main(
         fitted_rf = rf.predict(Xtr)
 
         # Maximin RF
-        maximin_rf = RF4DL(
+        maximin_rf = RF4DG(
             criterion="maximin",
             n_estimators=n_estimators,
             min_samples_leaf=min_samples_leaf,
@@ -180,7 +180,7 @@ def main(
             Xtr_e = Xtr[Etr == env]
             Ytr_e = Ytr[Etr == env]
             Etr_e = Etr[Etr == env]
-            magging_rf = RF4DL(
+            magging_rf = RF4DG(
                 criterion="mse",
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,

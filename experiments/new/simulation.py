@@ -4,9 +4,8 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
 from nldg.new.utils import gen_data_v3, max_mse
-from nldg.new.rf import MaggingRF
-from nldg.new.rf2 import RF4DL
-from scipy.optimize import minimize
+from nldg.new.rf import MaggingRF, RF4DG, MaggingRF_PB
+from adaXT.random_forest import RandomForest
 from tqdm import tqdm
 from experiments.new.utils import (
     plot_mse_r2,
@@ -25,39 +24,41 @@ def main(
     n_test: int,
     train_setting: int,
     test_setting: int,
+    method: int,
     n_estimators: int,
     min_samples_leaf: int,
+    random_state: int,
     results_folder: str,
 ):
     mse_in = {
         "RF": [],
         "MaximinRF": [],
-        "MaggingRF-forest": [],
-        "MaggingRF-trees": [],
+        "MaggingRF-Forest": [],
+        "MaggingRF-Trees": [],
     }
     r2_in = {
         "RF": [],
         "MaximinRF": [],
-        "MaggingRF-forest": [],
-        "MaggingRF-trees": [],
+        "MaggingRF-Forest": [],
+        "MaggingRF-Trees": [],
     }
     mse_out = {
         "RF": [],
         "MaximinRF": [],
-        "MaggingRF-forest": [],
-        "MaggingRF-trees": [],
+        "MaggingRF-Forest": [],
+        "MaggingRF-Trees": [],
     }
     r2_out = {
         "RF": [],
         "MaximinRF": [],
-        "MaggingRF-forest": [],
-        "MaggingRF-trees": [],
+        "MaggingRF-Forest": [],
+        "MaggingRF-Trees": [],
     }
     maxmse = {
         "RF": [],
         "MaximinRF": [],
-        "MaggingRF-forest": [],
-        "MaggingRF-trees": [],
+        "MaggingRF-Forest": [],
+        "MaggingRF-Trees": [],
     }
     # TODO: Maybe in the future we could generalize the code to arbitrary
     #  datasets. At the moment, it only considers 3 environments.
@@ -79,66 +80,75 @@ def main(
         Etr = np.array(dtr["E"])
 
         # Default RF
-        rf = RF4DL(
-            criterion="mse",
-            n_estimators=n_estimators,
-            min_samples_leaf=min_samples_leaf,
-            disable=True,
-            parallel=True,
-        )
-        rf.fit(Xtr, Ytr, Etr)
-        preds_rf = rf.predict(Xts)
-        fitted_rf = rf.predict(Xtr)
-
-        # Maximin RF
-        maximin_rf = RF4DL(
-            criterion="maximin",
-            n_estimators=n_estimators,
-            min_samples_leaf=min_samples_leaf,
-            disable=True,
-            parallel=True,
-        )
-        maximin_rf.fit(Xtr, Ytr, Etr)
-        preds_maximin_rf = maximin_rf.predict(Xts)
-        fitted_maximin_rf = maximin_rf.predict(Xtr)
-
-        # Magging RF
-        n_envs = len(np.unique(Etr))
-        winit = np.array([1 / n_envs] * n_envs)
-        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
-        bounds = [[0, 1] for _ in range(n_envs)]
-        preds_envs = []
-        fitted_envs = []
-        for env in np.unique(Etr):
-            Xtr_e = Xtr[Etr == env]
-            Ytr_e = Ytr[Etr == env]
-            Etr_e = Etr[Etr == env]
-            magging_rf = RF4DL(
+        if method == 1:
+            rf = RF4DG(
                 criterion="mse",
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,
                 disable=True,
                 parallel=True,
+                random_state=random_state,
             )
-            magging_rf.fit(Xtr_e, Ytr_e, Etr_e)
-            preds_envs.append(magging_rf.predict(Xts))
-            fitted_envs.append(magging_rf.predict(Xtr))
-        preds_envs = np.column_stack(preds_envs)
-        fitted_envs = np.column_stack(fitted_envs)
-        wmag = minimize(
-            objective,
-            winit,
-            args=(fitted_envs,),
-            bounds=bounds,
-            constraints=constraints,
-        ).x
-        weights_magging[i, :] = wmag
-        preds_magging_rf = np.dot(wmag, preds_envs.T)
-        fitted_magging_rf = np.dot(wmag, fitted_envs.T)
+            rf.fit(Xtr, Ytr, Etr)
+        else:
+            rf = RandomForest(
+                forest_type="Regression",
+                n_estimators=n_estimators,
+                min_samples_leaf=min_samples_leaf,
+                seed=random_state,
+            )
+            rf.fit(Xtr, Ytr)
+        preds_rf = rf.predict(Xts)
+        fitted_rf = rf.predict(Xtr)
+
+        # Maximin RF
+        if method == 1:
+            maximin_rf = RF4DG(
+                criterion="maximin",
+                n_estimators=n_estimators,
+                min_samples_leaf=min_samples_leaf,
+                disable=True,
+                parallel=True,
+                random_state=random_state,
+            )
+            maximin_rf.fit(Xtr, Ytr, Etr)
+        else:
+            maximin_rf = RandomForest(
+                forest_type="MaximinRegression",
+                n_estimators=n_estimators,
+                min_samples_leaf=min_samples_leaf,
+                seed=random_state,
+            )
+            maximin_rf.fit(Xtr, Ytr, Etr)
+        preds_maximin_rf = maximin_rf.predict(Xts)
+        fitted_maximin_rf = maximin_rf.predict(Xtr)
+
+        # Magging RF
+        if method == 1:
+            magging_rf = MaggingRF_PB(
+                n_estimators=n_estimators,
+                min_samples_leaf=min_samples_leaf,
+                disable=True,
+                parallel=True,
+                random_state=random_state,
+            )
+        else:
+            magging_rf = MaggingRF_PB(
+                n_estimators=n_estimators,
+                min_samples_leaf=min_samples_leaf,
+                backend="adaXT",
+                random_state=random_state,
+            )
+        fitted_magging_rf, preds_magging_rf = magging_rf.fit_predict_magging(
+            Xtr, Ytr, Etr, Xts
+        )
+        weights_magging[i, :] = magging_rf.get_weights()
 
         # Magging RF 2
         magging_rf_2 = MaggingRF(
-            n_estimators=n_estimators, min_samples_leaf=min_samples_leaf
+            n_estimators=n_estimators,
+            min_samples_leaf=min_samples_leaf,
+            random_state=random_state,
         )
         magging_rf_2.fit(Xtr, Ytr)
         preds_magging_rf_2, _ = magging_rf_2.predict_maximin(Xtr, Xts)
@@ -147,36 +157,36 @@ def main(
         # Save results
         mse_in["RF"].append(mean_squared_error(Ytr, fitted_rf))
         mse_in["MaximinRF"].append(mean_squared_error(Ytr, fitted_maximin_rf))
-        mse_in["MaggingRF-forest"].append(
+        mse_in["MaggingRF-Forest"].append(
             mean_squared_error(Ytr, fitted_magging_rf)
         )
-        mse_in["MaggingRF-trees"].append(
+        mse_in["MaggingRF-Trees"].append(
             mean_squared_error(Ytr, fitted_magging_rf_2)
         )
 
         r2_in["RF"].append(r2_score(Ytr, fitted_rf))
         r2_in["MaximinRF"].append(r2_score(Ytr, fitted_maximin_rf))
-        r2_in["MaggingRF-forest"].append(r2_score(Ytr, fitted_magging_rf))
-        r2_in["MaggingRF-trees"].append(r2_score(Ytr, fitted_magging_rf_2))
+        r2_in["MaggingRF-Forest"].append(r2_score(Ytr, fitted_magging_rf))
+        r2_in["MaggingRF-Trees"].append(r2_score(Ytr, fitted_magging_rf_2))
 
         mse_out["RF"].append(mean_squared_error(Yts, preds_rf))
         mse_out["MaximinRF"].append(mean_squared_error(Yts, preds_maximin_rf))
-        mse_out["MaggingRF-forest"].append(
+        mse_out["MaggingRF-Forest"].append(
             mean_squared_error(Yts, preds_magging_rf)
         )
-        mse_out["MaggingRF-trees"].append(
+        mse_out["MaggingRF-Trees"].append(
             mean_squared_error(Yts, preds_magging_rf_2)
         )
 
         r2_out["RF"].append(r2_score(Yts, preds_rf))
         r2_out["MaximinRF"].append(r2_score(Yts, preds_maximin_rf))
-        r2_out["MaggingRF-forest"].append(r2_score(Yts, preds_magging_rf))
-        r2_out["MaggingRF-trees"].append(r2_score(Yts, preds_magging_rf_2))
+        r2_out["MaggingRF-Forest"].append(r2_score(Yts, preds_magging_rf))
+        r2_out["MaggingRF-Trees"].append(r2_score(Yts, preds_magging_rf_2))
 
         maxmse["RF"].append(max_mse(Ytr, fitted_rf, Etr))
         maxmse["MaximinRF"].append(max_mse(Ytr, fitted_maximin_rf, Etr))
-        maxmse["MaggingRF-forest"].append(max_mse(Ytr, fitted_magging_rf, Etr))
-        maxmse["MaggingRF-trees"].append(
+        maxmse["MaggingRF-Forest"].append(max_mse(Ytr, fitted_magging_rf, Etr))
+        maxmse["MaggingRF-Trees"].append(
             max_mse(Ytr, fitted_magging_rf_2, Etr)
         )
 
@@ -247,6 +257,12 @@ if __name__ == "__main__":
         help="Test data setting. Value in {1,2} (default: 1)",
     )
     parser.add_argument(
+        "--method",
+        type=int,
+        default=1,
+        help="1 for the inefficient version, 2 for the efficient one (default: 1)",
+    )
+    parser.add_argument(
         "--n_estimators",
         type=int,
         default=50,
@@ -257,6 +273,12 @@ if __name__ == "__main__":
         type=int,
         default=10,
         help="The minimum number of observations required to be at a leaf node. (default: 10)",
+    )
+    parser.add_argument(
+        "--random_state",
+        type=int,
+        default=0,
+        help="Random state used for the Random Forest. (default: 0)",
     )
     parser.add_argument(
         "--results_folder",
@@ -272,7 +294,9 @@ if __name__ == "__main__":
         args.n_test,
         args.train_setting,
         args.test_setting,
+        args.method,
         args.n_estimators,
         args.min_samples_leaf,
+        args.random_state,
         args.results_folder,
     )

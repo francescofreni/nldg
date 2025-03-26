@@ -5,7 +5,7 @@ import pandas as pd
 import copy
 from sklearn.metrics import r2_score, mean_squared_error
 from nldg.new.utils import gen_data_isd_v3
-from nldg.new.rf import RF4DL, MaggingRF, IsdRF
+from nldg.new.rf import RF4DG, MaggingRF, IsdRF
 from sklearn.ensemble import RandomForestRegressor
 from scipy.optimize import minimize
 from tqdm import tqdm
@@ -59,7 +59,7 @@ def main(
         Etr = np.array(dtr["E"])
 
         # Default RF
-        rf = RF4DL(
+        rf = RF4DG(
             criterion="mse",
             n_estimators=n_estimators,
             min_samples_leaf=min_samples_leaf,
@@ -70,7 +70,7 @@ def main(
         fitted_rf = rf.predict(Xtr)
 
         # Maximin RF
-        maximin_rf = RF4DL(
+        maximin_rf = RF4DG(
             criterion="maximin",
             n_estimators=n_estimators,
             min_samples_leaf=min_samples_leaf,
@@ -91,7 +91,7 @@ def main(
             Xtr_e = Xtr[Etr == env]
             Ytr_e = Ytr[Etr == env]
             Etr_e = Etr[Etr == env]
-            magging_rf = RF4DL(
+            magging_rf = RF4DG(
                 criterion="mse",
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,

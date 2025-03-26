@@ -105,16 +105,16 @@ def plot_mse_r2(
         labels = [
             r"$\mathsf{RF}$",
             r"$\mathsf{MaximinRF}$",
-            r"$\mathsf{MaggingRF-forest}$",
-            r"$\mathsf{MaggingRF-trees}$",
+            r"$\mathsf{MaggingRF-Forest}$",
+            r"$\mathsf{MaggingRF-Trees}$",
             r"$\mathsf{IsdRF}$",
         ]
     else:
         labels = [
             r"$\mathsf{RF}$",
             r"$\mathsf{MaximinRF}$",
-            r"$\mathsf{MaggingRF-forest}$",
-            r"$\mathsf{MaggingRF-trees}$",
+            r"$\mathsf{MaggingRF-Forest}$",
+            r"$\mathsf{MaggingRF-Trees}$",
         ]
     ax[0].set_xticklabels(labels)
     ax[1].set_xticklabels(labels)
@@ -189,8 +189,8 @@ def plot_maxmse(
             [
                 r"$\mathsf{RF}$",
                 r"$\mathsf{MaximinRF}$",
-                r"$\mathsf{MaggingRF-forest}$",
-                r"$\mathsf{MaggingRF-trees}$",
+                r"$\mathsf{MaggingRF-Forest}$",
+                r"$\mathsf{MaggingRF-Trees}$",
                 r"$\mathsf{IsdRF}$",
             ]
         )
@@ -199,8 +199,8 @@ def plot_maxmse(
             [
                 r"$\mathsf{RF}$",
                 r"$\mathsf{MaximinRF}$",
-                r"$\mathsf{MaggingRF-forest}$",
-                r"$\mathsf{MaggingRF-trees}$",
+                r"$\mathsf{MaggingRF-Forest}$",
+                r"$\mathsf{MaggingRF-Trees}$",
             ]
         )
 
@@ -264,8 +264,8 @@ def plot_invrec(
         [
             r"$\mathsf{RF}$",
             r"$\mathsf{MaximinRF}$",
-            r"$\mathsf{MaggingRF-forest}$",
-            r"$\mathsf{MaggingRF-trees}$",
+            r"$\mathsf{MaggingRF-Forest}$",
+            r"$\mathsf{MaggingRF-Trees}$",
             r"$\mathsf{IsdRF}$",
         ]
     )
@@ -437,8 +437,8 @@ def plot_mse_r2_adapt(
     labels = [
         r"$\mathsf{RF}$",
         r"$\mathsf{MaximinRF}$",
-        r"$\mathsf{MaggingRF-forest}$",
-        r"$\mathsf{MaggingRF-trees}$",
+        r"$\mathsf{MaggingRF-Forest}$",
+        r"$\mathsf{MaggingRF-Trees}$",
         r"$\mathsf{IsdRF}$",
         r"$\mathsf{IsdRFad}$",
         r"$\mathsf{RFad}$",
