@@ -6,6 +6,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from nldg.new.utils import gen_data_v3, max_mse
 from nldg.new.rf import MaggingRF, RF4DG, MaggingRF_PB
 from adaXT.random_forest import RandomForest
+from sklearn.ensemble import RandomForestRegressor
 from tqdm import tqdm
 from experiments.new.utils import (
     plot_mse_r2,
@@ -86,12 +87,17 @@ def main(
             )
             rf.fit(Xtr, Ytr, Etr)
         else:
-            rf = RandomForest(
-                forest_type="Regression",
+            rf = RandomForestRegressor(
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,
-                seed=i,
+                random_state=i,
             )
+            # rf = RandomForest(
+            #     forest_type="Regression",
+            #     n_estimators=n_estimators,
+            #     min_samples_leaf=min_samples_leaf,
+            #     seed=i,
+            # )
             rf.fit(Xtr, Ytr)
         preds_rf = rf.predict(Xts)
         fitted_rf = rf.predict(Xtr)
@@ -131,9 +137,15 @@ def main(
             magging_rf = MaggingRF_PB(
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,
-                backend="adaXT",
+                backend="sklearn",
                 random_state=i,
             )
+            # magging_rf = MaggingRF_PB(
+            #     n_estimators=n_estimators,
+            #     min_samples_leaf=min_samples_leaf,
+            #     backend="adaXT",
+            #     random_state=i,
+            # )
         fitted_magging_rf, preds_magging_rf = magging_rf.fit_predict_magging(
             Xtr, Ytr, Etr, Xts
         )
