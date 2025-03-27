@@ -23,7 +23,6 @@ def main(
     method: int,
     n_estimators: int,
     min_samples_leaf: int,
-    random_state: int,
     results_folder: str,
 ):
     mse_in = {
@@ -83,7 +82,7 @@ def main(
                 min_samples_leaf=min_samples_leaf,
                 disable=True,
                 parallel=True,
-                random_state=random_state,
+                random_state=i,
             )
             rf.fit(Xtr, Ytr, Etr)
         else:
@@ -91,7 +90,7 @@ def main(
                 forest_type="Regression",
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,
-                seed=random_state,
+                seed=i,
             )
             rf.fit(Xtr, Ytr)
         preds_rf = rf.predict(Xts)
@@ -105,7 +104,7 @@ def main(
                 min_samples_leaf=min_samples_leaf,
                 disable=True,
                 parallel=True,
-                random_state=random_state,
+                random_state=i,
             )
             maximin_rf.fit(Xtr, Ytr, Etr)
         else:
@@ -113,7 +112,7 @@ def main(
                 forest_type="MaximinRegression",
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,
-                seed=random_state,
+                seed=i,
             )
             maximin_rf.fit(Xtr, Ytr, Etr)
         preds_maximin_rf = maximin_rf.predict(Xts)
@@ -126,14 +125,14 @@ def main(
                 min_samples_leaf=min_samples_leaf,
                 disable=True,
                 parallel=True,
-                random_state=random_state,
+                random_state=i,
             )
         else:
             magging_rf = MaggingRF_PB(
                 n_estimators=n_estimators,
                 min_samples_leaf=min_samples_leaf,
                 backend="adaXT",
-                random_state=random_state,
+                random_state=i,
             )
         fitted_magging_rf, preds_magging_rf = magging_rf.fit_predict_magging(
             Xtr, Ytr, Etr, Xts
@@ -144,7 +143,7 @@ def main(
         magging_rf_2 = MaggingRF(
             n_estimators=n_estimators,
             min_samples_leaf=min_samples_leaf,
-            random_state=random_state,
+            random_state=i,
         )
         magging_rf_2.fit(Xtr, Ytr)
         preds_magging_rf_2, _ = magging_rf_2.predict_maximin(Xtr, Xts)
@@ -271,12 +270,6 @@ if __name__ == "__main__":
         help="The minimum number of observations required to be at a leaf node. (default: 10)",
     )
     parser.add_argument(
-        "--random_state",
-        type=int,
-        default=42,
-        help="Random state used for the Random Forest. (default: 42)",
-    )
-    parser.add_argument(
         "--results_folder",
         type=str,
         default="results",
@@ -293,6 +286,5 @@ if __name__ == "__main__":
         args.method,
         args.n_estimators,
         args.min_samples_leaf,
-        args.random_state,
         args.results_folder,
     )

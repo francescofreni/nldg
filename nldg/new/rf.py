@@ -18,7 +18,7 @@ class MaggingRF(RandomForestRegressor):
     def __init__(
         self,
         n_estimators: int = 100,
-        random_state: int = 42,
+        random_state: int | None = None,
         max_depth: int | None = None,
         max_features: int | str | None | float = 1.0,
         min_samples_split: float | int = 2,
@@ -275,7 +275,7 @@ class DT4DG:
         min_samples_split: float | int = 2,
         min_samples_leaf: float | int = 1,
         max_features: int | float | str | None = None,
-        random_state: int = 42,
+        random_state: int | None = None,
     ) -> None:
         """
         Initialize the class instance.
@@ -401,10 +401,10 @@ class DT4DG:
             right_err, e_worst_right = self._node_impurity(
                 right_y, right_E, e_worst_prev
             )
-            # n_e_worst_left = np.sum(E[left_idx] == e_worst_left)
-            # n_e_worst_right = np.sum(E[right_idx] == e_worst_right)
-            # cost = (left_err + right_err) / (n_e_worst_left + n_e_worst_right)
-            cost = (left_err + right_err) / len(y)
+            n_e_worst_left = np.sum(left_E == e_worst_left)
+            n_e_worst_right = np.sum(right_E == e_worst_right)
+            cost = (left_err + right_err) / (n_e_worst_left + n_e_worst_right)
+            # cost = (left_err + right_err) / len(y)
         return cost
 
     def _select_features(
@@ -639,7 +639,7 @@ class RF4DG:
         min_samples_split: float | int = 2,
         min_samples_leaf: float | int = 1,
         max_features: int | float | str | None = None,
-        random_state: int = 42,
+        random_state: int | None = None,
         disable: bool = False,
         parallel: bool = False,
     ) -> None:

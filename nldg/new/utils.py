@@ -214,11 +214,11 @@ def gen_data_v3(
                 raise ValueError("Invalid environment ID")
         else:
             if env_id == 0:
-                Y = np.sin(X[:, 0]) + 4 * X[:, 1] + eps
+                Y = 5 * np.sin(X[:, 0]) + 5 * X[:, 1] + eps
             elif env_id == 1:
-                Y = np.sin(X[:, 0]) - 4 * X[:, 1] + eps
+                Y = 5 * np.sin(X[:, 0]) - 5 * X[:, 1] + eps
             elif env_id == 2:
-                Y = np.sin(X[:, 0]) + 4 * X[:, 1] ** 2 + eps
+                Y = 5 * np.sin(X[:, 0]) + 5 * X[:, 1] ** 2 + eps
             else:
                 raise ValueError("Invalid environment ID")
 
@@ -237,12 +237,22 @@ def gen_data_v3(
         if train_setting == 1:
             Y = 5 * np.sin(X[:, 0]) + eps  # results_1, results_3, results_4
         else:
-            Y = np.sin(X[:, 0]) + eps
+            Y = 5 * np.sin(X[:, 0]) + eps
     else:
         if train_setting == 1:
-            Y = 5 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps  # results_2
+            Y = (
+                5 * np.sin(X[:, 0])
+                + 3 * np.cos(X[:, 0])
+                + 4 * np.cos(X[:, 1])
+                + eps
+            )  # results_2
         else:
-            Y = np.sin(X[:, 0]) + 3 * np.cos(X[:, 0]) + eps
+            Y = (
+                5 * np.sin(X[:, 0])
+                + 3 * np.cos(X[:, 0])
+                + 4 * np.cos(X[:, 1])
+                + eps
+            )
     df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
 
     return df_train, df_test
