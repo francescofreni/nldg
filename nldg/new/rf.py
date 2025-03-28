@@ -401,10 +401,10 @@ class DT4DG:
             right_err, e_worst_right = self._node_impurity(
                 right_y, right_E, e_worst_prev
             )
-            # n_e_worst_left = np.sum(left_E == e_worst_left)
-            # n_e_worst_right = np.sum(right_E == e_worst_right)
-            # cost = (left_err + right_err) / (n_e_worst_left + n_e_worst_right)
-            cost = (left_err + right_err) / len(y)
+            n_e_worst_left = np.sum(left_E == e_worst_left)
+            n_e_worst_right = np.sum(right_E == e_worst_right)
+            cost = (left_err + right_err) / (n_e_worst_left + n_e_worst_right)
+            # cost = (left_err + right_err) / len(y)
         return cost
 
     def _select_features(
