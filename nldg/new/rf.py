@@ -316,6 +316,54 @@ class DT4DG:
         self.random_state = random_state
         self.tree = None
 
+    # def _node_impurity(
+    #    self,
+    #    y: np.ndarray,
+    #    E: np.ndarray,
+    #    e_worst_prev: float | None = None,
+    # ) -> float | tuple[float, int]:
+    #    """
+    #    Compute the impurity of a node according to the specified criterion.
+
+    #    Args:
+    #        y: Response vector.
+    #        E: Environment labels, only used if criterion is "maximin".
+    #        e_worst_prev: id of the environment that was worst-case in the previous split.
+
+    #    Returns:
+    #        max_err: Impurity of the node.
+    #        if self.criterion == "maximin":
+    #            e_worst: id of the environment that leads to the maximum impurity.
+    #    """
+    #    if self.criterion == "mse":
+    #        max_err = np.sum((y - np.mean(y)) ** 2)
+    #        return max_err
+    #    else:
+    #        max_mean_err = 0
+    #        max_sum_err = 0
+    #        e_worst = None
+    #        if e_worst_prev is not None and np.sum(E == e_worst_prev) > 0:
+    #            pred = np.mean(y[E == e_worst_prev])
+    #        else:
+    #            # if e_worst_prev is None, we are in the root node
+    #            # and the prediction should be the overall mean.
+    #            pred = np.mean(y)
+    #        for env in np.unique(E):
+    #            if np.sum(E == env) > 0:
+    #                y_e = y[E == env]
+    #                sum_err = np.sum((y_e - pred) ** 2)
+    #                mean_err = np.mean((y_e - pred) ** 2)
+    #                # max_sum_err = max(max_sum_err, sum_err)
+    #                if mean_err > max_mean_err:
+    #                    max_mean_err = mean_err
+    #                    max_sum_err = sum_err
+    #                    e_worst = env
+    #        return max_sum_err, e_worst
+
+    @staticmethod
+    def xpl_var(Ytrue, Ypred):
+        return np.mean(Ytrue**2) - np.mean((Ytrue - Ypred) ** 2)
+
     def _node_impurity(
         self,
         y: np.ndarray,
@@ -339,26 +387,27 @@ class DT4DG:
             max_err = np.sum((y - np.mean(y)) ** 2)
             return max_err
         else:
-            max_mean_err = 0
-            max_sum_err = 0
+            max_neg_xpl_var = 0
+            max_neg_xpl_var_sum = 0
             e_worst = None
             if e_worst_prev is not None and np.sum(E == e_worst_prev) > 0:
                 pred = np.mean(y[E == e_worst_prev])
+                xv = self.xpl_var(y[E == e_worst_prev], pred)
+                if xv < 0:
+                    pred = 0
             else:
-                # if e_worst_prev is None, we are in the root node
-                # and the prediction should be the overall mean.
                 pred = np.mean(y)
             for env in np.unique(E):
                 if np.sum(E == env) > 0:
                     y_e = y[E == env]
-                    sum_err = np.sum((y_e - pred) ** 2)
-                    mean_err = np.mean((y_e - pred) ** 2)
-                    # max_sum_err = max(max_sum_err, sum_err)
-                    if mean_err > max_mean_err:
-                        max_mean_err = mean_err
-                        max_sum_err = sum_err
+                    n_e = len(y_e)
+                    ngv = -self.xpl_var(y_e, pred)
+                    ngv_sum = ngv * n_e
+                    if ngv > max_neg_xpl_var:
+                        max_neg_xpl_var = ngv
+                        max_neg_xpl_var_sum = ngv_sum
                         e_worst = env
-            return max_sum_err, e_worst
+            return max_neg_xpl_var_sum, e_worst
 
     def _split_cost(
         self,
@@ -480,6 +529,89 @@ class DT4DG:
                     best_threshold = threshold
         return best_feature, best_threshold, best_cost
 
+    # def _build_tree(
+    #    self,
+    #    X: np.ndarray,
+    #    y: np.ndarray,
+    #    E: np.ndarray,
+    #    depth: int,
+    #    e_worst_prev: float | None = None,
+    # ) -> dict:
+    #    """
+    #    Build a tree recursively.
+
+    #    Args:
+    #        X: Feature matrix.
+    #        y: Response vector.
+    #        E: Environment labels.
+    #        e_worst_prev: id of the environment that was worst-case in the previous split.
+    #    """
+    #    n = len(y)
+    #    if (
+    #        self.max_depth is not None and depth >= self.max_depth
+    #    ) or n < self.min_samples_split:
+    #        if self.criterion == "mse":
+    #            pred = np.mean(y)
+    #        else:
+    #            if e_worst_prev is not None and np.sum(E == e_worst_prev) > 0:
+    #                pred = np.mean(y[E == e_worst_prev])
+    #            else:
+    #                pred = np.mean(y)
+    #        return {"pred": pred}
+
+    #    if self.criterion == "mse":
+    #        impurity = self._node_impurity(y, E)
+    #        feat, thr, cost = self._best_split(X, y, E)
+    #        if cost >= impurity:
+    #            return {"pred": np.mean(y)}
+    #    else:
+    #        impurity, e_worst = self._node_impurity(y, E, e_worst_prev)
+    #        feat, thr, cost = self._best_split(X, y, E, e_worst)
+    #        if cost >= impurity:
+    #            if np.sum(E == e_worst_prev) > 0:
+    #                pred = np.mean(y[E == e_worst_prev])
+    #            else:
+    #                pred = np.mean(y)
+    #            return {"pred": pred}
+
+    #    left_idx = X[:, feat] <= thr
+    #    right_idx = X[:, feat] > thr
+
+    #    if (
+    #        np.sum(left_idx) < self.min_samples_leaf
+    #        or np.sum(right_idx) < self.min_samples_leaf
+    #    ):
+    #        if self.criterion == "mse":
+    #            pred = np.mean(y)
+    #        else:
+    #            if np.sum(E == e_worst_prev) > 0:
+    #                pred = np.mean(y[E == e_worst_prev])
+    #            else:
+    #                pred = np.mean(y)
+    #        return {"pred": pred}
+
+    #    if self.criterion == "mse":
+    #        left_tree = self._build_tree(
+    #            X[left_idx], y[left_idx], E[left_idx], depth + 1
+    #        )
+    #        right_tree = self._build_tree(
+    #            X[right_idx], y[right_idx], E[right_idx], depth + 1
+    #        )
+    #    else:
+    #        left_tree = self._build_tree(
+    #            X[left_idx], y[left_idx], E[left_idx], depth + 1, e_worst
+    #        )
+    #        right_tree = self._build_tree(
+    #            X[right_idx], y[right_idx], E[right_idx], depth + 1, e_worst
+    #        )
+
+    #    return {
+    #        "feat": feat,
+    #        "thr": thr,
+    #        "left": left_tree,
+    #        "right": right_tree,
+    #    }
+
     def _build_tree(
         self,
         X: np.ndarray,
@@ -506,6 +638,9 @@ class DT4DG:
             else:
                 if e_worst_prev is not None and np.sum(E == e_worst_prev) > 0:
                     pred = np.mean(y[E == e_worst_prev])
+                    xv = self.xpl_var(y[E == e_worst_prev], pred)
+                    if xv < 0:
+                        pred = 0
                 else:
                     pred = np.mean(y)
             return {"pred": pred}
@@ -521,6 +656,9 @@ class DT4DG:
             if cost >= impurity:
                 if np.sum(E == e_worst_prev) > 0:
                     pred = np.mean(y[E == e_worst_prev])
+                    xv = self.xpl_var(y[E == e_worst_prev], pred)
+                    if xv < 0:
+                        pred = 0
                 else:
                     pred = np.mean(y)
                 return {"pred": pred}
@@ -537,6 +675,9 @@ class DT4DG:
             else:
                 if np.sum(E == e_worst_prev) > 0:
                     pred = np.mean(y[E == e_worst_prev])
+                    xv = self.xpl_var(y[E == e_worst_prev], pred)
+                    if xv < 0:
+                        pred = 0
                 else:
                     pred = np.mean(y)
             return {"pred": pred}
