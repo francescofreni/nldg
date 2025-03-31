@@ -144,7 +144,7 @@ def plot_mse_r2(
     plt.close()
 
 
-def plot_maxmse(
+def plot_minxplvar(
     maxmse_df: pd.DataFrame,
     name_plot: str,
     plots_folder: str,
@@ -172,12 +172,12 @@ def plot_maxmse(
 
     fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
     fig.suptitle(
-        r"Maximum $\mathsf{MSE}$ across environments",
+        r"Minimal explained variance across environments",
         fontsize=22,
         fontweight="bold",
     )
 
-    vp_maxmse = ax.violinplot(
+    vp_minxplvar = ax.violinplot(
         [maxmse_df.iloc[:, i] for i in range(n_methods)],
         showmedians=True,
         showextrema=False,
@@ -186,14 +186,14 @@ def plot_maxmse(
     )
 
     # Set colors for the violins
-    for i, vp in enumerate(vp_maxmse["bodies"]):
+    for i, vp in enumerate(vp_minxplvar["bodies"]):
         vp.set_facecolor(c[i])
         vp.set_edgecolor(c[i])
         vp.set_alpha(0.7)
 
     # Customize the mean markers
-    vp_maxmse["cmedians"].set_color(c)
-    vp_maxmse["cmedians"].set_linewidth(2.5)
+    vp_minxplvar["cmedians"].set_color(c)
+    vp_minxplvar["cmedians"].set_linewidth(2.5)
 
     # Labels and formatting
     ax.set_ylabel(r"$\mathsf{MSE}$")

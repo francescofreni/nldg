@@ -3,14 +3,14 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
-from nldg.new.utils import gen_data_v3, max_mse
+from nldg.new.utils import gen_data_v3, max_mse, min_xplvar
 from nldg.new.rf import MaggingRF, RF4DG, MaggingRF_PB
 from adaXT.random_forest import RandomForest
 from sklearn.ensemble import RandomForestRegressor
 from tqdm import tqdm
 from experiments.new.utils import (
     plot_mse_r2,
-    plot_maxmse,
+    plot_minxplvar,
     plot_weights_magging,
 )
 
@@ -50,7 +50,7 @@ def main(
         "MaggingRF-Forest": [],
         "MaggingRF-Trees": [],
     }
-    maxmse = {
+    minxplvar = {
         "RF": [],
         "MaximinRF": [],
         "MaggingRF-Forest": [],
@@ -190,11 +190,13 @@ def main(
         r2_out["MaggingRF-Forest"].append(r2_score(Yts, preds_magging_rf))
         r2_out["MaggingRF-Trees"].append(r2_score(Yts, preds_magging_rf_2))
 
-        maxmse["RF"].append(max_mse(Ytr, fitted_rf, Etr))
-        maxmse["MaximinRF"].append(max_mse(Ytr, fitted_maximin_rf, Etr))
-        maxmse["MaggingRF-Forest"].append(max_mse(Ytr, fitted_magging_rf, Etr))
-        maxmse["MaggingRF-Trees"].append(
-            max_mse(Ytr, fitted_magging_rf_2, Etr)
+        minxplvar["RF"].append(min_xplvar(Ytr, fitted_rf, Etr))
+        minxplvar["MaximinRF"].append(min_xplvar(Ytr, fitted_maximin_rf, Etr))
+        minxplvar["MaggingRF-Forest"].append(
+            min_xplvar(Ytr, fitted_magging_rf, Etr)
+        )
+        minxplvar["MaggingRF-Trees"].append(
+            min_xplvar(Ytr, fitted_magging_rf_2, Etr)
         )
 
     # Plot and save
@@ -202,7 +204,7 @@ def main(
     r2_in_df = pd.DataFrame(r2_in)
     mse_out_df = pd.DataFrame(mse_out)
     r2_out_df = pd.DataFrame(r2_out)
-    maxmse_df = pd.DataFrame(maxmse)
+    minxplvar_df = pd.DataFrame(minxplvar)
     weights_magging = pd.DataFrame(weights_magging)
 
     results_dir = os.path.join(os.path.dirname(__file__), results_folder)
@@ -216,7 +218,7 @@ def main(
         out=False,
     )
     plot_mse_r2(mse_out_df, r2_out_df, "sim_mse_r2_out.pdf", results_dir)
-    plot_maxmse(maxmse_df, "sim_maxmse.pdf", results_dir)
+    plot_minxplvar(minxplvar_df, "sim_minxplvar.pdf", results_dir)
     plot_weights_magging(
         weights_magging, "sim_weights_magging.pdf", results_dir
     )
@@ -225,7 +227,9 @@ def main(
     r2_in_df.to_csv(os.path.join(results_dir, "r2_in.csv"), index=False)
     mse_out_df.to_csv(os.path.join(results_dir, "mse_out.csv"), index=False)
     r2_out_df.to_csv(os.path.join(results_dir, "r2_out.csv"), index=False)
-    maxmse_df.to_csv(os.path.join(results_dir, "maxmse.csv"), index=False)
+    minxplvar_df.to_csv(
+        os.path.join(results_dir, "min_xpl_var.csv"), index=False
+    )
     weights_magging.to_csv(
         os.path.join(results_dir, "weights_magging.csv"), index=False
     )

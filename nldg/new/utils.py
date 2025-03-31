@@ -604,3 +604,36 @@ def max_mse(
             print(f"Environment {env} MSE: {mse}")
         maxmse = max(maxmse, mse)
     return maxmse
+
+
+def min_xplvar(
+    Ytrue: np.ndarray,
+    Ypred: np.ndarray,
+    Env: np.ndarray,
+    verbose: bool = False,
+) -> float:
+    """
+    Compute the minimum explained variance across environments.
+
+    For each environment, the explained variance is computed as:
+        EV = mean(Ytrue^2) - mean((Ytrue - Ypred)^2)
+    This function returns the minimum EV across all environments.
+
+    Args:
+        Ytrue (np.ndarray): True target values.
+        Ypred (np.ndarray): Predicted target values.
+        Env (np.ndarray): Environment labels for each sample.
+        verbose (bool): Whether to print the explained variance for each environment.
+
+    Returns:
+        float: Minimum explained variance across environments.
+    """
+    min_ev = float("inf")
+    for env in np.unique(Env):
+        Ytrue_e = Ytrue[Env == env]
+        Ypred_e = Ypred[Env == env]
+        ev = np.mean(Ytrue_e**2) - np.mean((Ytrue_e - Ypred_e) ** 2)
+        if verbose:
+            print(f"Environment {env} explained variance: {ev}")
+        min_ev = min(min_ev, ev)
+    return min_ev
