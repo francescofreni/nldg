@@ -141,15 +141,15 @@ def main(
         r2_in["MaximinNN"].append(r2_score(Ytr, fitted_maximin_nn))
         r2_in["MaggingNN"].append(r2_score(Ytr, fitted_magging_nn))
 
-        mse_out["nnNN"].append(mean_squared_error(Yts, preds_nn))
+        mse_out["NN"].append(mean_squared_error(Yts, preds_nn))
         mse_out["MaximinNN"].append(mean_squared_error(Yts, preds_maximin_nn))
         mse_out["MaggingNN"].append(mean_squared_error(Yts, preds_magging_nn))
 
-        r2_out["nnNN"].append(r2_score(Yts, preds_nn))
+        r2_out["NN"].append(r2_score(Yts, preds_nn))
         r2_out["MaximinNN"].append(r2_score(Yts, preds_maximin_nn))
         r2_out["MaggingNN"].append(r2_score(Yts, preds_magging_nn))
 
-        maxmse["nnNN"].append(max_mse(Ytr, fitted_nn, Etr))
+        maxmse["NN"].append(max_mse(Ytr, fitted_nn, Etr))
         maxmse["MaximinNN"].append(max_mse(Ytr, fitted_maximin_nn, Etr))
         maxmse["MaggingNN"].append(max_mse(Ytr, fitted_magging_nn, Etr))
 
