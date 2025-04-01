@@ -265,7 +265,7 @@ def plot_maxmse(
     if isd:
         n_methods = 5
     elif nn:
-        n_methods = 3
+        n_methods = 4
     else:
         n_methods = 4
 
@@ -313,6 +313,7 @@ def plot_maxmse(
                 r"$\mathsf{NN}$",
                 r"$\mathsf{MaximinNN}$",
                 r"$\mathsf{MaggingNN}$",
+                r"$\mathsf{GroupDRO}$",
             ]
         )
     else:

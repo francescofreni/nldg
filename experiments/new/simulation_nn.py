@@ -7,7 +7,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from scipy.optimize import minimize
 from nldg.new.utils import gen_data_v3, max_mse
-from nldg.new.train_nn import train_model
+from nldg.new.train_nn import train_model, train_model_GDRO, predict_GDRO
 from tqdm import tqdm
 from experiments.new.utils import (
     plot_mse_r2,
@@ -33,26 +33,31 @@ def main(
         "NN": [],
         "MaximinNN": [],
         "MaggingNN": [],
+        "GroupDRO": [],
     }
     r2_in = {
         "NN": [],
         "MaximinNN": [],
         "MaggingNN": [],
+        "GroupDRO": [],
     }
     mse_out = {
         "NN": [],
         "MaximinNN": [],
         "MaggingNN": [],
+        "GroupDRO": [],
     }
     r2_out = {
         "NN": [],
         "MaximinNN": [],
         "MaggingNN": [],
+        "GroupDRO": [],
     }
     maxmse = {
         "NN": [],
         "MaximinNN": [],
         "MaggingNN": [],
+        "GroupDRO": [],
     }
     # TODO: Maybe in the future we could generalize the code to arbitrary
     #  datasets. At the moment, it only considers 3 environments.
@@ -132,26 +137,36 @@ def main(
         fitted_magging_nn = np.dot(wmag, fitted_envs.T)
         weights_magging[i, :] = wmag
 
+        # Group DRO
+        model, bweights = train_model_GDRO(X_train, Ytr, Etr, lr_model=0.01)
+        preds_gdro = predict_GDRO(model, X_test)
+        fitted_gdro = predict_GDRO(model, X_train)
+
         # Save results
         mse_in["NN"].append(mean_squared_error(Ytr, fitted_nn))
         mse_in["MaximinNN"].append(mean_squared_error(Ytr, fitted_maximin_nn))
         mse_in["MaggingNN"].append(mean_squared_error(Ytr, fitted_magging_nn))
+        mse_in["GroupDRO"].append(mean_squared_error(Ytr, fitted_gdro))
 
         r2_in["NN"].append(r2_score(Ytr, fitted_nn))
         r2_in["MaximinNN"].append(r2_score(Ytr, fitted_maximin_nn))
         r2_in["MaggingNN"].append(r2_score(Ytr, fitted_magging_nn))
+        r2_in["GroupDRO"].append(r2_score(Ytr, fitted_gdro))
 
         mse_out["NN"].append(mean_squared_error(Yts, preds_nn))
         mse_out["MaximinNN"].append(mean_squared_error(Yts, preds_maximin_nn))
         mse_out["MaggingNN"].append(mean_squared_error(Yts, preds_magging_nn))
+        mse_out["GroupDRO"].append(mean_squared_error(Yts, preds_gdro))
 
         r2_out["NN"].append(r2_score(Yts, preds_nn))
         r2_out["MaximinNN"].append(r2_score(Yts, preds_maximin_nn))
         r2_out["MaggingNN"].append(r2_score(Yts, preds_magging_nn))
+        r2_out["GroupDRO"].append(r2_score(Yts, preds_gdro))
 
         maxmse["NN"].append(max_mse(Ytr, fitted_nn, Etr))
         maxmse["MaximinNN"].append(max_mse(Ytr, fitted_maximin_nn, Etr))
         maxmse["MaggingNN"].append(max_mse(Ytr, fitted_magging_nn, Etr))
+        maxmse["GroupDRO"].append(max_mse(Ytr, fitted_gdro, Etr))
 
     # Plot and save
     mse_in_df = pd.DataFrame(mse_in)
