@@ -44,7 +44,7 @@ def plot_mse_r2(
     if isd:
         n_methods = 5
     elif nn:
-        n_methods = 3
+        n_methods = 4
     else:
         n_methods = 4
 
@@ -118,6 +118,7 @@ def plot_mse_r2(
             r"$\mathsf{NN}$",
             r"$\mathsf{MaximinNN}$",
             r"$\mathsf{MaggingNN}$",
+            r"$\mathsf{GroupDRO}$",
         ]
     else:
         labels = [
