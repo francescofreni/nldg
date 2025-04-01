@@ -243,6 +243,105 @@ def plot_minxplvar(
     plt.close()
 
 
+def plot_maxmse(
+    maxmse_df: pd.DataFrame,
+    name_plot: str,
+    plots_folder: str,
+    isd: bool = False,
+    nn: bool = False,
+) -> None:
+    """
+    Plots the maximum MSE across environments to compare different methods.
+
+    Args:
+         maxmse_df: DataFrame containing the maximum MSE values
+            for the methods.
+         name_plot: Name of the plot to save in the dedicated folder.
+         plots_folder: Folder where to save the plots.
+         isd: If true, include the results of Invariant Subspace Decomposition.
+         nn: True if the data is relative to the neural networks example.
+    """
+    c = ["tab:blue", "tab:orange", "tab:green", "tab:purple", "tab:red"]
+    if isd:
+        n_methods = 5
+    elif nn:
+        n_methods = 3
+    else:
+        n_methods = 4
+
+    fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
+    fig.suptitle(
+        r"Maximum MSE across environments",
+        fontsize=22,
+        fontweight="bold",
+    )
+
+    vp_maxmse = ax.violinplot(
+        [maxmse_df.iloc[:, i] for i in range(n_methods)],
+        showmedians=True,
+        showextrema=False,
+        widths=0.4,
+        positions=range(n_methods),
+    )
+
+    # Set colors for the violins
+    for i, vp in enumerate(vp_maxmse["bodies"]):
+        vp.set_facecolor(c[i])
+        vp.set_edgecolor(c[i])
+        vp.set_alpha(0.7)
+
+    # Customize the mean markers
+    vp_maxmse["cmedians"].set_color(c)
+    vp_maxmse["cmedians"].set_linewidth(2.5)
+
+    # Labels and formatting
+    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.set_xticks(range(n_methods))
+    if isd:
+        ax.set_xticklabels(
+            [
+                r"$\mathsf{RF}$",
+                r"$\mathsf{MaximinRF}$",
+                r"$\mathsf{MaggingRF-Forest}$",
+                r"$\mathsf{MaggingRF-Trees}$",
+                r"$\mathsf{IsdRF}$",
+            ]
+        )
+    elif nn:
+        ax.set_xticklabels(
+            [
+                r"$\mathsf{NN}$",
+                r"$\mathsf{MaximinNN}$",
+                r"$\mathsf{MaggingNN}$",
+            ]
+        )
+    else:
+        ax.set_xticklabels(
+            [
+                r"$\mathsf{RF}$",
+                r"$\mathsf{MaximinRF}$",
+                r"$\mathsf{MaggingRF-Forest}$",
+                r"$\mathsf{MaggingRF-Trees}$",
+            ]
+        )
+
+    ax.grid(
+        True,
+        which="both",
+        axis="y",
+        color="grey",
+        linestyle="--",
+        linewidth=0.3,
+        alpha=0.3,
+    )
+
+    plt.tight_layout()
+
+    plot_path = os.path.join(plots_folder, name_plot)
+    plt.savefig(plot_path, bbox_inches="tight", dpi=300)
+    plt.close()
+
+
 def plot_invrec(
     invrec_df: pd.DataFrame,
     name_plot: str,
