@@ -83,12 +83,14 @@ def main(
         model = train_model(
             X_train, Ytr, Etr, epochs=epochs, verbose=False, default=True
         )
+        model.eval()
         with torch.no_grad():
             preds_nn = model(X_test_tensor).numpy()
             fitted_nn = model(X_train_tensor).numpy()
 
         # Maximin NN
         model = train_model(X_train, Ytr, Etr, epochs=epochs, verbose=False)
+        model.eval()
         with torch.no_grad():
             preds_maximin_nn = model(X_test_tensor).numpy()
             fitted_maximin_nn = model(X_train_tensor).numpy()
@@ -112,6 +114,7 @@ def main(
                 verbose=False,
                 default=True,
             )
+            model.eval()
             with torch.no_grad():
                 preds_envs.append(model(X_test_tensor).numpy())
                 fitted_envs.append(model(X_train_tensor).numpy())

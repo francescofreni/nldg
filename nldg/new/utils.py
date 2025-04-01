@@ -90,10 +90,10 @@ def gen_data_v2(
     rng = np.random.default_rng(random_state)
 
     n_e1 = n_train // 2
-    n_e1_left = int(0.9 * n_e1)
+    n_e1_left = int(0.95 * n_e1)
     n_e1_right = n_e1 - n_e1_left
     n_e2 = n_train - n_e1
-    n_e2_right = int(0.9 * n_e2)
+    n_e2_right = int(0.95 * n_e2)
     n_e2_left = n_e1 - n_e2_right
 
     x_e1_left = rng.normal(0, 1, size=n_e1_left)
