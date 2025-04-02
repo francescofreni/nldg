@@ -353,7 +353,6 @@ class DT4DG:
                     y_e = y[E == env]
                     sum_err = np.sum((y_e - pred) ** 2)
                     mean_err = np.mean((y_e - pred) ** 2)
-                    # max_sum_err = max(max_sum_err, sum_err)
                     if mean_err > max_mean_err:
                         max_mean_err = mean_err
                         max_sum_err = sum_err
@@ -505,7 +504,7 @@ class DT4DG:
         n, p = X.shape
         best_cost = np.inf
         best_feature = None
-        best_threshold = None
+        best_threshold = np.inf
         m_try = self._select_features(p)
         feature_idxs = np.random.default_rng(self.random_state).choice(
             p, m_try, replace=False
@@ -562,33 +561,51 @@ class DT4DG:
         if self.criterion == "mse":
             impurity = self._node_impurity(y, E)
             feat, thr, cost = self._best_split(X, y, E)
-            if cost >= impurity:
+
+            if feat is None:
+                is_leaf = True
+            else:
+                left_idx = X[:, feat] <= thr
+                right_idx = X[:, feat] > thr
+                left_err = self._node_impurity(y[left_idx], E[left_idx])
+                right_err = self._node_impurity(y[right_idx], E[right_idx])
+                is_leaf = (
+                    (impurity <= left_err + right_err)
+                    or (np.sum(left_idx) < self.min_samples_leaf)
+                    or (np.sum(right_idx) < self.min_samples_leaf)
+                )
+
+            if is_leaf:
                 return {"pred": np.mean(y)}
         else:
             impurity, e_worst = self._node_impurity(y, E, e_worst_prev)
             feat, thr, cost = self._best_split(X, y, E, e_worst)
-            if cost >= impurity:
+
+            if feat is None:
+                is_leaf = True
+            else:
+                left_idx = X[:, feat] <= thr
+                right_idx = X[:, feat] > thr
+
+                left_err, e_worst_left = self._node_impurity(
+                    y[left_idx], E[left_idx], e_worst
+                )
+                right_err, e_worst_right = self._node_impurity(
+                    y[right_idx], E[right_idx], e_worst
+                )
+
+                is_leaf = (
+                    (impurity <= left_err + right_err)
+                    or (np.sum(left_idx) < self.min_samples_leaf)
+                    or (np.sum(right_idx) < self.min_samples_leaf)
+                )
+
+            if is_leaf:
                 if np.sum(E == e_worst_prev) > 0:
                     pred = np.mean(y[E == e_worst_prev])
                 else:
                     pred = np.mean(y)
                 return {"pred": pred}
-
-        left_idx = X[:, feat] <= thr
-        right_idx = X[:, feat] > thr
-
-        if (
-            np.sum(left_idx) < self.min_samples_leaf
-            or np.sum(right_idx) < self.min_samples_leaf
-        ):
-            if self.criterion == "mse":
-                pred = np.mean(y)
-            else:
-                if np.sum(E == e_worst_prev) > 0:
-                    pred = np.mean(y[E == e_worst_prev])
-                else:
-                    pred = np.mean(y)
-            return {"pred": pred}
 
         if self.criterion == "mse":
             left_tree = self._build_tree(
