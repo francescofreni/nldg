@@ -6,10 +6,14 @@ import torch
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import StandardScaler
 from scipy.optimize import minimize
-from nldg.new.utils import gen_data_v3, max_mse
-from nldg.new.train_nn import train_model, train_model_GDRO, predict_GDRO
+from nldg.new.archive.utils import gen_data_v3, max_mse
+from nldg.new.archive.train_nn import (
+    train_model,
+    train_model_GDRO,
+    predict_GDRO,
+)
 from tqdm import tqdm
-from experiments.new.utils import (
+from experiments.new.archive.utils import (
     plot_mse_r2,
     plot_maxmse,
     plot_weights_magging,

@@ -4,12 +4,12 @@ import numpy as np
 import pandas as pd
 import copy
 from sklearn.metrics import r2_score, mean_squared_error
-from nldg.new.utils import gen_data_isd_v3
-from nldg.new.rf import RF4DG, MaggingRF, IsdRF
+from nldg.new.archive.utils import gen_data_isd_v3
+from nldg.new.archive.rf import RF4DG, MaggingRF, IsdRF
 from sklearn.ensemble import RandomForestRegressor
 from scipy.optimize import minimize
 from tqdm import tqdm
-from experiments.new.utils import plot_mse_r2_adapt
+from experiments.new.archive.utils import plot_mse_r2_adapt
 
 
 def objective(w: np.ndarray, F: np.ndarray) -> float:

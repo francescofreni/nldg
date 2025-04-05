@@ -1,481 +1,14 @@
 import numpy as np
 import pandas as pd
-import random
-import torch
-from scipy.stats import ortho_group
-from scipy.linalg import block_diag
 
 
-# ===============
-# DATA GENERATION
-# ===============
 def gen_data(
     n_train: int = 500,
     n_test: int = 100,
-    n_envs: int = 5,
-    random_state: int = 42,
-    inhull: bool = True,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Generates train and test data for a nonlinear setting.
-
-    Args:
-        n_train: Number of training samples.
-        n_test: Number of test samples.
-        n_envs: Number of training environments (groups).
-        random_state: Random seed.
-        inhull: If True, test function is in the convex hull of training functions.
-            If False, test function is outside the convex hull.
-
-    Returns:
-        A tuple containing:
-        - df_train: DataFrame with training data (X, y, env).
-        - df_test: DataFrame with test data (X, y, env).
-    """
-    rng = np.random.default_rng(random_state)
-    n_e = n_train // n_envs
-
-    env_coeffs = [rng.uniform(-3, 3, size=3) for _ in range(n_envs)]
-
-    train_data = []
-    for env_id, coeff in enumerate(env_coeffs):
-        x_env = rng.normal(0, 1, size=n_e)
-        y_env = (
-            coeff[0] * x_env**2
-            + coeff[1] * x_env
-            + coeff[2]
-            + rng.normal(0, 0.5, size=n_e)
-        )
-        train_data.append(pd.DataFrame({"X": x_env, "Y": y_env, "E": env_id}))
-
-    df_train = pd.concat(train_data, ignore_index=True)
-
-    if inhull:
-        weights = rng.dirichlet(alpha=np.ones(n_envs))
-        test_coeff = np.sum(np.array(env_coeffs).T * weights, axis=1)
-    else:
-        test_coeff = rng.uniform(-5.0, -4.0, size=3)
-
-    x_test = rng.normal(0, 1, size=n_test)
-    y_test = (
-        test_coeff[0] * x_test**2
-        + test_coeff[1] * x_test
-        + test_coeff[2]
-        + rng.normal(0, 0.5, size=n_test)
-    )
-
-    df_test = pd.DataFrame({"X": x_test, "Y": y_test, "E": -1})
-
-    return df_train, df_test
-
-
-def gen_data_v2(
-    n_train: int = 500,
-    n_test: int = 100,
     random_state: int = 0,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Generates train and test data for two environments.
-
-    Args:
-        n_train: Number of training samples.
-        n_test: Number of test samples.
-        random_state: Random seed.
-
-    Returns:
-        A tuple containing:
-        - df_train: DataFrame with training data (X, Y, E).
-        - df_test: DataFrame with test data (X, Y, E).
-    """
-    rng = np.random.default_rng(random_state)
-
-    n_e1 = n_train // 2
-    n_e1_left = int(0.95 * n_e1)
-    n_e1_right = n_e1 - n_e1_left
-    n_e2 = n_train - n_e1
-    n_e2_right = int(0.95 * n_e2)
-    n_e2_left = n_e1 - n_e2_right
-
-    x_e1_left = rng.normal(0, 1, size=n_e1_left)
-    x_e1_right = rng.normal(4, 1, size=n_e1_right)
-    x_e2_left = rng.normal(0, 1, size=n_e2_left)
-    x_e2_right = rng.normal(4, 1, size=n_e2_right)
-
-    noise_std = 0.2
-    y_e1_left = (
-        -np.sin(x_e1_left) ** 2
-        + 3
-        + noise_std * rng.normal(0, 1, size=n_e1_left)
-    )
-    y_e1_right = np.sin(x_e1_right + np.pi) ** 2 + noise_std * rng.normal(
-        1.5, 1, size=n_e1_right
-    )
-    y_e2_left = np.sin(x_e2_left) ** 2 + noise_std * rng.normal(
-        0, 1, size=n_e2_left
-    )
-    y_e2_right = (
-        -np.sin(x_e2_right + np.pi) ** 2
-        + 3
-        + noise_std * rng.normal(1.5, 1, size=n_e2_right)
-    )
-
-    df_train_e1 = pd.DataFrame(
-        {
-            "X": np.concatenate([x_e1_left, x_e1_right]),
-            "Y": np.concatenate([y_e1_left, y_e1_right]),
-            "E": 0,
-        }
-    )
-
-    df_train_e2 = pd.DataFrame(
-        {
-            "X": np.concatenate([x_e2_left, x_e2_right]),
-            "Y": np.concatenate([y_e2_left, y_e2_right]),
-            "E": 1,
-        }
-    )
-
-    df_train = pd.concat([df_train_e1, df_train_e2], ignore_index=True)
-
-    n_test_left = n_test // 2
-    n_test_right = n_test - n_test_left
-    x_test_left = rng.normal(0, 1, size=n_test_left)
-    x_test_right = rng.normal(3.5, 1, size=n_test_left)
-    y_test_left = (
-        -np.sin(x_test_left) ** 2
-        + 3
-        + noise_std * rng.normal(0, 1, size=n_test_left)
-    )
-    y_test_right = (
-        -np.sin(x_test_right + np.pi) ** 2
-        + 3
-        + noise_std * rng.normal(1.5, 1, size=n_test_right)
-    )
-
-    df_test = pd.DataFrame(
-        {
-            "X": np.concatenate([x_test_left, x_test_right]),
-            "Y": np.concatenate([y_test_left, y_test_right]),
-            "E": -1,
-        }
-    )
-
-    return df_train, df_test
-
-
-def gen_data_v3(
-    n_train: int = 500,
-    n_test: int = 100,
-    random_state: int = 0,
-    train_setting: int = 1,
-    test_setting: int = 1,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Generates train data from three environments.
-
-    Args:
-        n_train: Number of training samples.
-        n_test: Number of test samples.
-        random_state: Random seed.
-        train_setting: Train data setting. Current accepted values are 1 or 2
-        test_setting: Test data setting. Current accepted values are 1 or 2
-
-    Returns:
-        A tuple containing:
-        - df_train: DataFrame with training data (X1, X2, Y, E).
-        - df_test: DataFrame with test data (X1, X2, Y, E).
-    """
-    possible_settings = [1, 2]
-    if (train_setting not in [1, 2]) and (test_setting not in [1, 2]):
-        raise ValueError(f"setting must be in {possible_settings}.")
-    rng = np.random.default_rng(random_state)
-    Sigma = np.array([[1, 0.0], [0.0, 1]])
-    sigma = 0.3
-    n_e = n_train // 3
-
-    def generate_environment(env_id, n):
-        X = rng.multivariate_normal(mean=[0, 0], cov=Sigma, size=n)
-        eps = sigma * rng.normal(0, 1, size=n)
-
-        if train_setting == 1:
-            if env_id == 0:
-                Y = 5 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps  # results_1
-                # Y = 5 * np.sin(X[:, 0]) + np.abs(X[:, 1]) + eps  # results_3
-                # Y = 5 * np.sin(X[:, 0]) + (X[:, 1] + 1) ** 2 + eps  # results_4
-            elif env_id == 1:
-                Y = 5 * np.sin(X[:, 0]) - 2 * X[:, 1] + eps  # results_1
-                # Y = 5 * np.sin(X[:, 0]) - np.exp(X[:, 1] / 3) + eps  # results_3
-                # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + 1 + eps  # results_4
-            elif env_id == 2:
-                Y = 5 * np.sin(X[:, 0]) + X[:, 1] ** 2 + eps  # results
-                # Y = 5 * np.sin(X[:, 0]) + np.cos(X[:, 1]) + eps  # results_3
-                # Y = 5 * np.sin(X[:, 0]) + 6 * np.sin(X[:, 1]) + eps  # results_4
-            else:
-                raise ValueError("Invalid environment ID")
-        else:
-            if env_id == 0:
-                Y = 5 * np.sin(X[:, 0]) + 5 * X[:, 1] + eps
-            elif env_id == 1:
-                Y = 5 * np.sin(X[:, 0]) - 5 * X[:, 1] + eps
-            elif env_id == 2:
-                Y = 5 * np.sin(X[:, 0]) + 5 * X[:, 1] ** 2 + eps
-            else:
-                raise ValueError("Invalid environment ID")
-
-        return pd.DataFrame(
-            {"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": env_id}
-        )
-
-    df_train = pd.concat(
-        [generate_environment(env_id, n_e) for env_id in range(3)],
-        ignore_index=True,
-    )
-
-    X = rng.multivariate_normal(mean=[0, 0], cov=Sigma, size=n_test)
-    eps = rng.normal(0, 1, size=n_test)
-    if test_setting == 1:
-        if train_setting == 1:
-            Y = 5 * np.sin(X[:, 0]) + eps  # results_1, results_3, results_4
-        else:
-            Y = 5 * np.sin(X[:, 0]) + eps
-    else:
-        if train_setting == 1:
-            Y = (
-                5 * np.sin(X[:, 0])
-                + 3 * np.cos(X[:, 0])
-                + 4 * np.cos(X[:, 1])
-                + eps
-            )  # results_2
-        else:
-            Y = (
-                5 * np.sin(X[:, 0])
-                + 3 * np.cos(X[:, 0])
-                + 4 * np.cos(X[:, 1])
-                + eps
-            )
-    df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
-
-    return df_train, df_test
-
-
-def gen_data_isd(
-    n_train: int = 1500,
-    n_test: int = 500,
-    random_state: int = 0,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Generates train data from three environments, variable covariance matrices.
-
-    Args:
-        n_train: Number of training samples.
-        n_test: Number of test samples.
-        random_state: Random seed.
-
-    Returns:
-        A tuple containing:
-        - df_train: DataFrame with training data (X1, X2, Y, E).
-        - df_test: DataFrame with test data (X1, X2, Y, E).
-    """
-    block_sizes = [1, 1]
-    p = np.sum(block_sizes)
-    sigma = 0.5
-    rng = np.random.default_rng(random_state)
-    rng_sigma = np.random.default_rng(42)
-    OM = ortho_group.rvs(dim=p, random_state=rng)
-    n_envs = 3
-    n_e = n_train // n_envs
-    eps = sigma * rng.normal(0, 1, size=n_train)
-
-    X = np.zeros((n_train, p))
-    E = np.zeros((n_train,))
-    for e in range(n_envs):
-        A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
-        Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
-        X_e = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_e)
-        X[(e * n_e) : ((e + 1) * n_e)] = X_e
-        E[(e * n_e) : ((e + 1) * n_e)] = e
-
-    X_rot = X @ OM.T
-
-    Y = np.zeros((n_train,))
-    for e in range(n_envs):
-        idxs = np.arange((e * n_e), ((e + 1) * n_e))
-        if e == 0:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) + 2 * X_rot[idxs, 1] + eps[idxs]
-            )
-        elif e == 1:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) - 2 * X_rot[idxs, 1] + eps[idxs]
-            )
-        else:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) + X_rot[idxs, 1] ** 2 + eps[idxs]
-            )
-
-    df_train = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": E})
-
-    eps = sigma * rng.normal(0, 1, size=n_test)
-    A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
-    Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
-    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
-    X_rot = X @ OM.T
-    Y = 5 * np.sin(X_rot[:, 0]) + eps
-    df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
-
-    return df_train, df_test
-
-
-def gen_data_isd_v2(
-    n_train: int = 1500,
-    n_test: int = 500,
-    random_state: int = 0,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    """
-    Generates train data from three environments, constant covariance matrices.
-
-    Args:
-        n_train: Number of training samples.
-        n_test: Number of test samples.
-        random_state: Random seed.
-
-    Returns:
-        A tuple containing:
-        - df_train: DataFrame with training data (X1, X2, Y, E).
-        - df_test: DataFrame with test data (X1, X2, Y, E).
-    """
-    block_sizes = [1, 1]
-    p = np.sum(block_sizes)
-    sigma = 0.5
-    rng = np.random.default_rng(random_state)
-    rng_sigma = np.random.default_rng(42)
-    OM = ortho_group.rvs(dim=p, random_state=rng)
-    n_envs = 3
-    n_e = n_train // n_envs
-    eps = sigma * rng.normal(0, 1, size=n_train)
-
-    X = np.zeros((n_train, p))
-    E = np.zeros((n_train,))
-    A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
-    Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
-    for e in range(n_envs):
-        X_e = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_e)
-        X[(e * n_e) : ((e + 1) * n_e)] = X_e
-        E[(e * n_e) : ((e + 1) * n_e)] = e
-
-    X_rot = X @ OM.T
-
-    Y = np.zeros((n_train,))
-    for e in range(n_envs):
-        idxs = np.arange((e * n_e), ((e + 1) * n_e))
-        if e == 0:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) + 2 * X_rot[idxs, 1] + eps[idxs]
-            )
-        elif e == 1:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) - 2 * X_rot[idxs, 1] + eps[idxs]
-            )
-        else:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) + X_rot[idxs, 1] ** 2 + eps[idxs]
-            )
-
-    df_train = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": E})
-
-    eps = sigma * rng.normal(0, 1, size=n_test)
-    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
-    X_rot = X @ OM.T
-    Y = 5 * np.sin(X_rot[:, 0]) + eps
-    df_test = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": -1})
-
-    return df_train, df_test
-
-
-def gen_data_isd_v3(
-    n_train: int = 1500,
-    n_test: int = 500,
-    random_state: int = 0,
-    prop_ad: float = 0.1,
 ) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Generates train data from three environments, adaption and test data.
-
-    Args:
-        n_train: Number of training samples.
-        n_test: Number of test samples.
-        random_state: Random seed.
-        prop_ad: Proportion of the test data to be destined to the adaption data.
-
-    Returns:
-        A tuple containing:
-        - df_train: DataFrame with training data (X1, X2, Y, E).
-        - df_adapt: DataFrame with adaptation data (X1, X2, Y, E).
-        - df_test: DataFrame with test data (X1, X2, Y, E).
-    """
-    block_sizes = [1, 1]
-    p = np.sum(block_sizes)
-    sigma = 0.5
-    rng = np.random.default_rng(random_state)
-    rng_sigma = np.random.default_rng(42)
-    OM = ortho_group.rvs(dim=p, random_state=rng)
-    n_envs = 3
-    n_e = n_train // n_envs
-    eps = sigma * rng.normal(0, 1, size=n_train)
-
-    X = np.zeros((n_train, p))
-    E = np.zeros((n_train,))
-    for e in range(n_envs):
-        A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
-        Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
-        X_e = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_e)
-        X[(e * n_e) : ((e + 1) * n_e)] = X_e
-        E[(e * n_e) : ((e + 1) * n_e)] = e
-
-    X_rot = X @ OM.T
-
-    Y = np.zeros((n_train,))
-    for e in range(n_envs):
-        idxs = np.arange((e * n_e), ((e + 1) * n_e))
-        if e == 0:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) + 2 * X_rot[idxs, 1] + eps[idxs]
-            )
-        elif e == 1:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) - 2 * X_rot[idxs, 1] + eps[idxs]
-            )
-        else:
-            Y[idxs] = (
-                5 * np.sin(X_rot[idxs, 0]) + X_rot[idxs, 1] ** 2 + eps[idxs]
-            )
-
-    df_train = pd.DataFrame({"X1": X[:, 0], "X2": X[:, 1], "Y": Y, "E": E})
-
-    eps = sigma * rng.normal(0, 1, size=n_test)
-    A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
-    Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
-    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
-    X_rot = X @ OM.T
-    Y = 5 * np.sin(X_rot[:, 0]) + 3 * np.cos(X_rot[:, 0]) + eps
-    n_adapt = int(prop_ad * n_test)
-    df_adapt = pd.DataFrame(
-        {"X1": X[:n_adapt, 0], "X2": X[:n_adapt, 1], "Y": Y[:n_adapt], "E": -1}
-    )
-    df_test = pd.DataFrame(
-        {"X1": X[n_adapt:, 0], "X2": X[n_adapt:, 1], "Y": Y[n_adapt:], "E": -1}
-    )
-
-    return df_train, df_adapt, df_test
-
-
-def gen_data_isd_v4(
-    n_train: int = 1500,
-    n_test: int = 500,
-    random_state: int = 0,
-) -> tuple[pd.DataFrame, pd.DataFrame, np.ndarray]:
-    """
-    Generates data from 3 environments with larger blocks.
+    Generates train data from three environments.
 
     Args:
         n_train: Number of training samples.
@@ -485,104 +18,61 @@ def gen_data_isd_v4(
     Returns:
         A tuple containing:
         - df_train: DataFrame with training data.
-        - df_test: DataFrame with test data.
-        - OM: Matrix used to rotate the data.
+        - df_test_1: DataFrame with test data.
+        - df_test_2 DataFrame with different test data.
     """
-    sigma = 0.5
-    block_sizes = [3, 1]
-    p = np.sum(block_sizes)
     rng = np.random.default_rng(random_state)
-    rng_sigma = np.random.default_rng(42)
-    OM = ortho_group.rvs(dim=p, random_state=rng)
-    n_envs = 5
-    n_e = n_train // n_envs
-    eps = sigma * rng.normal(0, 1, size=n_train)
+    p = 2
+    Sigma = np.eye(p) * 3.5
+    sigma = 0.3
+    n_e = n_train // 3
 
-    X = np.zeros((n_train, p))
-    E = np.zeros((n_train,))
-    for e in range(n_envs):
-        A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
-        Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
-        X_e = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_e)
-        X[(e * n_e) : ((e + 1) * n_e)] = X_e
-        E[(e * n_e) : ((e + 1) * n_e)] = e
+    def generate_environment(env_id, n):
+        m = np.zeros(p)
+        X = rng.multivariate_normal(mean=m, cov=Sigma, size=n)
+        eps = sigma * rng.normal(0, 1, size=n)
 
-    X_rot = X @ OM.T
-
-    Y = (
-        5 * np.sin(X_rot[:, 0])
-        + 2 * np.cos(X_rot[:, 1])
-        - 4 * np.sin(X_rot[:, 2])
-    )
-    for e in range(n_envs):
-        idxs = np.arange((e * n_e), ((e + 1) * n_e))
-        Y[idxs] += eps[idxs]
-
-        # Environment-dependent contribution from the last 3 variables
-        if e == 0:
-            Y[idxs] += X_rot[idxs, 3] - 6
-        elif e == 1:
-            Y[idxs] += -X_rot[idxs, 3] - 2
-        elif e == 2:
-            Y[idxs] += -((X_rot[idxs, 3]) ** 2) - 2
-        elif e == 3:
-            Y[idxs] += np.tanh(X_rot[idxs, 3]) - 1
+        if env_id == 0:
+            Y = 2 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps
+        elif env_id == 1:
+            Y = 2 * np.sin(X[:, 0]) + 3 * X[:, 1] + eps
+        elif env_id == 2:
+            Y = 2 * np.sin(X[:, 0]) - 3 * X[:, 1] + eps
         else:
-            Y[idxs] += np.exp(X_rot[idxs, 3] / 2) - X_rot[idxs, 3]
+            raise ValueError("Invalid environment ID")
 
-    df_train = pd.DataFrame(
-        {f"X{i + 1}": X[:, i] for i in range(p)} | {"Y": Y, "E": E}
+        data = {f"X{i+1}": X[:, i] for i in range(p)}
+        data.update({"Y": Y, "E": env_id})
+
+        return pd.DataFrame(data)
+
+    df_train = pd.concat(
+        [generate_environment(env_id, n_e) for env_id in range(3)],
+        ignore_index=True,
     )
 
-    # Generate test set only using invariant variables
-    eps = sigma * rng.normal(0, 1, size=n_test)
-    A = block_diag(*[rng_sigma.random((bs, bs)) for bs in block_sizes])
-    Sigma_e = OM.T @ (A @ A.T + 0.0 * np.eye(p)) @ OM
-    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma_e, size=n_test)
-    X_rot = X @ OM.T
-    Y = (
-        5 * np.sin(X_rot[:, 0])
-        + 2 * np.cos(X_rot[:, 1])
-        - 4 * np.sin(X_rot[:, 2])
-        + eps
-    )
+    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma, size=n_test)
+    eps = rng.normal(0, 1, size=n_test)
+    Y1 = 2 * np.sin(X[:, 0]) + eps
+    Y2 = 2 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 1]) + eps
+    df_test_1 = pd.DataFrame({f"X{i+1}": X[:, i] for i in range(p)})
+    df_test_1["Y"] = Y1
+    df_test_1["E"] = -1
 
-    df_test = pd.DataFrame(
-        {f"X{i + 1}": X[:, i] for i in range(p)} | {"Y": Y, "E": -1}
-    )
+    df_test_2 = pd.DataFrame({f"X{i + 1}": X[:, i] for i in range(p)})
+    df_test_2["Y"] = Y2
+    df_test_2["E"] = -1
 
-    return df_train, df_test, OM
+    return df_train, df_test_1, df_test_2
 
 
-# ========================
-# NEURAL NETWORK UTILITIES
-# ========================
-def set_all_seeds(seed: int):
-    """
-    Set all possible seeds to ensure reproducibility and to avoid randomness
-    involved in GPU computations.
-
-    Args:
-        seed (int): Seed
-    """
-    random.seed(seed)
-    np.random.seed(seed)
-    torch.manual_seed(seed)
-    torch.cuda.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-
-# ======
-# OTHERS
-# ======
 def max_mse(
     Ytrue: np.ndarray,
     Ypred: np.ndarray,
     Env: np.ndarray,
     verbose: bool = False,
-) -> float:
+    ret_ind: bool = False,
+) -> float | tuple[list, float]:
     """
     Compute the maximum mean squared error (MSE) across environments.
 
@@ -590,19 +80,26 @@ def max_mse(
         Ytrue (array): True target values.
         Ypred (array): Predicted target values.
         Env (array): Environment values.
-        verbose: Whether to print the MSE for each environment.
+        verbose (bool): Whether to print the MSE for each environment.
+        ret_ind (bool): Whether to return also the MSE for each environment.
 
     Returns:
+        if ret_ind:
+            mse_envs (list): MSE for each environment.
         maxmse (float): Maximum mean squared error.
     """
     maxmse = 0.0
+    mse_envs = []
     for env in np.unique(Env):
         Ytrue_e = Ytrue[Env == env]
         Ypred_e = Ypred[Env == env]
         mse = np.mean((Ytrue_e - Ypred_e) ** 2)
+        mse_envs.append(mse)
         if verbose:
             print(f"Environment {env} MSE: {mse}")
         maxmse = max(maxmse, mse)
+    if ret_ind:
+        return mse_envs, maxmse
     return maxmse
 
 
@@ -611,7 +108,8 @@ def min_xplvar(
     Ypred: np.ndarray,
     Env: np.ndarray,
     verbose: bool = False,
-) -> float:
+    ret_ind: bool = False,
+) -> float | tuple[list, float]:
     """
     Compute the minimum explained variance across environments.
 
@@ -624,16 +122,23 @@ def min_xplvar(
         Ypred (np.ndarray): Predicted target values.
         Env (np.ndarray): Environment labels for each sample.
         verbose (bool): Whether to print the explained variance for each environment.
+        ret_ind (bool): Whether to return also the explained variance for each environment.
 
     Returns:
-        float: Minimum explained variance across environments.
+        if ret_ind:
+            xplvar_envs (list): Explained variance for each environment.
+        min_ev (float): Minimum explained variance across environments.
     """
     min_ev = float("inf")
+    xplvar_envs = []
     for env in np.unique(Env):
         Ytrue_e = Ytrue[Env == env]
         Ypred_e = Ypred[Env == env]
         ev = np.mean(Ytrue_e**2) - np.mean((Ytrue_e - Ypred_e) ** 2)
+        xplvar_envs.append(ev)
         if verbose:
             print(f"Environment {env} explained variance: {ev}")
         min_ev = min(min_ev, ev)
+    if ret_ind:
+        return xplvar_envs, min_ev
     return min_ev

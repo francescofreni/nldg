@@ -1,8 +1,8 @@
 import torch
 import torch.optim as optim
 import torch.nn as nn
-from nldg.new.nn import NN, NN_GDRO
-from nldg.new.utils import set_all_seeds
+from nldg.new.archive.nn import NN, NN_GDRO
+from nldg.new.archive.utils import set_all_seeds
 import numpy as np
 import copy
 

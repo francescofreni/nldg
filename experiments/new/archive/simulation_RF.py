@@ -3,17 +3,16 @@ import os
 import numpy as np
 import pandas as pd
 from sklearn.metrics import r2_score, mean_squared_error
-from nldg.new.utils import (
+from nldg.new.archive.utils import (
     gen_data_v3,
     max_mse,
     gen_data_isd,
-    gen_data_isd_v2,
     gen_data_isd_v4,
 )
-from nldg.new.rf import RF4DG, MaggingRF, IsdRF
+from nldg.new.archive.rf import RF4DG, MaggingRF, IsdRF
 from scipy.optimize import minimize
 from tqdm import tqdm
-from experiments.new.utils import (
+from experiments.new.archive.utils import (
     plot_mse_r2,
     plot_maxmse,
     plot_weights_magging,
