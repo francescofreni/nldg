@@ -34,7 +34,7 @@ def main(
     maxmse = copy.deepcopy(results_dict)
     minxplvar = copy.deepcopy(results_dict)
     runtime = copy.deepcopy(results_dict)
-    weights_magging = np.zeros((nsim, 3))
+    weights_magging = np.zeros((nsim, 2))
 
     for i in tqdm(range(nsim)):
         dtr = gen_data_v5(
