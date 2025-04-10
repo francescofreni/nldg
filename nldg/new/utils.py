@@ -2,6 +2,9 @@ import numpy as np
 import pandas as pd
 
 
+# ===============
+# DATA GENERATION
+# ===============
 def gen_data(
     n_train: int = 500,
     n_test: int = 100,
@@ -66,6 +69,157 @@ def gen_data(
     return df_train, df_test_1, df_test_2
 
 
+def gen_data_v2(
+    n: int = 500,
+    random_state: int = 0,
+) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
+
+    n_e1 = n // 2
+    n_e1_left = int(0.9 * n_e1)
+    n_e1_right = n_e1 - n_e1_left
+    n_e2 = n - n_e1
+    n_e2_right = int(0.9 * n_e2)
+    n_e2_left = n_e1 - n_e2_right
+
+    x_e1_left = rng.normal(np.pi, 1, size=n_e1_left)
+    x_e1_right = rng.normal(3 * np.pi, 1, size=n_e1_right)
+    x_e2_left = rng.normal(np.pi, 1, size=n_e2_left)
+    x_e2_right = rng.normal(3 * np.pi, 1, size=n_e2_right)
+
+    noise_std = 0.2
+    y_e1_left = (
+        np.sin(x_e1_left / 2) ** 2
+        + 3
+        + noise_std * rng.normal(0, 1, size=n_e1_left)
+    )
+    y_e1_right = (
+        -np.sin(x_e1_right / 2) ** 2
+        + 3
+        + noise_std * rng.normal(0, 1, size=n_e1_right)
+    )
+    y_e2_left = (
+        -np.sin(x_e2_left / 2) ** 2
+        + 3
+        + noise_std * rng.normal(0, 1, size=n_e2_left)
+    )
+    y_e2_right = (
+        np.sin(x_e2_right / 2) ** 2
+        + 3
+        + noise_std * rng.normal(0, 1, size=n_e2_right)
+    )
+
+    df_e1 = pd.DataFrame(
+        {
+            "X": np.concatenate([x_e1_left, x_e1_right]),
+            "Y": np.concatenate([y_e1_left, y_e1_right]),
+            "E": 0,
+        }
+    )
+
+    df_e2 = pd.DataFrame(
+        {
+            "X": np.concatenate([x_e2_left, x_e2_right]),
+            "Y": np.concatenate([y_e2_left, y_e2_right]),
+            "E": 1,
+        }
+    )
+
+    df = pd.concat([df_e1, df_e2], ignore_index=True)
+
+    return df
+
+
+def gen_data_v3(
+    n: int = 500, random_state: int = 0, setting: int = 1
+) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
+
+    sigma = 1
+    n_e = n // 3
+
+    perc = 0.5 if setting == 1 else 0.9
+    n_e1_right = int(perc * n_e)
+    n_e1_left = n_e - n_e1_right
+    x_e1_left = sigma * rng.normal(-2, 1, size=n_e1_left)
+    x_e1_right = sigma * rng.normal(2, 1, size=n_e1_right)
+    x_e1 = np.concatenate([x_e1_left, x_e1_right])
+
+    n_e2_left = int(perc * n_e)
+    n_e2_right = n_e - n_e2_left
+    x_e2_left = sigma * rng.normal(-2, 1, size=n_e2_left)
+    x_e2_right = sigma * rng.normal(2, 1, size=n_e2_right)
+    x_e2 = np.concatenate([x_e2_left, x_e2_right])
+
+    n_e3_right = int(perc * n_e)
+    n_e3_left = n_e - n_e3_right
+    x_e3_left = sigma * rng.normal(-2, 1, size=n_e3_left)
+    x_e3_right = sigma * rng.normal(2, 1, size=n_e3_right)
+    x_e3 = np.concatenate([x_e3_left, x_e3_right])
+
+    noise_std = 1
+    y_e1 = 3 * x_e1 + noise_std * rng.normal(0, 1, size=n_e)
+    y_e2 = -3 * x_e2 + noise_std * rng.normal(0, 1, size=n_e)
+    y_e3 = 2 * x_e3 + noise_std * rng.normal(0, 1, size=n_e)
+    df_e1 = pd.DataFrame({"X": x_e1, "Y": y_e1, "E": 0})
+    df_e2 = pd.DataFrame({"X": x_e2, "Y": y_e2, "E": 1})
+    df_e3 = pd.DataFrame({"X": x_e3, "Y": y_e3, "E": 2})
+
+    df = pd.concat([df_e1, df_e2, df_e3], ignore_index=True)
+
+    return df
+
+
+def gen_data_v4(
+    n_easy: int = 300, n_hard: int = 300, random_state: int = 0
+) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
+
+    X_easy = rng.uniform(-5, 5, size=n_easy)
+    noise_easy = rng.normal(0, 0.5, size=n_easy)
+    y_easy = 3 * X_easy + 2 + noise_easy
+    df_easy = pd.DataFrame({"X": X_easy, "Y": y_easy, "E": 0})
+
+    X_hard = rng.uniform(-5, 5, size=n_hard)
+    noise_hard = rng.normal(0, 2.0, size=n_hard)
+    y_hard = 0.5 * X_hard + 5 + 0.3 * (X_hard**2) + noise_hard
+    df_hard = pd.DataFrame({"X": X_hard, "Y": y_hard, "E": 1})
+
+    df_all = pd.concat([df_easy, df_hard], ignore_index=True)
+    return df_all
+
+
+def gen_data_v5(
+    n_samples: int = 500,
+    adv_fraction: float = 0.1,
+    noise_var_env2=10.0,
+    random_state: int = 0,
+) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
+
+    X = rng.uniform(-5, 5, size=(n_samples, 1))
+
+    y = 2.0 * X.squeeze() + 1.0 + rng.normal(0, 1.0, size=n_samples)
+
+    n_adv = int(adv_fraction * n_samples)
+    adv_indices = rng.choice(n_samples, n_adv, replace=False)
+
+    # Inject adversarial noise: high-variance noise + slight non-linear distortion
+    y[adv_indices] += rng.normal(0, noise_var_env2, size=n_adv) + 0.5 * (
+        X[adv_indices].squeeze() ** 2
+    )  # + 10
+
+    env = np.zeros(n_samples, dtype=int)
+    env[adv_indices] = 1
+
+    df = pd.DataFrame({"X": X.squeeze(), "Y": y, "E": env})
+
+    return df
+
+
+# ==========
+# EVALUATION
+# ==========
 def max_mse(
     Ytrue: np.ndarray,
     Ypred: np.ndarray,
