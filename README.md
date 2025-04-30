@@ -37,15 +37,6 @@ python experiments/name_experiments_file.py
 ```
 
 
-## 🚨 Tests
-
-The code base comes with a set of unit tests, which can be run using `pytest`:
-
-```bash
-pytest tests
-```
-
-
 ## 📚 Documentation
 
 As of now, the code does not have explicit documentation, but the code is heavily commented and should be easy to understand. 
