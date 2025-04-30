@@ -173,7 +173,7 @@ def plot_weights_magging(
 
     # Labels and formatting
     ax.set_xticks(range(n_envs))
-    ax.set_xticklabels([r"Env $1$", r"Env $2$", r"Env $3$"])
+    ax.set_xticklabels([r"Env $1$", r"Env $2$"])
 
     ax.grid(
         True,

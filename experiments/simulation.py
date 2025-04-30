@@ -5,8 +5,8 @@ import time
 import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_squared_error
-from nldg.new.utils import gen_data_v5, max_mse, min_xplvar
-from nldg.new.rf import MaggingRF_PB
+from nldg.utils import gen_data_v5, max_mse, min_xplvar
+from nldg.rf import MaggingRF_PB
 from adaXT.random_forest import RandomForest
 from sklearn.ensemble import RandomForestRegressor
 from tqdm import tqdm

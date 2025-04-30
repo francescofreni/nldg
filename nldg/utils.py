@@ -1,5 +1,8 @@
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import torch
+import random
 
 
 # ===============
@@ -217,6 +220,77 @@ def gen_data_v5(
     return df
 
 
+def gen_data_v6(
+    n: int = 300,
+    random_state: int = 0,
+    noise_std=0.2,
+) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
+    n_e = n // 3
+
+    X = rng.uniform(-4, 4, size=n_e)
+    Y = np.where(X <= 0, X / 2, 3 * X) + rng.normal(0, noise_std, size=n_e)
+    df1 = pd.DataFrame({"X": X, "Y": Y, "E": 0})
+
+    Y = np.where(X <= 0, 2.5 * X, X / 2) + rng.normal(0, noise_std, size=n_e)
+    df2 = pd.DataFrame({"X": X, "Y": Y, "E": 1})
+
+    Y = np.where(X <= 0, 3 * X, X) + rng.normal(0, noise_std, size=n_e)
+    df3 = pd.DataFrame({"X": X, "Y": Y, "E": 2})
+
+    df_all = pd.concat([df1, df2, df3], ignore_index=True)
+    return df_all
+
+
+def gen_data_v7(n: int = 300, random_state: int = 0) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
+    n_e = n // 3
+    noise_std = 0.1
+
+    X = rng.uniform(-4, 4, size=n_e)
+    Y = np.where(X <= 0, -(X + 2) / 2, (X - 2) / 2) + rng.normal(
+        0, noise_std, size=n_e
+    )
+    df1 = pd.DataFrame({"X": X, "Y": Y, "E": 0})
+
+    Y = np.where(X <= 0, X + 2, -X + 2) + rng.normal(0, noise_std, size=n_e)
+    df2 = pd.DataFrame({"X": X, "Y": Y, "E": 1})
+
+    Y = np.zeros(len(X))
+    Y[X <= -2] = -(X[X <= -2] + 4) / 2
+    Y[(X > -2) & (X <= 2)] = X[(X > -2) & (X <= 2)] / 2
+    Y[X > 2] = -(X[X > 2] - 4) / 2
+    Y += rng.normal(0, noise_std, size=n_e)
+    df3 = pd.DataFrame({"X": X, "Y": Y, "E": 2})
+
+    df_all = pd.concat([df1, df2, df3], ignore_index=True)
+    return df_all
+
+
+def gen_data_v8(n: int = 300, random_state: int = 0) -> pd.DataFrame:
+    rng = np.random.default_rng(random_state)
+    n_e = n // 3
+    noise_std = 0.1
+
+    # X = rng.uniform(-2, 2, n_e)
+    # Y = X + rng.normal(0, noise_std, n_e)
+    X = rng.uniform(-np.pi, np.pi, size=n_e)
+    Y = np.sin(X) + rng.normal(0, noise_std, size=n_e)
+    df1 = pd.DataFrame({"X": X, "Y": Y, "E": 0})
+
+    # Y = -X + rng.normal(0, noise_std, n_e)
+    Y = 2 * np.sin(X + 2 * np.pi / 3) + rng.normal(0, noise_std, size=n_e)
+    df2 = pd.DataFrame({"X": X, "Y": Y, "E": 1})
+
+    # X = rng.uniform(-1, 1, n_e)
+    # Y = 1 * np.ones(n_e) + rng.normal(0, noise_std, n_e)
+    Y = np.sin(X + 4 * np.pi / 3) + rng.normal(0, noise_std, size=n_e)
+    df3 = pd.DataFrame({"X": X, "Y": Y, "E": 2})
+
+    df_all = pd.concat([df1, df2, df3], ignore_index=True)
+    return df_all
+
+
 # ==========
 # EVALUATION
 # ==========
@@ -296,3 +370,149 @@ def min_xplvar(
     if ret_ind:
         return xplvar_envs, min_ev
     return min_ev
+
+
+# ========================
+# NEURAL NETWORK UTILITIES
+# ========================
+def set_all_seeds(seed: int):
+    """
+    Set all possible seeds to ensure reproducibility and to avoid randomness
+    involved in GPU computations.
+
+    Args:
+        seed (int): Seed
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+
+# ========
+# PLOTTING
+# ========
+def plot_dtr(dtr, optfun=None, refined=False, gdro=False):
+    # coolwarm_cmap = matplotlib.colormaps['coolwarm']
+    # line_colors = [coolwarm_cmap(1.0), coolwarm_cmap(0.7), coolwarm_cmap(0.85)]
+    line_colors = ["lightskyblue", "orange", "mediumpurple", "yellowgreen"]
+    data_colors = ["black", "grey", "silver"]
+    environments = sorted(dtr["E"].unique())
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for idx, env in enumerate(environments):
+        marker_style = "o"
+        ax.scatter(
+            dtr[dtr["E"] == env]["X"],
+            dtr[dtr["E"] == env]["Y"],
+            color=data_colors[idx],
+            marker=marker_style,
+            alpha=0.5,
+            s=30,
+            label=f"Env {env + 1}",
+        )
+    if not gdro:
+        if not refined:
+            ax.plot(
+                dtr["X_sorted"],
+                dtr["fitted_rf"],
+                color=line_colors[0],
+                linewidth=2,
+                label="RF",
+            )
+            ax.plot(
+                dtr["X_sorted"],
+                dtr["fitted_maximin"],
+                color=line_colors[1],
+                linewidth=2,
+                label="MaximinRF",
+            )
+            ax.plot(
+                dtr["X_sorted"],
+                dtr["fitted_magging"],
+                color=line_colors[2],
+                linewidth=2,
+                label="MaggingRF",
+            )
+        else:
+            ax.plot(
+                dtr["X_sorted"],
+                dtr["fitted_rf"],
+                color=line_colors[0],
+                linewidth=2,
+                label="RF",
+            )
+            ax.plot(
+                dtr["X_sorted"],
+                dtr["fitted_rf_refined"],
+                color=line_colors[1],
+                linewidth=2,
+                label="RF-refined",
+            )
+            ax.plot(
+                dtr["X_sorted"],
+                dtr["fitted_maximin"],
+                color=line_colors[2],
+                linewidth=2,
+                label="MaximinRF",
+            )
+            ax.plot(
+                dtr["X_sorted"],
+                dtr["fitted_maximin_refined"],
+                color=line_colors[3],
+                linewidth=2,
+                label="MaximinRF-refined",
+            )
+    else:
+        ax.plot(
+            dtr["X_sorted"],
+            dtr["fitted_default"],
+            color=line_colors[0],
+            linewidth=2,
+            label="NN",
+        )
+        ax.plot(
+            dtr["X_sorted"],
+            dtr["fitted_gdro"],
+            color=line_colors[1],
+            linewidth=2,
+            label="NN-GDRO",
+        )
+
+    if optfun == 1:
+        x_range = np.linspace(
+            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
+        )
+        y_opt = 0.8 * np.sin(x_range / 2) ** 2 + 3
+        ax.plot(
+            x_range, y_opt, color="orangered", linewidth=3, label="Optimal"
+        )
+    elif optfun == 2:
+        x_range = np.linspace(
+            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
+        )
+        y_opt = np.where(x_range > 0, 2.4 * x_range, -2.4 * x_range)
+        ax.plot(
+            x_range, y_opt, color="orangered", linewidth=3, label="Optimal"
+        )
+    elif optfun == 3:
+        x_range = np.linspace(
+            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
+        )
+        y_opt = np.where(x_range > 0, 1.86 * x_range, 1.63 * x_range)
+        ax.plot(
+            x_range, y_opt, color="orangered", linewidth=3, label="Optimal"
+        )
+
+    ax.set_xlabel("$X$")
+    ax.set_ylabel("$Y$")
+    ax.grid(True, linewidth=0.2)
+
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles=handles, loc="upper left")
+
+    plt.tight_layout()
+    plt.show()
