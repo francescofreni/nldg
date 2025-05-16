@@ -39,6 +39,7 @@ dependencies = [
     "networkx",
     "statsmodels",
     "pre-commit",
+    "cvxpy",
 ]
 
 [project.optional-dependencies]
