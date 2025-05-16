@@ -232,10 +232,10 @@ def gen_data_v6(
     Y = np.where(X <= 0, X / 2, 3 * X) + rng.normal(0, noise_std, size=n_e)
     df1 = pd.DataFrame({"X": X, "Y": Y, "E": 0})
 
-    Y = np.where(X <= 0, 2.5 * X, X / 2) + rng.normal(0, noise_std, size=n_e)
+    Y = np.where(X <= 0, 3 * X, X / 2) + rng.normal(0, noise_std, size=n_e)
     df2 = pd.DataFrame({"X": X, "Y": Y, "E": 1})
 
-    Y = np.where(X <= 0, 3 * X, X) + rng.normal(0, noise_std, size=n_e)
+    Y = np.where(X <= 0, 2.5 * X, X) + rng.normal(0, noise_std, size=n_e)
     df3 = pd.DataFrame({"X": X, "Y": Y, "E": 2})
 
     df_all = pd.concat([df1, df2, df3], ignore_index=True)
@@ -395,7 +395,14 @@ def set_all_seeds(seed: int):
 # ========
 # PLOTTING
 # ========
-def plot_dtr(dtr, optfun=None, refined=False, gdro=False):
+def plot_dtr(
+    dtr,
+    optfun=None,
+    refined=False,
+    gdro=False,
+    saveplot=False,
+    nameplot="setting5",
+):
     # coolwarm_cmap = matplotlib.colormaps['coolwarm']
     # line_colors = [coolwarm_cmap(1.0), coolwarm_cmap(0.7), coolwarm_cmap(0.85)]
     line_colors = ["lightskyblue", "orange", "mediumpurple", "yellowgreen"]
@@ -425,10 +432,10 @@ def plot_dtr(dtr, optfun=None, refined=False, gdro=False):
             )
             ax.plot(
                 dtr["X_sorted"],
-                dtr["fitted_maximin"],
+                dtr["fitted_minmax"],
                 color=line_colors[1],
                 linewidth=2,
-                label="MaximinRF",
+                label="MinMaxRF",
             )
             ax.plot(
                 dtr["X_sorted"],
@@ -454,17 +461,17 @@ def plot_dtr(dtr, optfun=None, refined=False, gdro=False):
             )
             ax.plot(
                 dtr["X_sorted"],
-                dtr["fitted_maximin"],
+                dtr["fitted_minmax"],
                 color=line_colors[2],
                 linewidth=2,
-                label="MaximinRF",
+                label="MinMaxRF",
             )
             ax.plot(
                 dtr["X_sorted"],
-                dtr["fitted_maximin_refined"],
+                dtr["fitted_minmax_refined"],
                 color=line_colors[3],
                 linewidth=2,
-                label="MaximinRF-refined",
+                label="MinMaxRF-refined",
             )
     else:
         ax.plot(
@@ -488,7 +495,12 @@ def plot_dtr(dtr, optfun=None, refined=False, gdro=False):
         )
         y_opt = 0.8 * np.sin(x_range / 2) ** 2 + 3
         ax.plot(
-            x_range, y_opt, color="orangered", linewidth=3, label="Optimal"
+            x_range,
+            y_opt,
+            color="orangered",
+            linewidth=3,
+            label="Optimal",
+            linestyle="--",
         )
     elif optfun == 2:
         x_range = np.linspace(
@@ -496,15 +508,25 @@ def plot_dtr(dtr, optfun=None, refined=False, gdro=False):
         )
         y_opt = np.where(x_range > 0, 2.4 * x_range, -2.4 * x_range)
         ax.plot(
-            x_range, y_opt, color="orangered", linewidth=3, label="Optimal"
+            x_range,
+            y_opt,
+            color="orangered",
+            linewidth=3,
+            label="Optimal",
+            linestyle="--",
         )
     elif optfun == 3:
         x_range = np.linspace(
             dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
         )
-        y_opt = np.where(x_range > 0, 1.86 * x_range, 1.63 * x_range)
+        y_opt = np.where(x_range > 0, 1.75 * x_range, 1.75 * x_range)
         ax.plot(
-            x_range, y_opt, color="orangered", linewidth=3, label="Optimal"
+            x_range,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            label="Optimal",
+            linestyle="--",
         )
 
     ax.set_xlabel("$X$")
@@ -515,4 +537,6 @@ def plot_dtr(dtr, optfun=None, refined=False, gdro=False):
     ax.legend(handles=handles, loc="upper left")
 
     plt.tight_layout()
+    if saveplot:
+        plt.savefig(f"{nameplot}.png", dpi=300, bbox_inches="tight")
     plt.show()
