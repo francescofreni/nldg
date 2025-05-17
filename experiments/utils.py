@@ -4,27 +4,27 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-plt.rcParams.update(
-    {
-        "text.usetex": True,
-        "font.family": "serif",
-        "font.serif": ["Computer Modern Roman"],
-        "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}",
-        "axes.labelsize": 10,
-        "legend.fontsize": 10,
-        "xtick.labelsize": 10,
-        "ytick.labelsize": 10,
-        "axes.unicode_minus": True,
-    }
-)
+# plt.rcParams.update(
+#     {
+#         "text.usetex": True,
+#         "font.family": "serif",
+#         "font.serif": ["Computer Modern Roman"],
+#         "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}",
+#         "axes.labelsize": 12,
+#         "legend.fontsize": 12,
+#         "xtick.labelsize": 12,
+#         "ytick.labelsize": 12,
+#         "axes.unicode_minus": True,
+#     }
+# )
 
 WIDTH, HEIGHT = 10, 6
 
 
-def plot_max_mse_with_ci(
-    max_mse_df,
-    saveplot=False,
-    nameplot="max_mse",
+def plot_max_mse(
+    max_mse_df: pd.DataFrame,
+    saveplot: bool = False,
+    nameplot: str = "max_mse",
 ) -> None:
     color = "tab:blue"
     n = len(max_mse_df.columns)
@@ -73,9 +73,7 @@ def plot_max_mse_with_ci(
             r"$\mathsf{MinMaxRF-M4}$",
         ]
     )
-    ax.grid(
-        True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
-    )
+    ax.grid(True, linewidth=0.2, axis="y")
     plt.tight_layout()
     if saveplot:
         os.makedirs("plots", exist_ok=True)
@@ -84,10 +82,10 @@ def plot_max_mse_with_ci(
     plt.show()
 
 
-def plot_envwise_mse(
+def plot_mse_envs(
     df: pd.DataFrame,
-    saveplot=False,
-    nameplot="mse_envs",
+    saveplot: bool = False,
+    nameplot: str = "mse_envs",
 ) -> None:
     c = ["tab:blue", "tab:orange", "tab:green"]
     env_labels = [
@@ -177,11 +175,70 @@ def plot_envwise_mse(
         )
 
     ax.set_ylabel(r"$\mathsf{MSE}$")
-    ax.grid(
-        True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
-    )
+    ax.grid(True, linewidth=0.2, axis="y")
 
     plt.subplots_adjust(top=0.88, bottom=0.25)
+    plt.tight_layout()
+    if saveplot:
+        os.makedirs("plots", exist_ok=True)
+        outpath = os.path.join("plots", f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+def plot_max_mse_msl(
+    res: pd.DataFrame,
+    saveplot: bool = False,
+    nameplot: str = "max_mse_msl",
+) -> None:
+    colors = ["lightskyblue", "orange", "mediumpurple"]
+    methods = ["RF", "MinMaxRF", "MaggingRF"]
+    min_samples_leaf = np.unique(res["min_samples_leaf"])
+    nsim = res.shape[0] / len(methods)
+
+    all_stats = []
+    for method in methods:
+        values = res[res["Method"] == method]
+        for i, msl in enumerate(min_samples_leaf):
+            maxmse_values = values[values["min_samples_leaf"] == msl]["MSE"]
+            mean_val = np.mean(maxmse_values)
+            std_err = np.std(maxmse_values, ddof=1) / np.sqrt(nsim)
+            width = 1.96 * std_err
+            all_stats.append(
+                {
+                    "msl": msl,
+                    "method": method,
+                    "mean": mean_val,
+                    "lower": mean_val - width,
+                    "upper": mean_val + width,
+                }
+            )
+
+    df = pd.DataFrame(all_stats)
+
+    plt.figure(figsize=(8, 5))
+    for i, method in enumerate(methods):
+        method_df = df[df["method"] == method]
+        plt.plot(
+            method_df["msl"],
+            method_df["mean"],
+            label=method,
+            color=colors[i],
+            marker="o",
+            markeredgecolor="white",
+        )
+        plt.fill_between(
+            method_df["msl"],
+            method_df["lower"],
+            method_df["upper"],
+            alpha=0.3,
+            color=colors[i],
+        )
+
+    plt.xlabel("Minimum number of observations per leaf")
+    plt.ylabel("Maximum MSE over training environments")
+    plt.legend()
+    plt.grid(True, linewidth=0.2)
     plt.tight_layout()
     if saveplot:
         os.makedirs("plots", exist_ok=True)
