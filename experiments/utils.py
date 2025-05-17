@@ -1,5 +1,8 @@
-import matplotlib.pyplot as plt
+import os
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+
 
 plt.rcParams.update(
     {
@@ -7,190 +10,86 @@ plt.rcParams.update(
         "font.family": "serif",
         "font.serif": ["Computer Modern Roman"],
         "text.latex.preamble": r"\usepackage{amsmath}\usepackage{amssymb}",
-        "axes.labelsize": 22,
-        "legend.fontsize": 18,
-        "xtick.labelsize": 18,
-        "ytick.labelsize": 16,
+        "axes.labelsize": 10,
+        "legend.fontsize": 10,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
         "axes.unicode_minus": True,
     }
 )
-WIDTH = 12.0
-HEIGHT = 6.0
+
+WIDTH, HEIGHT = 10, 6
 
 
-def plot_mse(
-    mse_df: pd.DataFrame,
-    out: bool = True,
+def plot_max_mse_with_ci(
+    max_mse_df,
+    saveplot=False,
+    nameplot="max_mse",
 ) -> None:
-    c = ["tab:blue", "tab:orange", "tab:green", "tab:purple"]
-    n_methods = len(mse_df.columns)
+    color = "tab:blue"
+    n = len(max_mse_df.columns)
+    pos = np.arange(n)
+
+    means = max_mse_df.mean(axis=0)
+    stderr = max_mse_df.std(axis=0, ddof=1) / np.sqrt(len(max_mse_df))
+    lo = means - 1.96 * stderr
+    hi = means + 1.96 * stderr
+    yerr = np.vstack([means - lo, hi - means])
 
     fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
-
-    title = (
-        r"$\mathsf{MSPE}$ comparison" if out else r"$\mathsf{MSE}$ comparison"
-    )
-    fig.suptitle(
-        title,
-        fontsize=22,
-        fontweight="bold",
-    )
-
-    # Create violin plot
     vp = ax.violinplot(
-        [mse_df.iloc[:, i] for i in range(n_methods)],
-        showmedians=True,
+        [max_mse_df.iloc[:, i] for i in range(n)],
+        positions=pos,
+        showmeans=True,
         showextrema=False,
-        widths=0.4,
-        positions=range(n_methods),
+        widths=0.6,
+    )
+    for body in vp["bodies"]:
+        body.set_facecolor(color)
+        body.set_edgecolor(color)
+        body.set_alpha(0.7)
+    vp["cmeans"].set_color(color)
+    vp["cmeans"].set_linewidth(2.5)
+
+    ax.errorbar(
+        pos,
+        means,
+        yerr=yerr,
+        linestyle="none",
+        capsize=8,
+        ecolor=color,
     )
 
-    # Set colors
-    for i, vp_body in enumerate(vp["bodies"]):
-        vp_body.set_facecolor(c[i])
-        vp_body.set_edgecolor(c[i])
-        vp_body.set_alpha(0.7)
-
-    vp["cmedians"].set_color(c[:n_methods])
-    vp["cmedians"].set_linewidth(2.5)
-
-    # Labels and formatting
-    ylab = r"$\mathsf{MSPE}$" if out else r"$\mathsf{MSE}$"
-    ax.set_ylabel(ylab)
-    ax.set_xticks(range(n_methods))
-    labels = [
-        r"$\mathsf{RF}$",
-        r"$\mathsf{MaximinRF-Local}$",
-        r"$\mathsf{MaximinRF-Global}$",
-        r"$\mathsf{MaggingRF}$",
-    ]
-    ax.set_xticklabels(labels)
-
+    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.set_xticks(pos)
+    ax.set_xticklabels(
+        [
+            r"$\mathsf{RF}$",
+            r"$\mathsf{MaggingRF}$",
+            r"$\mathsf{MinMaxRF-M0}$",
+            r"$\mathsf{MinMaxRF-M1}$",
+            r"$\mathsf{MinMaxRF-M2}$",
+            r"$\mathsf{MinMaxRF-M3}$",
+            r"$\mathsf{MinMaxRF-M4}$",
+        ]
+    )
     ax.grid(
         True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
     )
-
     plt.tight_layout()
+    if saveplot:
+        os.makedirs("plots", exist_ok=True)
+        outpath = os.path.join("plots", f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()
 
 
-def plot_time_maxmse_minxv(
+def plot_envwise_mse(
     df: pd.DataFrame,
-    comparison_metric: int = 1,
+    saveplot=False,
+    nameplot="mse_envs",
 ) -> None:
-    c = [
-        "tab:blue",
-        "tab:orange",
-        "tab:green",
-        "tab:purple",
-    ]
-    n_methods = len(df.columns)
-
-    fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
-
-    if comparison_metric == 1:
-        title = r"Runtime comparison"
-    elif comparison_metric == 2:
-        title = r"Maximum $\mathsf{MSE}$ over training environments"
-    else:
-        title = r"Minimal explained variance over training environments"
-    fig.suptitle(
-        title,
-        fontsize=22,
-        fontweight="bold",
-    )
-
-    # Create violin plot
-    vp = ax.violinplot(
-        [df.iloc[:, i] for i in range(n_methods)],
-        showmedians=True,
-        showextrema=False,
-        widths=0.4,
-        positions=range(n_methods),
-    )
-
-    # Set colors
-    for i, vp_body in enumerate(vp["bodies"]):
-        vp_body.set_facecolor(c[i])
-        vp_body.set_edgecolor(c[i])
-        vp_body.set_alpha(0.7)
-
-    vp["cmedians"].set_color(c[:n_methods])
-    vp["cmedians"].set_linewidth(2.5)
-
-    # Labels and formatting
-    if comparison_metric == 1:
-        ylab = r"Time (seconds)"
-    elif comparison_metric == 2:
-        ylab = r"$\mathsf{MSE}$"
-    else:
-        ylab = r"Explained variance"
-    ax.set_ylabel(ylab)
-    ax.set_xticks(range(n_methods))
-    labels = [
-        r"$\mathsf{RF}$",
-        r"$\mathsf{MaximinRF-Local}$",
-        r"$\mathsf{MaximinRF-Global}$",
-        r"$\mathsf{MaggingRF}$",
-    ]
-    ax.set_xticklabels(labels)
-
-    ax.grid(
-        True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
-    )
-
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_weights_magging(
-    df: pd.DataFrame,
-) -> None:
-    n_envs = len(df.columns)
-
-    fig, ax = plt.subplots(figsize=(10, 6))
-    fig.suptitle(
-        r"Weights used in $\mathsf{MaggingRF}$", fontsize=22, fontweight="bold"
-    )
-
-    vp_w = ax.violinplot(
-        [df.iloc[:, i] for i in range(n_envs)],
-        showmedians=True,
-        showextrema=False,
-        widths=0.4,
-        positions=range(n_envs),
-    )
-
-    # Set colors for the violins
-    for i, vp in enumerate(vp_w["bodies"]):
-        vp.set_facecolor("tab:blue")
-        vp.set_edgecolor("tab:blue")
-        vp.set_alpha(0.7)
-
-    # Customize the mean markers
-    vp_w["cmedians"].set_color(["tab:blue"] * n_envs)
-    vp_w["cmedians"].set_linewidth(2.5)
-
-    # Labels and formatting
-    ax.set_xticks(range(n_envs))
-    ax.set_xticklabels([r"Env $1$", r"Env $2$"])
-
-    ax.grid(
-        True,
-        which="both",
-        axis="y",
-        color="grey",
-        linestyle="--",
-        linewidth=0.3,
-        alpha=0.3,
-    )
-
-    plt.tight_layout()
-    plt.show()
-
-
-def plot_envwise_metric(df: pd.DataFrame, mse=True) -> None:
-    c = ["tab:blue", "tab:orange", "tab:green", "tab:purple"]
+    c = ["tab:blue", "tab:orange", "tab:green"]
     env_labels = [
         r"$\mathsf{Env\ 1}$",
         r"$\mathsf{Env\ 2}$",
@@ -203,46 +102,37 @@ def plot_envwise_metric(df: pd.DataFrame, mse=True) -> None:
     n_envs = len(envs)
 
     fig, ax = plt.subplots(figsize=(1.5 * n_methods * n_envs, 6))
-    title = (
-        r"$\mathsf{MSE}$ by training environment"
-        if mse
-        else r"Explained variance by training environment"
-    )
-    fig.suptitle(title, fontsize=22, fontweight="bold")
 
     group_spacing = n_envs
     method_tick_positions = []
     method_tick_labels = []
     violin_positions = []
 
-    # Plot violins
     for i, method in enumerate(methods):
         for j, env_id in enumerate(envs):
             pos = i * group_spacing + j
             violin_positions.append((method, env_id, pos))
 
-            metric = "MSE" if mse else "xplvar"
             data = df[(df["method"] == method) & (df["env_id"] == env_id)][
-                metric
+                "MSE"
             ]
             vp = ax.violinplot(
                 data,
                 positions=[pos],
-                showmedians=True,
+                showmeans=True,
                 showextrema=False,
                 widths=0.7,
             )
 
-            color = c[i % len(c)]
+            color = c[j]
             for body in vp["bodies"]:
                 body.set_facecolor(color)
                 body.set_edgecolor(color)
                 body.set_alpha(0.7)
 
-            vp["cmedians"].set_color(c[i])
-            vp["cmedians"].set_linewidth(2)
+            vp["cmeans"].set_color(c[j])
+            vp["cmeans"].set_linewidth(2)
 
-        # Track center of method group for x-tick label
         mid = i * group_spacing + (n_envs - 1) / 2
         method_tick_positions.append(mid)
         method_tick_labels.append(rf"$\mathsf{{{method}}}$")
@@ -286,12 +176,15 @@ def plot_envwise_metric(df: pd.DataFrame, mse=True) -> None:
             alpha=0.4,
         )
 
-    ylab = r"$\mathsf{MSE}$" if mse else r"Explained variance"
-    ax.set_ylabel(ylab)
+    ax.set_ylabel(r"$\mathsf{MSE}$")
     ax.grid(
         True, which="both", axis="y", linestyle="--", linewidth=0.3, alpha=0.3
     )
 
     plt.subplots_adjust(top=0.88, bottom=0.25)
     plt.tight_layout()
+    if saveplot:
+        os.makedirs("plots", exist_ok=True)
+        outpath = os.path.join("plots", f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()
