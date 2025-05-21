@@ -76,8 +76,12 @@ def plot_max_mse(
     ax.grid(True, linewidth=0.2, axis="y")
     plt.tight_layout()
     if saveplot:
-        os.makedirs("plots", exist_ok=True)
-        outpath = os.path.join("plots", f"{nameplot}.png")
+        script_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        results_dir = os.path.join(parent_dir, "results")
+        plots_dir = os.path.join(results_dir, "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()
 
@@ -180,8 +184,12 @@ def plot_mse_envs(
     plt.subplots_adjust(top=0.88, bottom=0.25)
     plt.tight_layout()
     if saveplot:
-        os.makedirs("plots", exist_ok=True)
-        outpath = os.path.join("plots", f"{nameplot}.png")
+        script_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        results_dir = os.path.join(parent_dir, "results")
+        plots_dir = os.path.join(results_dir, "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()
 
@@ -241,7 +249,11 @@ def plot_max_mse_msl(
     plt.grid(True, linewidth=0.2)
     plt.tight_layout()
     if saveplot:
-        os.makedirs("plots", exist_ok=True)
-        outpath = os.path.join("plots", f"{nameplot}.png")
+        script_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        results_dir = os.path.join(parent_dir, "results")
+        plots_dir = os.path.join(results_dir, "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()

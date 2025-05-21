@@ -6,7 +6,6 @@ from typing import Tuple
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from nldg.utils import max_mse
 from adaXT.random_forest import RandomForest
-from sklearn.datasets import fetch_california_housing
 from sklearn.model_selection import train_test_split
 
 # Setup logging
@@ -16,6 +15,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+script_dir = os.path.dirname(os.path.abspath(__file__))
+DATA_PATH = os.path.join(script_dir, "..", "data")
+results_dir = os.path.join(script_dir, "..", "results")
+os.makedirs(results_dir, exist_ok=True)
+out_data_dir = os.path.join(results_dir, "output_data_housing_rf")
+os.makedirs(out_data_dir, exist_ok=True)
+RESULTS_PATH = out_data_dir
 QUADRANTS = ["SW", "SE", "NW", "NE"]
 B = 20
 VAL_PERCENTAGE = 0.2
@@ -34,9 +40,13 @@ def load_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
         y (pd.Series): Target vector
         Z (pd.DataFrame): Additional covariates
     """
-    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
-    Z = X[["Latitude", "Longitude"]]
-    X = X.drop(["Latitude", "Longitude"], axis=1)
+    data_path = os.path.join(DATA_PATH, "housing-sklearn.csv")
+    dat = pd.read_csv(filepath_or_buffer=data_path)
+
+    y = dat["MedHouseVal"]
+    Z = dat[["Latitude", "Longitude"]]
+    X = dat.drop(["MedHouseVal", "Latitude", "Longitude"], axis=1)
+
     return X, y, Z
 
 
@@ -71,7 +81,7 @@ def eval_one_quadrant(
     X: pd.DataFrame,
     y: pd.Series,
     env: np.ndarray,
-) -> pd.DataFrame:
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     For one held-out quadrant, run B repetitions and collect:
       - max-MSE on train
@@ -83,11 +93,10 @@ def eval_one_quadrant(
         X (pd.DataFrame): Feature matrix
         y (pd.Series): Target vector
         env (np.ndarray): Environment labels
-    """
-    logger.info(
-        f"Starting evaluation for quadrant {QUADRANTS[quadrant_idx]} (idx={quadrant_idx})"
-    )
 
+    Returns:
+        Tuple (main_df, env_metrics_df): Two dataframes with performance metrics
+    """
     # Masks
     test_mask = env == quadrant_idx
     train_mask = ~test_mask
@@ -96,6 +105,11 @@ def eval_one_quadrant(
     X_pool, y_pool = X[train_mask], y[train_mask]
     env_pool = env[train_mask]
     env_test = env[test_mask]
+
+    train_env_indices = np.unique(env_pool)
+
+    main_records = []
+    env_metrics_records = []
 
     records = []
     for b in range(B):
@@ -161,9 +175,8 @@ def eval_one_quadrant(
                 mse_envs_val_minmax,
             ),
         ]:
-            tr_envs_1, tr_envs_2, tr_envs_3 = tr_envs
-            va_envs_1, va_envs_2, va_envs_3 = va_envs
-            records.append(
+            # Main performance metrics
+            main_records.append(
                 {
                     "HeldOutQuadrant": QUADRANTS[quadrant_idx],
                     "Rep": b,
@@ -171,17 +184,40 @@ def eval_one_quadrant(
                     "Train_maxMSE": tr,
                     "Val_maxMSE": va,
                     "Test_MSE": te,
-                    "Train_env1_MSE": tr_envs_1,
-                    "Train_env2_MSE": tr_envs_2,
-                    "Train_env3_MSE": tr_envs_3,
-                    "Val_env1_MSE": va_envs_1,
-                    "Val_env2_MSE": va_envs_2,
-                    "Val_env3_MSE": va_envs_3,
                 }
             )
 
-    logger.info(f"Finished quadrant {QUADRANTS[quadrant_idx]}")
-    return pd.DataFrame.from_records(records)
+            # Environment-specific performance metrics
+            for i, env_value in enumerate(tr_envs):
+                env_idx = train_env_indices[i]
+                env_metrics_records.append(
+                    {
+                        "HeldOutQuadrant": QUADRANTS[quadrant_idx],
+                        "HeldOutQuadrantIdx": quadrant_idx,
+                        "Rep": b,
+                        "Model": model_name,
+                        "EnvIndex": int(env_idx),
+                        "DataSplit": "Train",
+                        "MSE": float(env_value),
+                    }
+                )
+
+            for i, env_value in enumerate(va_envs):
+                env_idx = train_env_indices[i]
+                env_metrics_records.append(
+                    {
+                        "HeldOutQuadrant": QUADRANTS[quadrant_idx],
+                        "Rep": b,
+                        "Model": model_name,
+                        "EnvIndex": int(env_idx),
+                        "DataSplit": "Val",
+                        "MSE": float(env_value),
+                    }
+                )
+
+    return pd.DataFrame.from_records(main_records), pd.DataFrame.from_records(
+        env_metrics_records
+    )
 
 
 def main():
@@ -190,7 +226,8 @@ def main():
     env = assign_quadrant_env(Z)
 
     # Parallelize over quadrants
-    dfs = []
+    main_dfs = []
+    env_metrics_dfs = []
     logger.info("Submitting quadrant tasks to ProcessPoolExecutor")
     with ProcessPoolExecutor() as exe:
         futures = {}
@@ -205,16 +242,22 @@ def main():
             logger.info(
                 f"Quadrant {QUADRANTS[qi]} completed, collecting results"
             )
-            dfs.append(fut.result())
+            main_df, env_metrics_df = fut.result()
+            main_dfs.append(main_df)
+            env_metrics_dfs.append(env_metrics_df)
 
     # Combine and save
-    result_df = pd.concat(dfs, ignore_index=True)
+    main_result_df = pd.concat(main_dfs, ignore_index=True)
+    main_out_path = os.path.join(RESULTS_PATH, "main_metrics.csv")
+    main_result_df.to_csv(main_out_path, index=False)
+    logger.info(f"Saved main results to {main_out_path}")
 
-    results_dir = os.path.join(os.path.dirname(__file__), RESULTS_FOLDER)
-    os.makedirs(results_dir, exist_ok=True)
-    out_path = os.path.join(results_dir, "real_word_experiment.csv")
-    result_df.to_csv(out_path, index=False)
-    logger.info(f"Saved results to {out_path}")
+    env_metrics_result_df = pd.concat(env_metrics_dfs, ignore_index=True)
+    env_metrics_out_path = os.path.join(
+        RESULTS_PATH, "env_specific_metrics.csv"
+    )
+    env_metrics_result_df.to_csv(env_metrics_out_path, index=False)
+    logger.info(f"Saved environment metrics to {env_metrics_out_path}")
 
 
 if __name__ == "__main__":

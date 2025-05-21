@@ -22,7 +22,7 @@ readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "GNU Affero General Public License v3.0"}
 authors = [{name = "Francesco Freni", email = "ffreni@student.ethz.ch"}]
-keywords = ["causal inference", "distribution generalization"]
+keywords = ["distribution generalization", "maximin", "magging", "random forest"]
 dependencies = [
     "numpy",
     "pandas",
@@ -34,9 +34,6 @@ dependencies = [
     "joblib",
     "tqdm",
     "torch",
-    "sempler",
-    "causalicp",
-    "networkx",
     "statsmodels",
     "pre-commit",
     "cvxpy",

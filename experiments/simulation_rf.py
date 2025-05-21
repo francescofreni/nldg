@@ -192,13 +192,17 @@ def main(
     maxmse_df = pd.DataFrame(maxmse_dict)
     runtime_df = pd.DataFrame(runtime_dict)
 
-    results_dir = os.path.join(os.path.dirname(__file__), results_folder)
+    script_dir = os.path.dirname(__file__)
+    parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+    results_dir = os.path.join(parent_dir, results_folder)
     os.makedirs(results_dir, exist_ok=True)
+    out_data_dir = os.path.join(results_dir, "output_data_simulation_rf")
+    os.makedirs(out_data_dir, exist_ok=True)
 
-    mse_df.to_csv(os.path.join(results_dir, "mse.csv"), index=False)
-    mse_envs_df.to_csv(os.path.join(results_dir, "mse_envs.csv"), index=False)
-    maxmse_df.to_csv(os.path.join(results_dir, "max_mse.csv"), index=False)
-    runtime_df.to_csv(os.path.join(results_dir, "runtime.csv"), index=False)
+    mse_df.to_csv(os.path.join(out_data_dir, "mse.csv"), index=False)
+    mse_envs_df.to_csv(os.path.join(out_data_dir, "mse_envs.csv"), index=False)
+    maxmse_df.to_csv(os.path.join(out_data_dir, "max_mse.csv"), index=False)
+    runtime_df.to_csv(os.path.join(out_data_dir, "runtime.csv"), index=False)
 
     # Second simulation
     min_samples_leaf = [25, 50, 75, 100, 150, 200, 250, 300]
@@ -260,11 +264,8 @@ def main(
 
     stacked_df = pd.concat([df_rf, df_magging, df_minmax], ignore_index=True)
 
-    results_dir = os.path.join(os.path.dirname(__file__), results_folder)
-    os.makedirs(results_dir, exist_ok=True)
-
     stacked_df.to_csv(
-        os.path.join(results_dir, "max_mse_msl.csv"), index=False
+        os.path.join(out_data_dir, "max_mse_msl.csv"), index=False
     )
 
 
