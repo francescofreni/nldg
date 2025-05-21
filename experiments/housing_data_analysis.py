@@ -23,7 +23,7 @@ out_data_dir = os.path.join(results_dir, "output_data_housing_rf")
 os.makedirs(out_data_dir, exist_ok=True)
 RESULTS_PATH = out_data_dir
 QUADRANTS = ["SW", "SE", "NW", "NE"]
-B = 20
+B = 1
 VAL_PERCENTAGE = 0.2
 N_ESTIMATORS = 25
 MIN_SAMPLES_LEAF = 30
@@ -135,25 +135,23 @@ def eval_one_quadrant(
         preds_val = rf.predict(X_val)
         preds_test = rf.predict(X_test)
 
-        rf.modify_predictions_trees(env_pool)
+        rf.modify_predictions_trees(env_tr)
         preds_tr_minmax = rf.predict(X_tr)
         preds_val_minmax = rf.predict(X_val)
         preds_test_minmax = rf.predict(X_test)
 
         # Compute metrics
-        mse_envs_tr, max_mse_tr = max_mse(
-            y_tr, preds_tr, env_pool, ret_ind=True
-        )
+        mse_envs_tr, max_mse_tr = max_mse(y_tr, preds_tr, env_tr, ret_ind=True)
         mse_envs_val, max_mse_val = max_mse(
-            y_val, preds_val, env_pool, ret_ind=True
+            y_val, preds_val, env_val, ret_ind=True
         )
         max_mse_test = max_mse(y_test, preds_test, env_test)
 
         mse_envs_tr_minmax, max_mse_tr_minmax = max_mse(
-            y_tr, preds_tr_minmax, env_pool, ret_ind=True
+            y_tr, preds_tr_minmax, env_tr, ret_ind=True
         )
         mse_envs_val_minmax, max_mse_val_minmax = max_mse(
-            y_val, preds_val_minmax, env_pool, ret_ind=True
+            y_val, preds_val_minmax, env_val, ret_ind=True
         )
         max_mse_test_minmax = max_mse(y_test, preds_test_minmax, env_test)
 
@@ -207,6 +205,7 @@ def eval_one_quadrant(
                 env_metrics_records.append(
                     {
                         "HeldOutQuadrant": QUADRANTS[quadrant_idx],
+                        "HeldOutQuadrantIdx": quadrant_idx,
                         "Rep": b,
                         "Model": model_name,
                         "EnvIndex": int(env_idx),
