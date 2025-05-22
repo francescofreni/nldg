@@ -21,6 +21,9 @@ import matplotlib.pyplot as plt
 WIDTH, HEIGHT = 10, 6
 
 
+# =====================================
+# Plotting functions for the simulation
+# =====================================
 def plot_max_mse(
     max_mse_df: pd.DataFrame,
     saveplot: bool = False,
@@ -256,4 +259,199 @@ def plot_max_mse_msl(
         os.makedirs(plots_dir, exist_ok=True)
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+# ============================================
+# Plotting functions for the real data example
+# ============================================
+def plot_main_metrics(
+    df: pd.DataFrame,
+    metric: str = "Test_MSE",
+    saveplot: bool = False,
+    nameplot: str = "main_metrics_test",
+) -> None:
+    # fixed quadrant order
+    QUADRANTS = ["SW", "SE", "NW", "NE"]
+
+    # Compute means and 95% CIs
+    grp = df.groupby(["HeldOutQuadrant", "Model"])[metric]
+    means = grp.mean().unstack().reindex(QUADRANTS)  # reorder rows
+    stds = grp.std().unstack().reindex(QUADRANTS)
+    counts = grp.count().unstack().reindex(QUADRANTS)
+    ci95 = 1.96 * stds / np.sqrt(counts)
+
+    x0 = np.arange(len(QUADRANTS))
+
+    # colors for RF / MinMaxRF
+    colors = ["lightskyblue", "orange"]
+    models = ["RF", "MinMaxRF"]
+    delta = 0.1
+    offsets = np.linspace(-delta, +delta, len(models))
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for idx, (off, model) in enumerate(zip(offsets, models)):
+        xm = x0 + off
+        ax.errorbar(
+            xm,
+            means[model],
+            yerr=ci95[model],
+            fmt="o",
+            color=colors[idx],
+            markersize=10,
+            markeredgewidth=0,
+            elinewidth=2.5,
+            capsize=0,
+            label=model,
+        )
+
+    # styling
+    ax.set_xticks(x0)
+    ax.set_xticklabels(QUADRANTS)
+    ax.set_xlabel("Held-Out Quadrant")
+    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.legend(loc="lower right", frameon=True)
+    ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
+
+    plt.tight_layout()
+    if saveplot:
+        script_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        plots_dir = os.path.join(parent_dir, "results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+def plot_quadrant_env_splits(
+    df: pd.DataFrame,
+    split: str = "Train",
+    saveplot: bool = False,
+    nameplot: str = "env_specific_metrics_train",
+    figsize: tuple = (12, 6),
+):
+    QUADRANTS = ["SW", "SE", "NW", "NE"]
+
+    # filter to the desired DataSplit
+    sub = df[df["DataSplit"] == split]
+
+    # models and colors
+    models = ["RF", "MinMaxRF"]
+    colors = ["lightskyblue", "orange"]
+    delta = 0.12
+
+    # how many sub-envs under each quadrant
+    n_subenv = 3
+
+    # create figure
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # track first legend appearance
+    seen = {m: False for m in models}
+
+    # positions for labels
+    label_positions = []
+
+    # loop through held-out quadrants
+    for i, ho in enumerate(QUADRANTS):
+        subenvs = [q for q in QUADRANTS if q != ho]
+
+        for j, env in enumerate(subenvs):
+            x_base = i * n_subenv + j
+            label_positions.append((ho, env, x_base))
+
+            for m_idx, model in enumerate(models):
+                ser = sub[
+                    (sub["HeldOutQuadrant"] == ho)
+                    & (sub["Model"] == model)
+                    & (sub["EnvIndex"] == QUADRANTS.index(env))
+                ]["MSE"]
+
+                if ser.empty:
+                    continue
+
+                mean = ser.mean()
+                std = ser.std(ddof=1)
+                ci95 = 1.96 * std / np.sqrt(ser.count())
+
+                x = x_base + (m_idx - 0.5) * delta
+
+                # only label first occurrence
+                label = model if not seen[model] else "_nolegend_"
+                seen[model] = True
+
+                ax.errorbar(
+                    x,
+                    mean,
+                    yerr=ci95,
+                    fmt="o",
+                    color=colors[m_idx],
+                    markersize=10,
+                    elinewidth=2.5,
+                    capsize=0,
+                    label=label,
+                )
+
+    # vertical separators
+    for k in range(1, len(QUADRANTS)):
+        sep_x = k * n_subenv - 0.5
+        ax.axvline(
+            sep_x, linestyle="--", linewidth=0.5, color="gray", alpha=0.4
+        )
+
+    # hide ticks
+    ax.set_xticks([])
+    ax.set_xlim(-0.5, len(QUADRANTS) * n_subenv - 0.5)
+
+    # force draw for label placement
+    fig.canvas.draw()
+    y0, y1 = ax.get_ylim()
+
+    # sub-env labels
+    for _, env, x in label_positions:
+        ax.text(
+            x,
+            y0 - 0.02 * (y1 - y0),
+            rf"$\mathsf{{{env}}}$",
+            ha="center",
+            va="top",
+            fontsize=10,
+        )
+
+    # held-out quadrant labels
+    for i, ho in enumerate(QUADRANTS):
+        mid = i * n_subenv + (n_subenv - 1) / 2
+        ax.text(
+            mid,
+            y0 - 0.08 * (y1 - y0),
+            rf"$\mathsf{{{ho}}}$",
+            ha="center",
+            va="top",
+            fontsize=12,
+            fontweight="bold",
+        )
+
+    # boxed legend
+    ax.legend(loc="upper right", frameon=True)
+
+    # labels & grid
+    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
+
+    plt.subplots_adjust(top=0.9, bottom=0.2)
+    plt.tight_layout()
+
+    if saveplot:
+        script_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        plots_dir = os.path.join(parent_dir, "results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        plt.savefig(
+            os.path.join(plots_dir, f"{nameplot}.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
+
     plt.show()
