@@ -8,6 +8,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from nldg.utils import max_mse
 from adaXT.random_forest import RandomForest
 from sklearn.model_selection import train_test_split
+from tqdm import tqdm
 
 # Setup logging
 logging.basicConfig(
@@ -121,7 +122,7 @@ def run_ttv_exp(
         main_records = []
         env_metrics_records = []
 
-        for b in range(B):
+        for b in tqdm(range(B)):
             # Stratified split (preserve env proportions among the 3 training envs)
             X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
                 X_pool,
