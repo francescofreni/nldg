@@ -31,7 +31,7 @@ N_ESTIMATORS = 25
 MIN_SAMPLES_LEAF = 30
 SEED = 42
 RESULTS_FOLDER = "results"
-M = 50
+M = 200
 
 
 def load_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
@@ -333,13 +333,23 @@ def run_t_exp(
             arr = np.array(boot[(name, q)])
             mean_hat = theta[name][q]
             q_low, q_high = np.percentile(arr, [2.5, 97.5])
+            mean_boot = np.mean(arr)
+            std_boot = np.std(arr, ddof=1)
             records.append(
                 {
                     "Method": name,
                     "Quadrant": QUADRANTS[q],
                     "MSE_mean": mean_hat,
-                    "Lower_CI": 2 * mean_hat - q_high,
-                    "Upper_CI": 2 * mean_hat - q_low,
+                    "Lower_CI_basic": 2 * mean_hat - q_high,
+                    "Upper_CI_basic": 2 * mean_hat - q_low,
+                    "Lower_CI_perc": q_low,
+                    "Upper_CI_perc": q_high,
+                    "Lower_CI_normal": 2 * mean_hat
+                    - mean_boot
+                    - 1.96 * std_boot,
+                    "Upper_CI_normal": 2 * mean_hat
+                    - mean_boot
+                    + 1.96 * std_boot,
                 }
             )
 
