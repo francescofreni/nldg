@@ -265,7 +265,7 @@ def plot_max_mse_msl(
 # ============================================
 # Plotting functions for the real data example
 # ============================================
-def plot_main_metrics(
+def plot_max_mse_housing(
     df: pd.DataFrame,
     metric: str = "Test_MSE",
     saveplot: bool = False,
@@ -325,7 +325,7 @@ def plot_main_metrics(
     plt.show()
 
 
-def plot_quadrant_env_splits(
+def plot_mse_envs_housing(
     df: pd.DataFrame,
     split: str = "Train",
     saveplot: bool = False,
@@ -453,5 +453,228 @@ def plot_quadrant_env_splits(
             dpi=300,
             bbox_inches="tight",
         )
+
+    plt.show()
+
+
+def plot_mse_envs_housing_bootstrap(
+    df: pd.DataFrame,
+    ci_type: str = "perc",
+    saveplot: bool = False,
+    nameplot: str = "bootstrap_metrics",
+) -> None:
+    QUADRANTS = ["SW", "SE", "NW", "NE"]
+    MODELS = ["RF", "MinMaxRF"]
+    COLORS = {"RF": "lightskyblue", "MinMaxRF": "orange"}
+    OFFSETS = {"RF": -0.1, "MinMaxRF": 0.1}
+
+    x_pos = np.arange(len(QUADRANTS))
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    for model in MODELS:
+        means, err_low, err_high = [], [], []
+        for quadrant in QUADRANTS:
+            row = df[
+                (df["Method"] == model) & (df["Quadrant"] == quadrant)
+            ].iloc[0]
+            mean = row["MSE_mean"]
+            lo = row[f"Lower_CI_{ci_type}"]
+            hi = row[f"Upper_CI_{ci_type}"]
+            means.append(mean)
+            err_low.append(max(mean - lo, 0))
+            err_high.append(max(hi - mean, 0))
+
+        x_model = x_pos + OFFSETS[model]
+        yerr = [err_low, err_high]
+        ax.errorbar(
+            x_model,
+            means,
+            yerr=yerr,
+            fmt="o",
+            color=COLORS[model],
+            markersize=10,
+            markeredgewidth=0,
+            elinewidth=2.5,
+            capsize=0,
+            label=model,
+        )
+
+    ax.set_xticks(x_pos)
+    ax.set_xticklabels(QUADRANTS)
+    ax.set_xlabel("Quadrant")
+    ax.set_ylabel("MSE")
+    ax.legend(loc="upper right")
+    ax.grid(axis="y", linestyle="--", alpha=0.5)
+
+    plt.tight_layout()
+    if saveplot:
+        plots_dir = os.path.join("results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+def plot_mse_envs_housing_resample(
+    df: pd.DataFrame,
+    saveplot: bool = False,
+    nameplot: str = "mse_envs_resample",
+) -> None:
+    QUADRANTS = ["SW", "SE", "NW", "NE"]
+    df_long = df.melt(
+        id_vars="method",
+        value_vars=QUADRANTS,
+        var_name="Environment",
+        value_name="maxMSE",
+    )
+
+    grp = df_long.groupby(["Environment", "method"])["maxMSE"]
+    means = grp.mean().unstack().reindex(QUADRANTS)
+    stds = grp.std().unstack().reindex(QUADRANTS)
+    counts = grp.count().unstack().reindex(QUADRANTS)
+    ci95 = 1.96 * stds / np.sqrt(counts)
+
+    x0 = np.arange(len(QUADRANTS))
+    models = ["RF", "MinMaxRF"]
+    colors = ["lightskyblue", "orange"][: len(models)]
+    delta = 0.1
+    offsets = np.linspace(-delta, +delta, len(models))
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for idx, (model, off) in enumerate(zip(models, offsets)):
+        ax.errorbar(
+            x0 + off,
+            means[model],
+            yerr=ci95[model],
+            fmt="o",
+            color=colors[idx],
+            markersize=10,
+            markeredgewidth=0,
+            elinewidth=2.5,
+            capsize=0,
+            label=model,
+        )
+
+    ax.set_xticks(x0)
+    ax.set_xticklabels(QUADRANTS)
+    ax.set_xlabel("Environment")
+    ax.set_ylabel("MSE")
+    ax.legend(loc="upper right", frameon=True)
+    ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
+
+    plt.tight_layout()
+
+    if saveplot:
+        script_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        plots_dir = os.path.join(parent_dir, "results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
+
+    plt.show()
+
+
+def plot_max_mse_mtry(
+    res: pd.DataFrame,
+    saveplot: bool = False,
+    nameplot: str = "max_mse_mtry",
+) -> None:
+    cols = ["maxMSE_RF", "maxMSE_MinMaxRF"]
+    labels = ["RF", "MinMaxRF"]
+    colors = ["lightskyblue", "orange"]
+
+    plt.figure(figsize=(8, 5))
+    for col, label, c in zip(cols, labels, colors):
+        plt.plot(
+            res["mtry"],
+            res[col],
+            marker="o",
+            linestyle="-",
+            label=label,
+            color=c,
+            markeredgecolor="white",
+        )
+
+    plt.xlabel(r"$m_{\mathrm{try}}$")
+    plt.ylabel("Maximum MSE over training environments")
+    plt.grid(True, linewidth=0.2)
+    plt.legend(frameon=True)
+    plt.tight_layout()
+
+    if saveplot:
+        script_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        plots_dir = os.path.join(parent_dir, "results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
+
+    plt.show()
+
+
+def plot_max_mse_mtry_resample(
+    res: pd.DataFrame,
+    saveplot: bool = False,
+    nameplot: str = "max_mse_mtry_resample",
+) -> None:
+    methods = ["RF", "MinMaxRF"]
+    colors = ["lightskyblue", "orange"]
+
+    nsim = res.groupby(["method", "mtry"]).size().iloc[0]
+
+    stats = []
+    for method in methods:
+        df_m = res[res["method"] == method]
+        for m in sorted(df_m["mtry"].unique()):
+            vals = df_m[df_m["mtry"] == m]["maxMSE"]
+            mean = vals.mean()
+            stderr = vals.std(ddof=1) / np.sqrt(nsim)
+            width = 1.96 * stderr
+            stats.append(
+                {
+                    "method": method,
+                    "mtry": m,
+                    "mean": mean,
+                    "lower": mean - width,
+                    "upper": mean + width,
+                }
+            )
+
+    df_stats = pd.DataFrame(stats)
+
+    plt.figure(figsize=(8, 5))
+    for method, color in zip(methods, colors):
+        df_m = df_stats[df_stats["method"] == method]
+        plt.plot(
+            df_m["mtry"],
+            df_m["mean"],
+            label=method,
+            color=color,
+            marker="o",
+            linestyle="-",
+            markeredgecolor="white",
+        )
+        plt.fill_between(
+            df_m["mtry"],
+            df_m["lower"],
+            df_m["upper"],
+            color=color,
+            alpha=0.3,
+        )
+
+    plt.xlabel(r"$m_{\mathrm{try}}$")
+    plt.ylabel("Maximum MSE over training environments")
+    plt.grid(True, linewidth=0.2)
+    plt.legend(frameon=True)
+    plt.tight_layout()
+
+    if saveplot:
+        script_dir = os.path.dirname(__file__)
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        plots_dir = os.path.join(parent_dir, "results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
     plt.show()
