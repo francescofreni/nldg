@@ -32,6 +32,7 @@ MIN_SAMPLES_LEAF = 30
 SEED = 42
 RESULTS_FOLDER = "results"
 M = 200
+N = 20
 
 
 def load_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
@@ -253,19 +254,17 @@ def run_ttv_exp(
 
     # Combine and save
     main_result_df = pd.concat(main_dfs, ignore_index=True)
-    main_out_path = os.path.join(RESULTS_PATH, "main_metrics.csv")
+    main_out_path = os.path.join(RESULTS_PATH, "maxmse_ttv.csv")
     main_result_df.to_csv(main_out_path, index=False)
     logger.info(f"Saved main results to {main_out_path}")
 
     env_metrics_result_df = pd.concat(env_metrics_dfs, ignore_index=True)
-    env_metrics_out_path = os.path.join(
-        RESULTS_PATH, "env_specific_metrics.csv"
-    )
+    env_metrics_out_path = os.path.join(RESULTS_PATH, "env_specific_mse.csv")
     env_metrics_result_df.to_csv(env_metrics_out_path, index=False)
     logger.info(f"Saved environment metrics to {env_metrics_out_path}")
 
 
-def run_t_exp(
+def run_t_bootstrap_exp(
     X: pd.DataFrame,
     y: pd.Series,
     env: np.ndarray,
@@ -304,7 +303,7 @@ def run_t_exp(
     boot = {("RF", q): [] for q in range(4)}
     boot.update({("MinMaxRF", q): [] for q in range(4)})
 
-    for m in range(M):
+    for m in tqdm(range(M)):
         idxs = rng.choice(n, size=n, replace=True)
         Xb, yb, eb = X.iloc[idxs], y.iloc[idxs], env[idxs]
         rf_b = RandomForest(
@@ -360,6 +359,186 @@ def run_t_exp(
     logger.info(f"Saved bootstrap metrics to {path}")
 
 
+def run_t_resample_exp(
+    X: pd.DataFrame,
+    y: pd.Series,
+    env: np.ndarray,
+) -> None:
+    """
+    Resample the full dataset
+
+    Args:
+        X (pd.DataFrame): Feature matrix
+        y (pd.Series): Target vector
+        env (np.ndarray): Environment labels
+    """
+    results_rf = np.zeros((N, len(QUADRANTS)))
+    results_minmax = np.zeros((N, len(QUADRANTS)))
+    for i in tqdm(range(N)):
+        X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
+            X,
+            y,
+            env,
+            test_size=VAL_PERCENTAGE,
+            random_state=i,
+            stratify=env,
+        )
+
+        # Fit and predict
+        rf = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED,
+        )
+        rf.fit(X_tr, y_tr)
+        fitted_tr = rf.predict(X_tr)
+
+        rf.modify_predictions_trees(env_tr)
+        fitted_tr_minmax = rf.predict(X_tr)
+
+        # Compute metrics
+        mse_envs_tr, max_mse_tr = max_mse(
+            y_tr, fitted_tr, env_tr, ret_ind=True
+        )
+        mse_envs_tr_minmax, max_mse_tr_minmax = max_mse(
+            y_tr, fitted_tr_minmax, env_tr, ret_ind=True
+        )
+
+        results_rf[i, :] = mse_envs_tr
+        results_minmax[i, :] = mse_envs_tr_minmax
+
+    df_rf = pd.DataFrame(results_rf, columns=QUADRANTS)
+    df_rf["method"] = "RF"
+
+    df_mm = pd.DataFrame(results_minmax, columns=QUADRANTS)
+    df_mm["method"] = "MinMaxRF"
+
+    df_all = pd.concat([df_rf, df_mm], ignore_index=True)
+
+    path = os.path.join(RESULTS_PATH, "env_specific_mse_resample.csv")
+    df_all.to_csv(path, index=False)
+    logger.info(f"Saved resampling metrics to {path}")
+
+
+def run_mtry_exp(
+    X: pd.DataFrame,
+    y: pd.Series,
+    env: np.ndarray,
+) -> None:
+    """
+    Comparison of RF and MinMaxRF with different mtry
+
+    Args:
+        X (pd.DataFrame): Feature matrix
+        y (pd.Series): Target vector
+        env (np.ndarray): Environment labels
+    """
+    mtry = np.arange(1, X.shape[1] + 1)
+    results = dict()
+    for m in tqdm(mtry):
+        rf = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED,
+            max_features=int(m),
+        )
+        rf.fit(X, y)
+        fitted_rf = rf.predict(X)
+
+        rf.modify_predictions_trees(env)
+        fitted_minmax = rf.predict(X)
+
+        max_mse_rf = max_mse(np.array(y), fitted_rf, env)
+        max_mse_minmax = max_mse(np.array(y), fitted_minmax, env)
+
+        results[m] = [max_mse_rf, max_mse_minmax]
+
+    df = pd.DataFrame.from_dict(
+        results, orient="index", columns=["maxMSE_RF", "maxMSE_MinMaxRF"]
+    )
+    df = df.reset_index().rename(columns={"index": "mtry"})
+    df["mtry"] = df["mtry"].astype(int)
+
+    path = os.path.join(RESULTS_PATH, "maxmse_mtry.csv")
+    df.to_csv(path, index=False)
+    logger.info(f"Saved resampling metrics to {path}")
+
+
+def run_mtry_resample_exp(
+    X: pd.DataFrame,
+    y: pd.Series,
+    env: np.ndarray,
+) -> None:
+    """
+    Comparison of RF and MinMaxRF with different mtry,
+    repeated N times on stratified resamples of the data.
+
+    Args:
+        X (pd.DataFrame): Feature matrix (shape n×p)
+        y (pd.Series):   Target vector (length n)
+        env (np.ndarray): Environment labels (length n)
+    """
+    # grid of mtry values
+    mtry_values = np.arange(1, X.shape[1] + 1)
+    p = len(mtry_values)
+
+    results_rf = np.zeros((N, p))
+    results_mm = np.zeros((N, p))
+
+    for i in tqdm(range(N)):
+        X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
+            X,
+            y,
+            env,
+            test_size=VAL_PERCENTAGE,
+            random_state=i,
+            stratify=env,
+        )
+
+        for j, m in enumerate(mtry_values):
+            rf = RandomForest(
+                "Regression",
+                n_estimators=N_ESTIMATORS,
+                min_samples_leaf=MIN_SAMPLES_LEAF,
+                seed=SEED,
+                max_features=int(m),
+            )
+            rf.fit(X_tr, y_tr)
+            fitted_rf = rf.predict(X_tr)
+
+            # MinMaxRF
+            rf.modify_predictions_trees(env_tr)
+            fitted_mm = rf.predict(X_tr)
+
+            # compute worst‐case (max) MSE over environments
+            results_rf[i, j] = max_mse(np.array(y_tr), fitted_rf, env_tr)
+            results_mm[i, j] = max_mse(np.array(y_tr), fitted_mm, env_tr)
+
+    # build a long DataFrame for easy analysis / plotting
+    # first, wide → two DataFrames with shape (N×p)
+    df_rf = pd.DataFrame(results_rf, columns=mtry_values)
+    df_rf["method"] = "RF"
+    df_mm = pd.DataFrame(results_mm, columns=mtry_values)
+    df_mm["method"] = "MinMaxRF"
+
+    # melt both into long form
+    df_rf_long = df_rf.melt(
+        id_vars="method", var_name="mtry", value_name="maxMSE"
+    )
+    df_mm_long = df_mm.melt(
+        id_vars="method", var_name="mtry", value_name="maxMSE"
+    )
+
+    df_all = pd.concat([df_rf_long, df_mm_long], ignore_index=True)
+    df_all["mtry"] = df_all["mtry"].astype(int)
+
+    path = os.path.join(RESULTS_PATH, "maxmse_mtry_resample.csv")
+    df_all.to_csv(path, index=False)
+    logger.info(f"Saved resampling metrics to {path}")
+
+
 def main(version: str):
     logger.info("Loading data and assigning environments")
     X, y, Z = load_data()
@@ -370,10 +549,26 @@ def main(version: str):
         # The train data is further divided into train and validation
         run_ttv_exp(X, y, env)
 
-    elif version == "train":
+    elif version == "train_bootstrap":
         # The whole dataset is used to fit the models.
         # Confidence intervals for the MSE are constructed using bootstrap.
-        run_t_exp(X, y, env)
+        run_t_bootstrap_exp(X, y, env)
+
+    elif version == "train_resample":
+        # The whole dataset is used to fit the models.
+        # Confidence intervals for the MSE are constructed using resampling.
+        run_t_resample_exp(X, y, env)
+
+    elif version == "train_mtry":
+        # The whole dataset is used to fit the models.
+        # Comparison of the methods in terms of mtry.
+        run_mtry_exp(X, y, env)
+
+    elif version == "train_mtry_resample":
+        # The whole dataset is used to fit the models.
+        # Comparison of the methods in terms of mtry.
+        # Confidence intervals are constructred using resampling.
+        run_mtry_resample_exp(X, y, env)
 
 
 if __name__ == "__main__":
@@ -384,9 +579,15 @@ if __name__ == "__main__":
         "--version",
         type=str,
         default="train_test_val",
-        choices=["train_test_val", "train"],
+        choices=[
+            "train_test_val",
+            "train_bootstrap",
+            "train_resample",
+            "train_mtry",
+            "train_mtry_resample",
+        ],
         help="Experiment version (default: 'train_test_val'). "
-        "Must be one of 'train_test_val' or 'train'.",
+        "Must be one of 'train_test_val', 'train_bootstrap', 'train_resample', 'train_mtry' or 'train_mtry_resample'.",
     )
     args = parser.parse_args()
     main(args.version)
