@@ -89,6 +89,64 @@ def plot_max_mse(
     plt.show()
 
 
+def plot_max_mse_boxplot(
+    max_mse_df: pd.DataFrame,
+    saveplot: bool = False,
+    nameplot: str = "max_mse_boxplot",
+) -> None:
+    color = "tab:blue"
+    n = len(max_mse_df.columns)
+    pos = np.arange(n)
+
+    means = max_mse_df.mean(axis=0)
+    stderr = max_mse_df.std(axis=0, ddof=1) / np.sqrt(len(max_mse_df))
+    lo = means - 1.96 * stderr
+    hi = means + 1.96 * stderr
+    yerr = np.vstack([means - lo, hi - means])
+
+    fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
+
+    # Boxplot instead of violinplot
+    ax.boxplot(
+        [max_mse_df.iloc[:, i] for i in range(n)],
+        positions=pos,
+        widths=0.6,
+        patch_artist=True,
+        boxprops=dict(facecolor=color, color=color, alpha=0.5),
+        capprops=dict(color=color),
+        whiskerprops=dict(color=color),
+        flierprops=dict(markerfacecolor=color, marker="o", alpha=0.4),
+        medianprops=dict(color="black", linewidth=2),
+    )
+
+    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.set_xticks(pos)
+    ax.set_xticklabels(
+        [
+            r"$\mathsf{RF}$",
+            r"$\mathsf{MaggingRF}$",
+            r"$\mathsf{MinMaxRF\text{-}M0}$",
+            r"$\mathsf{MinMaxRF\text{-}M1}$",
+            r"$\mathsf{MinMaxRF\text{-}M2}$",
+            r"$\mathsf{MinMaxRF\text{-}M3}$",
+            r"$\mathsf{MinMaxRF\text{-}M4}$",
+        ],
+    )
+    ax.grid(True, linewidth=0.2, axis="y")
+    plt.tight_layout()
+
+    if saveplot:
+        script_dir = os.getcwd()
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        results_dir = os.path.join(parent_dir, "results")
+        plots_dir = os.path.join(results_dir, "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
+
+    plt.show()
+
+
 def plot_mse_envs(
     df: pd.DataFrame,
     saveplot: bool = False,
