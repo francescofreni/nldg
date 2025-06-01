@@ -21,11 +21,11 @@ def main(
     results_dict = {
         "RF": [],
         "MaggingRF": [],
-        "MinMaxRF-M0": [],
-        "MinMaxRF-M1": [],
-        "MinMaxRF-M2": [],
-        "MinMaxRF-M3": [],
-        "MinMaxRF-M4": [],
+        "L-MMRF": [],
+        "Post-RF": [],
+        "Post-L-MMRF": [],
+        "G-DFS-MMRF": [],
+        "G-MMRF": [],
     }
 
     runtime_dict = copy.deepcopy(results_dict)
@@ -49,7 +49,8 @@ def main(
         )
         rf.fit(Xtr, Ytr)
         end = time.time()
-        runtime_dict["RF"].append(end - start)
+        time_rf = end - start
+        runtime_dict["RF"].append(time_rf)
         fitted_rf = rf.predict(Xtr)
         mse_dict["RF"].append(mean_squared_error(Ytr, fitted_rf))
         mse_envs_rf, maxmse_rf = max_mse(Ytr, fitted_rf, Etr, ret_ind=True)
@@ -76,7 +77,7 @@ def main(
         mse_envs_dict["MaggingRF"].append(mse_envs_magging)
         maxmse_dict["MaggingRF"].append(maxmse_magging)
 
-        # MinMaxRF-M0
+        # MinMaxRF-M0 / L-MMRF
         start = time.time()
         rf_minmax_m0 = RandomForest(
             "MinMaxRegression",
@@ -87,48 +88,49 @@ def main(
         )
         rf_minmax_m0.fit(Xtr, Ytr, Etr)
         end = time.time()
-        runtime_dict["MinMaxRF-M0"].append(end - start)
+        time_minmax_m0 = end - start
+        runtime_dict["L-MMRF"].append(time_minmax_m0)
         fitted_minmax_m0 = rf_minmax_m0.predict(Xtr)
-        mse_dict["MinMaxRF-M0"].append(
-            mean_squared_error(Ytr, fitted_minmax_m0)
-        )
+        mse_dict["L-MMRF"].append(mean_squared_error(Ytr, fitted_minmax_m0))
         mse_envs_minmax_m0, maxmse_minmax_m0 = max_mse(
             Ytr, fitted_minmax_m0, Etr, ret_ind=True
         )
-        mse_envs_dict["MinMaxRF-M0"].append(mse_envs_minmax_m0)
-        maxmse_dict["MinMaxRF-M0"].append(maxmse_minmax_m0)
+        mse_envs_dict["L-MMRF"].append(mse_envs_minmax_m0)
+        maxmse_dict["L-MMRF"].append(maxmse_minmax_m0)
 
-        # MinMaxRF-M1
+        # MinMaxRF-M1 / Post-RF
         start = time.time()
         rf.modify_predictions_trees(Etr)
         end = time.time()
-        runtime_dict["MinMaxRF-M1"].append(end - start)
+        time_minmax_m1 = end - start
+        time_minmax_m1 += time_rf
+        runtime_dict["Post-RF"].append(time_minmax_m1)
         fitted_minmax_m1 = rf.predict(Xtr)
-        mse_dict["MinMaxRF-M1"].append(
-            mean_squared_error(Ytr, fitted_minmax_m1)
-        )
+        mse_dict["Post-RF"].append(mean_squared_error(Ytr, fitted_minmax_m1))
         mse_envs_minmax_m1, maxmse_minmax_m1 = max_mse(
             Ytr, fitted_minmax_m1, Etr, ret_ind=True
         )
-        mse_envs_dict["MinMaxRF-M1"].append(mse_envs_minmax_m1)
-        maxmse_dict["MinMaxRF-M1"].append(maxmse_minmax_m1)
+        mse_envs_dict["Post-RF"].append(mse_envs_minmax_m1)
+        maxmse_dict["Post-RF"].append(maxmse_minmax_m1)
 
-        # MinMaxRF-M2
+        # MinMaxRF-M2 / Post-L-MMRF
         start = time.time()
         rf_minmax_m0.modify_predictions_trees(Etr)
         end = time.time()
-        runtime_dict["MinMaxRF-M2"].append(end - start)
+        time_minmax_m2 = end - start
+        time_minmax_m2 += time_minmax_m0
+        runtime_dict["Post-L-MMRF"].append(time_minmax_m2)
         fitted_minmax_m2 = rf_minmax_m0.predict(Xtr)
-        mse_dict["MinMaxRF-M2"].append(
+        mse_dict["Post-L-MMRF"].append(
             mean_squared_error(Ytr, fitted_minmax_m2)
         )
         mse_envs_minmax_m2, maxmse_minmax_m2 = max_mse(
             Ytr, fitted_minmax_m2, Etr, ret_ind=True
         )
-        mse_envs_dict["MinMaxRF-M2"].append(mse_envs_minmax_m2)
-        maxmse_dict["MinMaxRF-M2"].append(maxmse_minmax_m2)
+        mse_envs_dict["Post-L-MMRF"].append(mse_envs_minmax_m2)
+        maxmse_dict["Post-L-MMRF"].append(maxmse_minmax_m2)
 
-        # MinMaxRF-M3
+        # MinMaxRF-M3 / G-DFS-MMRF
         start = time.time()
         rf_minmax_m3 = RandomForest(
             "MinMaxRegression",
@@ -139,18 +141,18 @@ def main(
         )
         rf_minmax_m3.fit(Xtr, Ytr, Etr)
         end = time.time()
-        runtime_dict["MinMaxRF-M3"].append(end - start)
+        runtime_dict["G-DFS-MMRF"].append(end - start)
         fitted_minmax_m3 = rf_minmax_m3.predict(Xtr)
-        mse_dict["MinMaxRF-M3"].append(
+        mse_dict["G-DFS-MMRF"].append(
             mean_squared_error(Ytr, fitted_minmax_m3)
         )
         mse_envs_minmax_m3, maxmse_minmax_m3 = max_mse(
             Ytr, fitted_minmax_m3, Etr, ret_ind=True
         )
-        mse_envs_dict["MinMaxRF-M3"].append(mse_envs_minmax_m3)
-        maxmse_dict["MinMaxRF-M3"].append(maxmse_minmax_m3)
+        mse_envs_dict["G-DFS-MMRF"].append(mse_envs_minmax_m3)
+        maxmse_dict["G-DFS-MMRF"].append(maxmse_minmax_m3)
 
-        # MinMaxRF-M4
+        # MinMaxRF-M4 / G-MMRF
         start = time.time()
         rf_minmax_m4 = RandomForest(
             "MinMaxRegression",
@@ -161,16 +163,14 @@ def main(
         )
         rf_minmax_m4.fit(Xtr, Ytr, Etr)
         end = time.time()
-        runtime_dict["MinMaxRF-M4"].append(end - start)
+        runtime_dict["G-MMRF"].append(end - start)
         fitted_minmax_m4 = rf_minmax_m4.predict(Xtr)
-        mse_dict["MinMaxRF-M4"].append(
-            mean_squared_error(Ytr, fitted_minmax_m4)
-        )
+        mse_dict["G-MMRF"].append(mean_squared_error(Ytr, fitted_minmax_m4))
         mse_envs_minmax_m4, maxmse_minmax_m4 = max_mse(
             Ytr, fitted_minmax_m4, Etr, ret_ind=True
         )
-        mse_envs_dict["MinMaxRF-M4"].append(mse_envs_minmax_m4)
-        maxmse_dict["MinMaxRF-M4"].append(maxmse_minmax_m4)
+        mse_envs_dict["G-MMRF"].append(mse_envs_minmax_m4)
+        maxmse_dict["G-MMRF"].append(maxmse_minmax_m4)
 
     def get_df(res_dict):
         rows = []
@@ -205,7 +205,7 @@ def main(
     runtime_df.to_csv(os.path.join(out_data_dir, "runtime.csv"), index=False)
 
     # Second simulation
-    min_samples_leaf = [25, 50, 75, 100, 150, 200, 250, 300]
+    min_samples_leaf = [10, 15, 20, 25, 30, 35, 40, 45, 50]
     maxmse_msl_rf = np.zeros((nsim, len(min_samples_leaf)))
     maxmse_msl_magging = np.zeros((nsim, len(min_samples_leaf)))
     maxmse_msl_minmax = np.zeros((nsim, len(min_samples_leaf)))
