@@ -83,7 +83,7 @@ def load_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
 
 
 # Setting 3
-def assign_quadrant(Z: pd.DataFrame) -> np.ndarray:
+def assign_quadrant_env(Z: pd.DataFrame) -> np.ndarray:
     """
     Creates the environment label based on geographic criteria.
 
