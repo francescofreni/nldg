@@ -321,14 +321,14 @@ def plot_max_mse_housing(
     df: pd.DataFrame,
     metric: str = "Test_MSE",
     saveplot: bool = False,
-    nameplot: str = "main_metrics_test",
+    nameplot: str = "mse_heldout",
 ) -> None:
     # fixed quadrant order
     QUADRANTS = ["SW", "SE", "NW", "NE"]
 
     # Compute means and 95% CIs
     grp = df.groupby(["HeldOutQuadrant", "Model"])[metric]
-    means = grp.mean().unstack().reindex(QUADRANTS)  # reorder rows
+    means = grp.mean().unstack().reindex(QUADRANTS)
     stds = grp.std().unstack().reindex(QUADRANTS)
     counts = grp.count().unstack().reindex(QUADRANTS)
     ci95 = 1.96 * stds / np.sqrt(counts)
@@ -358,7 +358,6 @@ def plot_max_mse_housing(
             label=model,
         )
 
-    # styling
     ax.set_xticks(x0)
     ax.set_xticklabels(QUADRANTS)
     ax.set_xlabel("Held-Out Quadrant")
@@ -378,35 +377,22 @@ def plot_max_mse_housing(
 
 
 def plot_mse_envs_housing(
-    df: pd.DataFrame,
-    split: str = "Train",
+    df_detailed: pd.DataFrame,
+    df_train: pd.DataFrame,
     saveplot: bool = False,
-    nameplot: str = "env_specific_metrics_train",
-    figsize: tuple = (12, 6),
+    nameplot: str = "env_specific_mse",
 ):
     QUADRANTS = ["SW", "SE", "NW", "NE"]
-
-    # filter to the desired DataSplit
-    sub = df[df["DataSplit"] == split]
-
-    # models and colors
     models = ["RF", "Post-RF"]
     colors = ["lightskyblue", "orange"]
     delta = 0.12
-
-    # how many sub-envs under each quadrant
     n_subenv = 3
+    figsize = (12, 6)
 
-    # create figure
     fig, ax = plt.subplots(figsize=figsize)
-
-    # track first legend appearance
     seen = {m: False for m in models}
-
-    # positions for labels
     label_positions = []
 
-    # loop through held-out quadrants
     for i, ho in enumerate(QUADRANTS):
         subenvs = [q for q in QUADRANTS if q != ho]
 
@@ -415,10 +401,10 @@ def plot_mse_envs_housing(
             label_positions.append((ho, env, x_base))
 
             for m_idx, model in enumerate(models):
-                ser = sub[
-                    (sub["HeldOutQuadrant"] == ho)
-                    & (sub["Model"] == model)
-                    & (sub["EnvIndex"] == QUADRANTS.index(env))
+                ser = df_detailed[
+                    (df_detailed["HeldOutQuadrant"] == ho)
+                    & (df_detailed["Model"] == model)
+                    & (df_detailed["EnvIndex"] == QUADRANTS.index(env))
                 ]["MSE"]
 
                 if ser.empty:
@@ -429,8 +415,6 @@ def plot_mse_envs_housing(
                 ci95 = 1.96 * std / np.sqrt(ser.count())
 
                 x = x_base + (m_idx - 0.5) * delta
-
-                # only label first occurrence
                 label = model if not seen[model] else "_nolegend_"
                 seen[model] = True
 
@@ -446,22 +430,18 @@ def plot_mse_envs_housing(
                     label=label,
                 )
 
-    # vertical separators
+    # Vertical separators between held-out quadrants
     for k in range(1, len(QUADRANTS)):
         sep_x = k * n_subenv - 0.5
-        ax.axvline(
-            sep_x, linestyle="--", linewidth=0.5, color="gray", alpha=0.4
-        )
+        ax.axvline(sep_x, linewidth=0.5, color="black")
 
-    # hide ticks
     ax.set_xticks([])
     ax.set_xlim(-0.5, len(QUADRANTS) * n_subenv - 0.5)
 
-    # force draw for label placement
     fig.canvas.draw()
     y0, y1 = ax.get_ylim()
 
-    # sub-env labels
+    # Sub-env labels
     for _, env, x in label_positions:
         ax.text(
             x,
@@ -472,7 +452,7 @@ def plot_mse_envs_housing(
             fontsize=10,
         )
 
-    # held-out quadrant labels
+    # Held-out quadrant labels
     for i, ho in enumerate(QUADRANTS):
         mid = i * n_subenv + (n_subenv - 1) / 2
         ax.text(
@@ -485,10 +465,55 @@ def plot_mse_envs_housing(
             fontweight="bold",
         )
 
-    # boxed legend
-    ax.legend(loc="upper right", frameon=True)
+    # Add horizontal lines from df_train
+    for i, ho in enumerate(QUADRANTS):
+        for m_idx, model in enumerate(models):
+            df_sub = df_train[
+                (df_train["HeldOutQuadrant"] == ho)
+                & (df_train["Model"] == model)
+            ]
 
-    # labels & grid
+            if df_sub.empty:
+                continue
+
+            train_mean = df_sub["Train_MSE"].mean()
+            train_std = df_sub["Train_MSE"].std(ddof=1)
+            ci95 = 1.96 * train_std / np.sqrt(len(df_sub))
+
+            # Compute horizontal span range for this quadrant
+            start = i * n_subenv - 0.4
+            end = (i + 1) * n_subenv - 0.6
+
+            label = (
+                f"{model} Overall MSE"
+                if (i == len(QUADRANTS) - 1)
+                else "_nolegend_"
+            )
+            ax.hlines(
+                y=train_mean,
+                xmin=start,
+                xmax=end,
+                color=colors[m_idx],
+                linestyle="--",
+                linewidth=2,
+                alpha=0.8,
+                label=label,
+            )
+
+            x_min, x_max = ax.get_xlim()
+            xmin_norm = (start - x_min) / (x_max - x_min)
+            xmax_norm = (end - x_min) / (x_max - x_min)
+
+            ax.axhspan(
+                train_mean - ci95,
+                train_mean + ci95,
+                xmin=xmin_norm,
+                xmax=xmax_norm,
+                color=colors[m_idx],
+                alpha=0.15,
+            )
+
+    ax.legend(loc="upper right", frameon=True)
     ax.set_ylabel(r"$\mathsf{MSE}$")
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
 

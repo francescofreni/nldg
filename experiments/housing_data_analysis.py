@@ -67,9 +67,11 @@ def assign_quadrant_env(
         env (np.ndarray): Environment label
     """
     lat, lon = Z["Latitude"], Z["Longitude"]
-    north = lat >= 35
+    # Setting 1: 35, -120
+    # Setting 2: 36, -119.8
+    north = lat >= 36
     south = ~north
-    east = lon >= -120
+    east = lon >= -119.8
     west = ~east
 
     env = np.zeros(len(Z), dtype=int)
