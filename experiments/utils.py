@@ -24,69 +24,69 @@ WIDTH, HEIGHT = 10, 6
 # =====================================
 # Plotting functions for the simulation
 # =====================================
-def plot_max_mse(
-    max_mse_df: pd.DataFrame,
-    saveplot: bool = False,
-    nameplot: str = "max_mse",
-) -> None:
-    color = "tab:blue"
-    n = len(max_mse_df.columns)
-    pos = np.arange(n)
-
-    means = max_mse_df.mean(axis=0)
-    stderr = max_mse_df.std(axis=0, ddof=1) / np.sqrt(len(max_mse_df))
-    lo = means - 1.96 * stderr
-    hi = means + 1.96 * stderr
-    yerr = np.vstack([means - lo, hi - means])
-
-    fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
-    vp = ax.violinplot(
-        [max_mse_df.iloc[:, i] for i in range(n)],
-        positions=pos,
-        showmeans=True,
-        showextrema=False,
-        widths=0.6,
-    )
-    for body in vp["bodies"]:
-        body.set_facecolor(color)
-        body.set_edgecolor(color)
-        body.set_alpha(0.7)
-    vp["cmeans"].set_color(color)
-    vp["cmeans"].set_linewidth(2.5)
-
-    ax.errorbar(
-        pos,
-        means,
-        yerr=yerr,
-        linestyle="none",
-        capsize=8,
-        ecolor=color,
-    )
-
-    ax.set_ylabel(r"$\mathsf{MSE}$")
-    ax.set_xticks(pos)
-    ax.set_xticklabels(
-        [
-            r"$\mathsf{RF}$",
-            r"$\mathsf{MaggingRF}$",
-            r"$\mathsf{MinMaxRF-M0}$",
-            r"$\mathsf{MinMaxRF-M1}$",
-            r"$\mathsf{MinMaxRF-M2}$",
-            r"$\mathsf{MinMaxRF-M3}$",
-            r"$\mathsf{MinMaxRF-M4}$",
-        ]
-    )
-    ax.grid(True, linewidth=0.2, axis="y")
-    plt.tight_layout()
-    if saveplot:
-        script_dir = os.path.dirname(__file__)
-        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
-        results_dir = os.path.join(parent_dir, "results")
-        plots_dir = os.path.join(results_dir, "figures")
-        os.makedirs(plots_dir, exist_ok=True)
-        outpath = os.path.join(plots_dir, f"{nameplot}.png")
-        plt.savefig(outpath, dpi=300, bbox_inches="tight")
-    plt.show()
+# def plot_max_mse(
+#     max_mse_df: pd.DataFrame,
+#     saveplot: bool = False,
+#     nameplot: str = "max_mse",
+# ) -> None:
+#     color = "tab:blue"
+#     n = len(max_mse_df.columns)
+#     pos = np.arange(n)
+#
+#     means = max_mse_df.mean(axis=0)
+#     stderr = max_mse_df.std(axis=0, ddof=1) / np.sqrt(len(max_mse_df))
+#     lo = means - 1.96 * stderr
+#     hi = means + 1.96 * stderr
+#     yerr = np.vstack([means - lo, hi - means])
+#
+#     fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
+#     vp = ax.violinplot(
+#         [max_mse_df.iloc[:, i] for i in range(n)],
+#         positions=pos,
+#         showmeans=True,
+#         showextrema=False,
+#         widths=0.6,
+#     )
+#     for body in vp["bodies"]:
+#         body.set_facecolor(color)
+#         body.set_edgecolor(color)
+#         body.set_alpha(0.7)
+#     vp["cmeans"].set_color(color)
+#     vp["cmeans"].set_linewidth(2.5)
+#
+#     ax.errorbar(
+#         pos,
+#         means,
+#         yerr=yerr,
+#         linestyle="none",
+#         capsize=8,
+#         ecolor=color,
+#     )
+#
+#     ax.set_ylabel(r"$\mathsf{MSE}$")
+#     ax.set_xticks(pos)
+#     ax.set_xticklabels(
+#         [
+#             r"$\mathsf{RF}$",
+#             r"$\mathsf{MaggingRF}$",
+#             r"$\mathsf{L-MMRF}$",
+#             r"$\mathsf{Post-RF}$",
+#             r"$\mathsf{Post-L-MMRF}$",
+#             r"$\mathsf{G-DFS-MMRF}$",
+#             r"$\mathsf{G-MMRF}$",
+#         ]
+#     )
+#     ax.grid(True, linewidth=0.2, axis="y")
+#     plt.tight_layout()
+#     if saveplot:
+#         script_dir = os.path.dirname(__file__)
+#         parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+#         results_dir = os.path.join(parent_dir, "results")
+#         plots_dir = os.path.join(results_dir, "figures")
+#         os.makedirs(plots_dir, exist_ok=True)
+#         outpath = os.path.join(plots_dir, f"{nameplot}.png")
+#         plt.savefig(outpath, dpi=300, bbox_inches="tight")
+#     plt.show()
 
 
 def plot_max_mse_boxplot(
@@ -97,12 +97,6 @@ def plot_max_mse_boxplot(
     color = "tab:blue"
     n = len(max_mse_df.columns)
     pos = np.arange(n)
-
-    means = max_mse_df.mean(axis=0)
-    stderr = max_mse_df.std(axis=0, ddof=1) / np.sqrt(len(max_mse_df))
-    lo = means - 1.96 * stderr
-    hi = means + 1.96 * stderr
-    yerr = np.vstack([means - lo, hi - means])
 
     fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
 
@@ -116,7 +110,7 @@ def plot_max_mse_boxplot(
         capprops=dict(color=color),
         whiskerprops=dict(color=color),
         flierprops=dict(markerfacecolor=color, marker="o", alpha=0.4),
-        medianprops=dict(color="black", linewidth=2),
+        medianprops=dict(color="tab:blue", linewidth=2),
     )
 
     ax.set_ylabel(r"$\mathsf{MSE}$")
@@ -125,11 +119,11 @@ def plot_max_mse_boxplot(
         [
             r"$\mathsf{RF}$",
             r"$\mathsf{MaggingRF}$",
-            r"$\mathsf{MinMaxRF\text{-}M0}$",
-            r"$\mathsf{MinMaxRF\text{-}M1}$",
-            r"$\mathsf{MinMaxRF\text{-}M2}$",
-            r"$\mathsf{MinMaxRF\text{-}M3}$",
-            r"$\mathsf{MinMaxRF\text{-}M4}$",
+            r"$\mathsf{L\text{-}MMRF}$",
+            r"$\mathsf{Post\text{-}RF}$",
+            r"$\mathsf{Post\text{-}L\text{-}MMRF}$",
+            r"$\mathsf{G\text{-}DFS\text{-}MMRF}$",
+            r"$\mathsf{G\text{-}MMRF}$",
         ],
     )
     ax.grid(True, linewidth=0.2, axis="y")
@@ -261,7 +255,7 @@ def plot_max_mse_msl(
     nameplot: str = "max_mse_msl",
 ) -> None:
     colors = ["lightskyblue", "orange", "mediumpurple"]
-    methods = ["RF", "MinMaxRF", "MaggingRF"]
+    methods = ["RF", "Post-RF", "MaggingRF"]
     min_samples_leaf = np.unique(res["min_samples_leaf"])
     nsim = res.shape[0] / len(methods)
 
@@ -341,9 +335,9 @@ def plot_max_mse_housing(
 
     x0 = np.arange(len(QUADRANTS))
 
-    # colors for RF / MinMaxRF
+    # colors for RF / Post-RF
     colors = ["lightskyblue", "orange"]
-    models = ["RF", "MinMaxRF"]
+    models = ["RF", "Post-RF"]
     delta = 0.1
     offsets = np.linspace(-delta, +delta, len(models))
 
@@ -396,7 +390,7 @@ def plot_mse_envs_housing(
     sub = df[df["DataSplit"] == split]
 
     # models and colors
-    models = ["RF", "MinMaxRF"]
+    models = ["RF", "Post-RF"]
     colors = ["lightskyblue", "orange"]
     delta = 0.12
 
@@ -515,62 +509,62 @@ def plot_mse_envs_housing(
     plt.show()
 
 
-def plot_mse_envs_housing_bootstrap(
-    df: pd.DataFrame,
-    ci_type: str = "perc",
-    saveplot: bool = False,
-    nameplot: str = "bootstrap_metrics",
-) -> None:
-    QUADRANTS = ["SW", "SE", "NW", "NE"]
-    MODELS = ["RF", "MinMaxRF"]
-    COLORS = {"RF": "lightskyblue", "MinMaxRF": "orange"}
-    OFFSETS = {"RF": -0.1, "MinMaxRF": 0.1}
-
-    x_pos = np.arange(len(QUADRANTS))
-    fig, ax = plt.subplots(figsize=(8, 5))
-
-    for model in MODELS:
-        means, err_low, err_high = [], [], []
-        for quadrant in QUADRANTS:
-            row = df[
-                (df["Method"] == model) & (df["Quadrant"] == quadrant)
-            ].iloc[0]
-            mean = row["MSE_mean"]
-            lo = row[f"Lower_CI_{ci_type}"]
-            hi = row[f"Upper_CI_{ci_type}"]
-            means.append(mean)
-            err_low.append(max(mean - lo, 0))
-            err_high.append(max(hi - mean, 0))
-
-        x_model = x_pos + OFFSETS[model]
-        yerr = [err_low, err_high]
-        ax.errorbar(
-            x_model,
-            means,
-            yerr=yerr,
-            fmt="o",
-            color=COLORS[model],
-            markersize=10,
-            markeredgewidth=0,
-            elinewidth=2.5,
-            capsize=0,
-            label=model,
-        )
-
-    ax.set_xticks(x_pos)
-    ax.set_xticklabels(QUADRANTS)
-    ax.set_xlabel("Quadrant")
-    ax.set_ylabel("MSE")
-    ax.legend(loc="upper right")
-    ax.grid(axis="y", linestyle="--", alpha=0.5)
-
-    plt.tight_layout()
-    if saveplot:
-        plots_dir = os.path.join("results", "figures")
-        os.makedirs(plots_dir, exist_ok=True)
-        outpath = os.path.join(plots_dir, f"{nameplot}.png")
-        plt.savefig(outpath, dpi=300, bbox_inches="tight")
-    plt.show()
+# def plot_mse_envs_housing_bootstrap(
+#     df: pd.DataFrame,
+#     ci_type: str = "perc",
+#     saveplot: bool = False,
+#     nameplot: str = "bootstrap_metrics",
+# ) -> None:
+#     QUADRANTS = ["SW", "SE", "NW", "NE"]
+#     MODELS = ["RF", "Post-RF"]
+#     COLORS = {"RF": "lightskyblue", "Post-RF": "orange"}
+#     OFFSETS = {"RF": -0.1, "Post-RF": 0.1}
+#
+#     x_pos = np.arange(len(QUADRANTS))
+#     fig, ax = plt.subplots(figsize=(8, 5))
+#
+#     for model in MODELS:
+#         means, err_low, err_high = [], [], []
+#         for quadrant in QUADRANTS:
+#             row = df[
+#                 (df["Method"] == model) & (df["Quadrant"] == quadrant)
+#             ].iloc[0]
+#             mean = row["MSE_mean"]
+#             lo = row[f"Lower_CI_{ci_type}"]
+#             hi = row[f"Upper_CI_{ci_type}"]
+#             means.append(mean)
+#             err_low.append(max(mean - lo, 0))
+#             err_high.append(max(hi - mean, 0))
+#
+#         x_model = x_pos + OFFSETS[model]
+#         yerr = [err_low, err_high]
+#         ax.errorbar(
+#             x_model,
+#             means,
+#             yerr=yerr,
+#             fmt="o",
+#             color=COLORS[model],
+#             markersize=10,
+#             markeredgewidth=0,
+#             elinewidth=2.5,
+#             capsize=0,
+#             label=model,
+#         )
+#
+#     ax.set_xticks(x_pos)
+#     ax.set_xticklabels(QUADRANTS)
+#     ax.set_xlabel("Quadrant")
+#     ax.set_ylabel("MSE")
+#     ax.legend(loc="upper right")
+#     ax.grid(axis="y", linestyle="--", alpha=0.5)
+#
+#     plt.tight_layout()
+#     if saveplot:
+#         plots_dir = os.path.join("results", "figures")
+#         os.makedirs(plots_dir, exist_ok=True)
+#         outpath = os.path.join(plots_dir, f"{nameplot}.png")
+#         plt.savefig(outpath, dpi=300, bbox_inches="tight")
+#     plt.show()
 
 
 def plot_mse_envs_housing_resample(
@@ -585,20 +579,26 @@ def plot_mse_envs_housing_resample(
         var_name="Environment",
         value_name="maxMSE",
     )
-
     grp = df_long.groupby(["Environment", "method"])["maxMSE"]
     means = grp.mean().unstack().reindex(QUADRANTS)
     stds = grp.std().unstack().reindex(QUADRANTS)
     counts = grp.count().unstack().reindex(QUADRANTS)
     ci95 = 1.96 * stds / np.sqrt(counts)
 
+    # Calculate overall means and confidence intervals for each method
+    overall_grp = df.groupby("method")["Overall"]
+    overall_means = overall_grp.mean()
+    overall_stds = overall_grp.std()
+    overall_counts = overall_grp.count()
+    overall_ci95 = 1.96 * overall_stds / np.sqrt(overall_counts)
+
     x0 = np.arange(len(QUADRANTS))
-    models = ["RF", "MinMaxRF"]
+    models = ["RF", "Post-RF"]
     colors = ["lightskyblue", "orange"][: len(models)]
     delta = 0.1
     offsets = np.linspace(-delta, +delta, len(models))
-
     fig, ax = plt.subplots(figsize=(8, 5))
+
     for idx, (model, off) in enumerate(zip(models, offsets)):
         ax.errorbar(
             x0 + off,
@@ -613,15 +613,36 @@ def plot_mse_envs_housing_resample(
             label=model,
         )
 
+        # Add horizontal line and confidence band for overall mean
+        if model in overall_means.index:
+            overall_mean = overall_means[model]
+            overall_ci = overall_ci95[model]
+
+            # Horizontal line
+            ax.axhline(
+                y=overall_mean,
+                color=colors[idx],
+                linestyle="--",
+                alpha=0.8,
+                linewidth=2,
+                label=f"{model} Overall MSE",
+            )
+
+            # Confidence band
+            ax.axhspan(
+                ymin=overall_mean - overall_ci,
+                ymax=overall_mean + overall_ci,
+                color=colors[idx],
+                alpha=0.15,
+            )
+
     ax.set_xticks(x0)
     ax.set_xticklabels(QUADRANTS)
     ax.set_xlabel("Environment")
     ax.set_ylabel("MSE")
     ax.legend(loc="upper right", frameon=True)
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
-
     plt.tight_layout()
-
     if saveplot:
         script_dir = os.path.dirname(__file__)
         parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
@@ -629,7 +650,6 @@ def plot_mse_envs_housing_resample(
         os.makedirs(plots_dir, exist_ok=True)
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
-
     plt.show()
 
 
@@ -638,8 +658,8 @@ def plot_max_mse_mtry(
     saveplot: bool = False,
     nameplot: str = "max_mse_mtry",
 ) -> None:
-    cols = ["maxMSE_RF", "maxMSE_MinMaxRF"]
-    labels = ["RF", "MinMaxRF"]
+    cols = ["maxMSE_RF", "maxMSE_Post-RF"]
+    labels = ["RF", "Post-RF"]
     colors = ["lightskyblue", "orange"]
 
     plt.figure(figsize=(8, 5))
@@ -676,7 +696,7 @@ def plot_max_mse_mtry_resample(
     saveplot: bool = False,
     nameplot: str = "max_mse_mtry_resample",
 ) -> None:
-    methods = ["RF", "MinMaxRF"]
+    methods = ["RF", "Post-RF"]
     colors = ["lightskyblue", "orange"]
 
     nsim = res.groupby(["method", "mtry"]).size().iloc[0]

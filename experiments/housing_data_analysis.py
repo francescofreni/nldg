@@ -8,6 +8,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from nldg.utils import max_mse
 from adaXT.random_forest import RandomForest
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error
 from tqdm import tqdm
 
 # Setup logging
@@ -30,7 +31,6 @@ VAL_PERCENTAGE = 0.2
 N_ESTIMATORS = 25
 MIN_SAMPLES_LEAF = 30
 SEED = 42
-RESULTS_FOLDER = "results"
 M = 200
 N = 20
 
@@ -80,6 +80,124 @@ def assign_quadrant_env(
     return env
 
 
+def eval_one_quadrant(
+    quadrant_idx: int,
+    X: pd.DataFrame,
+    y: pd.Series,
+    env: np.ndarray,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    For one held-out quadrant, run B repetitions and collect:
+      - max-MSE on train
+      - MSE on test
+
+    Args:
+        quadrant_idx (int): Quadrant index
+        X (pd.DataFrame): Feature matrix
+        y (pd.Series): Target vector
+        env (np.ndarray): Environment labels
+
+    Returns:
+        Tuple (main_df, env_metrics_df): Two dataframes with performance metrics
+    """
+    # Masks
+    test_mask = env == quadrant_idx
+    train_mask = ~test_mask
+
+    X_test, y_test = X[test_mask], y[test_mask]
+    X_pool, y_pool = X[train_mask], y[train_mask]
+    env_pool = env[train_mask]
+    env_test = env[test_mask]
+
+    train_env_indices = np.unique(env_pool)
+
+    main_records = []
+    env_metrics_records = []
+
+    for b in tqdm(range(B)):
+        # Stratified split (preserve env proportions among the 3 training envs)
+        X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
+            X_pool,
+            y_pool,
+            env_pool,
+            test_size=VAL_PERCENTAGE,
+            random_state=b,
+            stratify=env_pool,
+        )
+
+        # Fit and predict
+        rf = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED,
+        )
+        rf.fit(X_tr, y_tr)
+        preds_tr = rf.predict(X_tr)
+        preds_test = rf.predict(X_test)
+
+        rf.modify_predictions_trees(env_tr)
+        preds_tr_minmax = rf.predict(X_tr)
+        preds_test_minmax = rf.predict(X_test)
+
+        # Compute metrics
+        mse_envs_tr, max_mse_tr = max_mse(y_tr, preds_tr, env_tr, ret_ind=True)
+        mse_tr = mean_squared_error(y_tr, preds_tr)
+        max_mse_test = max_mse(y_test, preds_test, env_test)
+
+        mse_envs_tr_minmax, max_mse_tr_minmax = max_mse(
+            y_tr, preds_tr_minmax, env_tr, ret_ind=True
+        )
+        mse_tr_minmax = mean_squared_error(y_tr, preds_tr_minmax)
+        max_mse_test_minmax = max_mse(y_test, preds_test_minmax, env_test)
+
+        for model_name, tr, te, tr_envs, tr_pool in [
+            (
+                "RF",
+                max_mse_tr,
+                max_mse_test,
+                mse_envs_tr,
+                mse_tr,
+            ),
+            (
+                "Post-RF",
+                max_mse_tr_minmax,
+                max_mse_test_minmax,
+                mse_envs_tr_minmax,
+                mse_tr_minmax,
+            ),
+        ]:
+            # Main performance metrics
+            main_records.append(
+                {
+                    "HeldOutQuadrant": QUADRANTS[quadrant_idx],
+                    "Rep": b,
+                    "Model": model_name,
+                    "Train_maxMSE": tr,
+                    "Test_MSE": te,
+                    "Train_MSE": tr_pool,
+                }
+            )
+
+            # Environment-specific performance metrics
+            for i, env_value in enumerate(tr_envs):
+                env_idx = train_env_indices[i]
+                env_metrics_records.append(
+                    {
+                        "HeldOutQuadrant": QUADRANTS[quadrant_idx],
+                        "HeldOutQuadrantIdx": quadrant_idx,
+                        "Rep": b,
+                        "Model": model_name,
+                        "EnvIndex": int(env_idx),
+                        "MSE": float(env_value),
+                    }
+                )
+
+    return pd.DataFrame.from_records(main_records), pd.DataFrame.from_records(
+        env_metrics_records
+    )
+
+
 def run_ttv_exp(
     X: pd.DataFrame,
     y: pd.Series,
@@ -93,144 +211,6 @@ def run_ttv_exp(
         y (pd.Series): Target vector
         env (np.ndarray): Environment labels
     """
-
-    def eval_one_quadrant(
-        quadrant_idx: int,
-    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """
-        For one held-out quadrant, run B repetitions and collect:
-          - max-MSE on train
-          - max-MSE on val
-          - MSE on test
-
-        Args:
-            quadrant_idx (int): Quadrant index
-
-        Returns:
-            Tuple (main_df, env_metrics_df): Two dataframes with performance metrics
-        """
-        # Masks
-        test_mask = env == quadrant_idx
-        train_mask = ~test_mask
-
-        X_test, y_test = X[test_mask], y[test_mask]
-        X_pool, y_pool = X[train_mask], y[train_mask]
-        env_pool = env[train_mask]
-        env_test = env[test_mask]
-
-        train_env_indices = np.unique(env_pool)
-
-        main_records = []
-        env_metrics_records = []
-
-        for b in tqdm(range(B)):
-            # Stratified split (preserve env proportions among the 3 training envs)
-            X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
-                X_pool,
-                y_pool,
-                env_pool,
-                test_size=VAL_PERCENTAGE,
-                random_state=b,
-                stratify=env_pool,
-            )
-
-            # Fit and predict
-            rf = RandomForest(
-                "Regression",
-                n_estimators=N_ESTIMATORS,
-                min_samples_leaf=MIN_SAMPLES_LEAF,
-                seed=SEED,
-            )
-            rf.fit(X_tr, y_tr)
-            preds_tr = rf.predict(X_tr)
-            preds_val = rf.predict(X_val)
-            preds_test = rf.predict(X_test)
-
-            rf.modify_predictions_trees(env_tr)
-            preds_tr_minmax = rf.predict(X_tr)
-            preds_val_minmax = rf.predict(X_val)
-            preds_test_minmax = rf.predict(X_test)
-
-            # Compute metrics
-            mse_envs_tr, max_mse_tr = max_mse(
-                y_tr, preds_tr, env_tr, ret_ind=True
-            )
-            mse_envs_val, max_mse_val = max_mse(
-                y_val, preds_val, env_val, ret_ind=True
-            )
-            max_mse_test = max_mse(y_test, preds_test, env_test)
-
-            mse_envs_tr_minmax, max_mse_tr_minmax = max_mse(
-                y_tr, preds_tr_minmax, env_tr, ret_ind=True
-            )
-            mse_envs_val_minmax, max_mse_val_minmax = max_mse(
-                y_val, preds_val_minmax, env_val, ret_ind=True
-            )
-            max_mse_test_minmax = max_mse(y_test, preds_test_minmax, env_test)
-
-            for model_name, tr, va, te, tr_envs, va_envs in [
-                (
-                    "RF",
-                    max_mse_tr,
-                    max_mse_val,
-                    max_mse_test,
-                    mse_envs_tr,
-                    mse_envs_val,
-                ),
-                (
-                    "MinMaxRF",
-                    max_mse_tr_minmax,
-                    max_mse_val_minmax,
-                    max_mse_test_minmax,
-                    mse_envs_tr_minmax,
-                    mse_envs_val_minmax,
-                ),
-            ]:
-                # Main performance metrics
-                main_records.append(
-                    {
-                        "HeldOutQuadrant": QUADRANTS[quadrant_idx],
-                        "Rep": b,
-                        "Model": model_name,
-                        "Train_maxMSE": tr,
-                        "Val_maxMSE": va,
-                        "Test_MSE": te,
-                    }
-                )
-
-                # Environment-specific performance metrics
-                for i, env_value in enumerate(tr_envs):
-                    env_idx = train_env_indices[i]
-                    env_metrics_records.append(
-                        {
-                            "HeldOutQuadrant": QUADRANTS[quadrant_idx],
-                            "HeldOutQuadrantIdx": quadrant_idx,
-                            "Rep": b,
-                            "Model": model_name,
-                            "EnvIndex": int(env_idx),
-                            "DataSplit": "Train",
-                            "MSE": float(env_value),
-                        }
-                    )
-
-                for i, env_value in enumerate(va_envs):
-                    env_idx = train_env_indices[i]
-                    env_metrics_records.append(
-                        {
-                            "HeldOutQuadrant": QUADRANTS[quadrant_idx],
-                            "HeldOutQuadrantIdx": quadrant_idx,
-                            "Rep": b,
-                            "Model": model_name,
-                            "EnvIndex": int(env_idx),
-                            "DataSplit": "Val",
-                            "MSE": float(env_value),
-                        }
-                    )
-
-        return pd.DataFrame.from_records(
-            main_records
-        ), pd.DataFrame.from_records(env_metrics_records)
-
     # Parallelize over quadrants
     main_dfs = []
     env_metrics_dfs = []
@@ -294,14 +274,14 @@ def run_t_bootstrap_exp(
 
     # Compute theta_hat per quadrant
     theta = {}
-    for name, preds in [("RF", p_full), ("MinMaxRF", p_full_mm)]:
+    for name, preds in [("RF", p_full), ("Post-RF", p_full_mm)]:
         theta[name] = [
             ((y[env == q] - preds[env == q]) ** 2).mean() for q in range(4)
         ]
 
     # Bootstrap replicates
     boot = {("RF", q): [] for q in range(4)}
-    boot.update({("MinMaxRF", q): [] for q in range(4)})
+    boot.update({("Post-RF", q): [] for q in range(4)})
 
     for m in tqdm(range(M)):
         idxs = rng.choice(n, size=n, replace=True)
@@ -317,7 +297,7 @@ def run_t_bootstrap_exp(
         rf_b.modify_predictions_trees(eb)
         pb_mm = rf_b.predict(Xb)
 
-        for name, preds in [("RF", pb), ("MinMaxRF", pb_mm)]:
+        for name, preds in [("RF", pb), ("Post-RF", pb_mm)]:
             for q in range(4):
                 mask = eb == q
                 if mask.sum():
@@ -327,7 +307,7 @@ def run_t_bootstrap_exp(
 
     # Build result DataFrame
     records = []
-    for name in ["RF", "MinMaxRF"]:
+    for name in ["RF", "Post-RF"]:
         for q in range(4):
             arr = np.array(boot[(name, q)])
             mean_hat = theta[name][q]
@@ -372,8 +352,8 @@ def run_t_resample_exp(
         y (pd.Series): Target vector
         env (np.ndarray): Environment labels
     """
-    results_rf = np.zeros((N, len(QUADRANTS)))
-    results_minmax = np.zeros((N, len(QUADRANTS)))
+    results_rf = np.zeros((N, len(QUADRANTS) + 1))
+    results_minmax = np.zeros((N, len(QUADRANTS) + 1))
     for i in tqdm(range(N)):
         X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
             X,
@@ -401,18 +381,23 @@ def run_t_resample_exp(
         mse_envs_tr, max_mse_tr = max_mse(
             y_tr, fitted_tr, env_tr, ret_ind=True
         )
+        mse_tr = mean_squared_error(y_tr, fitted_tr)
         mse_envs_tr_minmax, max_mse_tr_minmax = max_mse(
             y_tr, fitted_tr_minmax, env_tr, ret_ind=True
         )
+        mse_tr_minmax = mean_squared_error(y_tr, fitted_tr_minmax)
 
-        results_rf[i, :] = mse_envs_tr
-        results_minmax[i, :] = mse_envs_tr_minmax
+        results_rf[i, : len(QUADRANTS)] = mse_envs_tr
+        results_rf[i, len(QUADRANTS)] = mse_tr
+        results_minmax[i, : len(QUADRANTS)] = mse_envs_tr_minmax
+        results_minmax[i, len(QUADRANTS)] = mse_tr_minmax
 
-    df_rf = pd.DataFrame(results_rf, columns=QUADRANTS)
+    names = QUADRANTS + ["Overall"]
+    df_rf = pd.DataFrame(results_rf, columns=names)
     df_rf["method"] = "RF"
 
-    df_mm = pd.DataFrame(results_minmax, columns=QUADRANTS)
-    df_mm["method"] = "MinMaxRF"
+    df_mm = pd.DataFrame(results_minmax, columns=names)
+    df_mm["method"] = "Post-RF"
 
     df_all = pd.concat([df_rf, df_mm], ignore_index=True)
 
@@ -427,7 +412,7 @@ def run_mtry_exp(
     env: np.ndarray,
 ) -> None:
     """
-    Comparison of RF and MinMaxRF with different mtry
+    Comparison of RF and Post-RF with different mtry
 
     Args:
         X (pd.DataFrame): Feature matrix
@@ -456,7 +441,7 @@ def run_mtry_exp(
         results[m] = [max_mse_rf, max_mse_minmax]
 
     df = pd.DataFrame.from_dict(
-        results, orient="index", columns=["maxMSE_RF", "maxMSE_MinMaxRF"]
+        results, orient="index", columns=["maxMSE_RF", "maxMSE_Post-RF"]
     )
     df = df.reset_index().rename(columns={"index": "mtry"})
     df["mtry"] = df["mtry"].astype(int)
@@ -472,7 +457,7 @@ def run_mtry_resample_exp(
     env: np.ndarray,
 ) -> None:
     """
-    Comparison of RF and MinMaxRF with different mtry,
+    Comparison of RF and Post-RF with different mtry,
     repeated N times on stratified resamples of the data.
 
     Args:
@@ -508,7 +493,7 @@ def run_mtry_resample_exp(
             rf.fit(X_tr, y_tr)
             fitted_rf = rf.predict(X_tr)
 
-            # MinMaxRF
+            # Post-RF
             rf.modify_predictions_trees(env_tr)
             fitted_mm = rf.predict(X_tr)
 
@@ -521,7 +506,7 @@ def run_mtry_resample_exp(
     df_rf = pd.DataFrame(results_rf, columns=mtry_values)
     df_rf["method"] = "RF"
     df_mm = pd.DataFrame(results_mm, columns=mtry_values)
-    df_mm["method"] = "MinMaxRF"
+    df_mm["method"] = "Post-RF"
 
     # melt both into long form
     df_rf_long = df_rf.melt(

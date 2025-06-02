@@ -2,7 +2,6 @@ import numpy as np
 from typing import List, Tuple
 import random
 from scipy.interpolate import BSpline
-from patsy import dmatrix
 import torch
 import torch.optim as optim
 import torch.nn.functional as F
@@ -53,8 +52,17 @@ def omega(knots, degree, grid_points):
     return Omega
 
 
-def plot_dtr(dtr, x_grid, preds_erm, preds_maximin, optfun=None):
-    line_colors = ["lightskyblue", "orange"]
+def plot_dtr(
+    dtr,
+    x_grid,
+    preds_erm,
+    preds_maximin,
+    preds_magging=None,
+    optfun=None,
+    saveplot=False,
+    nameplot="setting5",
+):
+    line_colors = ["lightskyblue", "orange", "mediumpurple"]
     data_colors = ["black", "grey", "silver"]
     environments = sorted(dtr["E"].unique())
 
@@ -79,16 +87,45 @@ def plot_dtr(dtr, x_grid, preds_erm, preds_maximin, optfun=None):
         linewidth=2,
         label="MaximinSS",
     )
+    if preds_magging is not None:
+        ax.plot(
+            x_grid,
+            preds_magging,
+            color=line_colors[2],
+            linewidth=2,
+            label="MaggingSS",
+        )
 
     if optfun == 1:
         y_opt = 0.8 * np.sin(x_grid / 2) ** 2 + 3
-        ax.plot(x_grid, y_opt, color="orangered", linewidth=3, label="Optimal")
+        ax.plot(
+            x_grid,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            linestyle="--",
+            label="Optimal",
+        )
     elif optfun == 2:
         y_opt = np.where(x_grid > 0, 2.4 * x_grid, -2.4 * x_grid)
-        ax.plot(x_grid, y_opt, color="orangered", linewidth=3, label="Optimal")
+        ax.plot(
+            x_grid,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            linestyle="--",
+            label="Optimal",
+        )
     elif optfun == 3:
         y_opt = np.where(x_grid > 0, 1.86 * x_grid, 1.63 * x_grid)
-        ax.plot(x_grid, y_opt, color="orangered", linewidth=3, label="Optimal")
+        ax.plot(
+            x_grid,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            linestyle="--",
+            label="Optimal",
+        )
 
     ax.set_xlabel("$X$")
     ax.set_ylabel("$Y$")
@@ -98,6 +135,8 @@ def plot_dtr(dtr, x_grid, preds_erm, preds_maximin, optfun=None):
     ax.legend(handles=handles, loc="upper left")
 
     plt.tight_layout()
+    if saveplot:
+        plt.savefig(f"{nameplot}.png", dpi=300, bbox_inches="tight")
     plt.show()
 
 

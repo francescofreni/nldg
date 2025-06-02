@@ -205,6 +205,7 @@ def main(
     runtime_df.to_csv(os.path.join(out_data_dir, "runtime.csv"), index=False)
 
     # Second simulation
+    # min_samples_leaf = [25, 50, 75, 100, 150, 200, 250, 300]
     min_samples_leaf = [10, 15, 20, 25, 30, 35, 40, 45, 50]
     maxmse_msl_rf = np.zeros((nsim, len(min_samples_leaf)))
     maxmse_msl_magging = np.zeros((nsim, len(min_samples_leaf)))
@@ -242,7 +243,7 @@ def main(
             _, maxmse_magging = max_mse(Ytr, fitted_magging, Etr, ret_ind=True)
             maxmse_msl_magging[i, j] = maxmse_magging
 
-            # MinMaxRF-M1
+            # MinMaxRF-M1 / Post-RF
             rf.modify_predictions_trees(Etr)
             fitted_minmax_m1 = rf.predict(Xtr)
             _, maxmse_minmax_m1 = max_mse(
@@ -260,7 +261,7 @@ def main(
 
     df_minmax = pd.DataFrame(maxmse_msl_minmax, columns=min_samples_leaf)
     df_minmax = df_minmax.melt(var_name="min_samples_leaf", value_name="MSE")
-    df_minmax["Method"] = "MinMaxRF"
+    df_minmax["Method"] = "Post-RF"
 
     stacked_df = pd.concat([df_rf, df_magging, df_minmax], ignore_index=True)
 
