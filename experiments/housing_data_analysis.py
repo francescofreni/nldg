@@ -54,9 +54,36 @@ def load_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     return X, y, Z
 
 
-def assign_quadrant_env(
-    Z: pd.DataFrame,
-) -> np.ndarray:
+# def assign_quadrant_env(
+#     Z: pd.DataFrame,
+# ) -> np.ndarray:
+#     """
+#     Creates the environment label based on geographic criteria.
+#
+#     Args:
+#         Z (pd.DataFrame): Additional covariates (Latitude, Longitude)
+#
+#     Returns:
+#         env (np.ndarray): Environment label
+#     """
+#     lat, lon = Z["Latitude"], Z["Longitude"]
+#     # Setting 1: 35, -120
+#     # Setting 2: 36, -119.8
+#     north = lat >= 36
+#     south = ~north
+#     east = lon >= -119.8
+#     west = ~east
+#
+#     env = np.zeros(len(Z), dtype=int)
+#     env[south & west] = 0  # SW
+#     env[south & east] = 1  # SE
+#     env[north & west] = 2  # NW
+#     env[north & east] = 3  # NE
+#     return env
+
+
+# Setting 3
+def assign_quadrant(Z: pd.DataFrame) -> np.ndarray:
     """
     Creates the environment label based on geographic criteria.
 
@@ -67,18 +94,24 @@ def assign_quadrant_env(
         env (np.ndarray): Environment label
     """
     lat, lon = Z["Latitude"], Z["Longitude"]
-    # Setting 1: 35, -120
-    # Setting 2: 36, -119.8
-    north = lat >= 36
-    south = ~north
-    east = lon >= -119.8
-    west = ~east
+
+    west = lon < -121
+    east = ~west
+
+    # For west side: split at 38
+    sw = (lat < 38) & west
+    nw = (lat >= 38) & west
+
+    # For east side: split at 36
+    se = (lat < 36) & east
+    ne = (lat >= 36) & east
 
     env = np.zeros(len(Z), dtype=int)
-    env[south & west] = 0  # SW
-    env[south & east] = 1  # SE
-    env[north & west] = 2  # NW
-    env[north & east] = 3  # NE
+    env[sw] = 0  # SW
+    env[se] = 1  # SE
+    env[nw] = 2  # NW
+    env[ne] = 3  # NE
+
     return env
 
 

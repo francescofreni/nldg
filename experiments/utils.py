@@ -362,7 +362,7 @@ def plot_max_mse_housing(
     ax.set_xticklabels(QUADRANTS)
     ax.set_xlabel("Held-Out Quadrant")
     ax.set_ylabel(r"$\mathsf{MSE}$")
-    ax.legend(loc="lower right", frameon=True)
+    ax.legend(loc="lower left", frameon=True)
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
 
     plt.tight_layout()
