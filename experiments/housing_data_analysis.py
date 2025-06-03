@@ -642,7 +642,7 @@ def main(
     if balanced:
         n_sample = 1500 if data_setting == 3 else 2500
         env_series = pd.Series(env, name="env_quadrant")
-        df = pd.concat([X, y, Z, env_series], axis=1)
+        df = pd.concat([X, y, env_series], axis=1)
         df_balanced = df.groupby("env_quadrant").sample(
             n=n_sample, random_state=SEED
         )
