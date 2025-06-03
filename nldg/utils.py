@@ -372,6 +372,46 @@ def min_xplvar(
     return min_ev
 
 
+def max_regret(
+    Ytrue: np.ndarray,
+    Ypred: np.ndarray,
+    Yerm: np.ndarray,
+    Env: np.ndarray,
+    verbose: bool = False,
+    ret_ind: bool = False,
+) -> float | tuple[list, float]:
+    """
+    Compute the maximum regret across environments.
+
+    Args:
+        Ytrue (array): True target values.
+        Ypred (array): Predicted target values.
+        Yerm (array): Predicted target values with ERM.
+        Env (array): Environment values.
+        verbose (bool): Whether to print the MSE for each environment.
+        ret_ind (bool): Whether to return also the MSE for each environment.
+
+    Returns:
+        if ret_ind:
+            mse_envs (list): MSE for each environment.
+        maxmse (float): Maximum mean squared error.
+    """
+    mregret = 0.0
+    regret_envs = []
+    for env in np.unique(Env):
+        Ytrue_e = Ytrue[Env == env]
+        Ypred_e = Ypred[Env == env]
+        Yerm_e = Yerm[Env == env]
+        regret = np.mean((Ytrue_e - Ypred_e) ** 2 - (Ytrue_e - Yerm_e) ** 2)
+        regret_envs.append(regret)
+        if verbose:
+            print(f"Environment {env} regret: {regret}")
+        mregret = max(mregret, regret)
+    if ret_ind:
+        return regret_envs, mregret
+    return mregret
+
+
 # ========================
 # NEURAL NETWORK UTILITIES
 # ========================

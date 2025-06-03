@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 from typing import Tuple
 from concurrent.futures import ProcessPoolExecutor, as_completed
-from nldg.utils import max_mse
+from nldg.utils import max_mse, max_regret
 from adaXT.random_forest import RandomForest
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
@@ -25,7 +25,7 @@ os.makedirs(results_dir, exist_ok=True)
 out_data_dir = os.path.join(results_dir, "output_data_housing_rf")
 os.makedirs(out_data_dir, exist_ok=True)
 RESULTS_PATH = out_data_dir
-QUADRANTS = ["SW", "SE", "NW", "NE"]
+QUADRANTS = []
 B = 20
 VAL_PERCENTAGE = 0.2
 N_ESTIMATORS = 25
@@ -54,36 +54,35 @@ def load_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:
     return X, y, Z
 
 
-# def assign_quadrant_env(
-#     Z: pd.DataFrame,
-# ) -> np.ndarray:
-#     """
-#     Creates the environment label based on geographic criteria.
-#
-#     Args:
-#         Z (pd.DataFrame): Additional covariates (Latitude, Longitude)
-#
-#     Returns:
-#         env (np.ndarray): Environment label
-#     """
-#     lat, lon = Z["Latitude"], Z["Longitude"]
-#     # Setting 1: 35, -120
-#     # Setting 2: 36, -119.8
-#     north = lat >= 36
-#     south = ~north
-#     east = lon >= -119.8
-#     west = ~east
-#
-#     env = np.zeros(len(Z), dtype=int)
-#     env[south & west] = 0  # SW
-#     env[south & east] = 1  # SE
-#     env[north & west] = 2  # NW
-#     env[north & east] = 3  # NE
-#     return env
+def assign_quadrant_env_v1(
+    Z: pd.DataFrame,
+) -> np.ndarray:
+    """
+    Creates the environment label based on geographic criteria.
+
+    Args:
+        Z (pd.DataFrame): Additional covariates (Latitude, Longitude)
+
+    Returns:
+        env (np.ndarray): Environment label
+    """
+    lat, lon = Z["Latitude"], Z["Longitude"]
+    # Setting 1: 35, -120
+    # Setting 2: 36, -119.8
+    north = lat >= 35
+    south = ~north
+    east = lon >= -120
+    west = ~east
+
+    env = np.zeros(len(Z), dtype=int)
+    env[south & west] = 0  # SW
+    env[south & east] = 1  # SE
+    env[north & west] = 2  # NW
+    env[north & east] = 3  # NE
+    return env
 
 
-# Setting 3
-def assign_quadrant_env(Z: pd.DataFrame) -> np.ndarray:
+def assign_quadrant_env_v2(Z: pd.DataFrame) -> np.ndarray:
     """
     Creates the environment label based on geographic criteria.
 
@@ -102,9 +101,9 @@ def assign_quadrant_env(Z: pd.DataFrame) -> np.ndarray:
     sw = (lat < 38) & west
     nw = (lat >= 38) & west
 
-    # For east side: split at 36
-    se = (lat < 36) & east
-    ne = (lat >= 36) & east
+    # For east side: split at 34.5
+    se = (lat < 34.5) & east
+    ne = (lat >= 34.5) & east
 
     env = np.zeros(len(Z), dtype=int)
     env[sw] = 0  # SW
@@ -120,6 +119,7 @@ def eval_one_quadrant(
     X: pd.DataFrame,
     y: pd.Series,
     env: np.ndarray,
+    method: str,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     For one held-out quadrant, run B repetitions and collect:
@@ -131,6 +131,7 @@ def eval_one_quadrant(
         X (pd.DataFrame): Feature matrix
         y (pd.Series): Target vector
         env (np.ndarray): Environment labels
+        method (str): Minimize the maximum MSE or the maximum regret
 
     Returns:
         Tuple (main_df, env_metrics_df): Two dataframes with performance metrics
@@ -146,15 +147,41 @@ def eval_one_quadrant(
 
     train_env_indices = np.unique(env_pool)
 
+    # Compute the ERM solution in each environment
+    sols_erm_pool = np.zeros(env_pool)
+    for e in np.unique(env_pool):
+        mask_e = env_pool == e
+        X_e = X_pool[mask_e]
+        y_e = y_pool[mask_e]
+        rf_e = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED,
+        )
+        rf_e.fit(X_e, y_e)
+        fitted_e = rf_e.predict(X_e)
+        sols_erm_pool[mask_e] = fitted_e
+
     main_records = []
     env_metrics_records = []
 
     for b in tqdm(range(B)):
         # Stratified split (preserve env proportions among the 3 training envs)
-        X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
+        (
+            X_tr,
+            X_val,
+            y_tr,
+            y_val,
+            env_tr,
+            env_val,
+            sols_erm_tr,
+            sols_erm_val,
+        ) = train_test_split(
             X_pool,
             y_pool,
             env_pool,
+            sols_erm_pool,
             test_size=VAL_PERCENTAGE,
             random_state=b,
             stratify=env_pool,
@@ -171,28 +198,49 @@ def eval_one_quadrant(
         preds_tr = rf.predict(X_tr)
         preds_test = rf.predict(X_test)
 
-        rf.modify_predictions_trees(env_tr)
+        if method == "mse":
+            rf.modify_predictions_trees(env_tr)
+        else:
+            rf.modify_predictions_trees(
+                env_tr, method="regret", sols_erm=sols_erm_tr
+            )
         preds_tr_minmax = rf.predict(X_tr)
         preds_test_minmax = rf.predict(X_test)
 
         # Compute metrics
         mse_envs_tr, max_mse_tr = max_mse(y_tr, preds_tr, env_tr, ret_ind=True)
+        regret_envs_tr, max_regret_tr = max_regret(
+            y_tr, preds_tr, sols_erm_tr, env_tr, ret_ind=True
+        )
         mse_tr = mean_squared_error(y_tr, preds_tr)
         max_mse_test = max_mse(y_test, preds_test, env_test)
 
         mse_envs_tr_minmax, max_mse_tr_minmax = max_mse(
             y_tr, preds_tr_minmax, env_tr, ret_ind=True
         )
+        regret_envs_tr_minmax, max_regret_tr_minmax = max_regret(
+            y_tr, preds_tr_minmax, sols_erm_tr, env_tr, ret_ind=True
+        )
         mse_tr_minmax = mean_squared_error(y_tr, preds_tr_minmax)
         max_mse_test_minmax = max_mse(y_test, preds_test_minmax, env_test)
 
-        for model_name, tr, te, tr_envs, tr_pool in [
+        for (
+            model_name,
+            tr,
+            te,
+            tr_envs,
+            tr_pool,
+            tr_regret,
+            tr_envs_regret,
+        ) in [
             (
                 "RF",
                 max_mse_tr,
                 max_mse_test,
                 mse_envs_tr,
                 mse_tr,
+                max_regret_tr,
+                regret_envs_tr,
             ),
             (
                 "Post-RF",
@@ -200,6 +248,8 @@ def eval_one_quadrant(
                 max_mse_test_minmax,
                 mse_envs_tr_minmax,
                 mse_tr_minmax,
+                max_regret_tr_minmax,
+                regret_envs_tr_minmax,
             ),
         ]:
             # Main performance metrics
@@ -211,6 +261,7 @@ def eval_one_quadrant(
                     "Train_maxMSE": tr,
                     "Test_MSE": te,
                     "Train_MSE": tr_pool,
+                    "Train_maxRegret": tr_regret,
                 }
             )
 
@@ -225,6 +276,7 @@ def eval_one_quadrant(
                         "Model": model_name,
                         "EnvIndex": int(env_idx),
                         "MSE": float(env_value),
+                        "Regret": float(tr_envs_regret[i]),
                     }
                 )
 
@@ -237,6 +289,9 @@ def run_ttv_exp(
     X: pd.DataFrame,
     y: pd.Series,
     env: np.ndarray,
+    method: str,
+    data_setting: int,
+    balanced: bool,
 ) -> None:
     """
     Leave-one-quadrant-out with train/val/test split
@@ -245,6 +300,9 @@ def run_ttv_exp(
         X (pd.DataFrame): Feature matrix
         y (pd.Series): Target vector
         env (np.ndarray): Environment labels
+        method (str): Minimize the maximum MSE or the maximum regret
+        data_setting (int): Which data setting is being used
+        balanced (boot): Whether the dataset is balanced
     """
     # Parallelize over quadrants
     main_dfs = []
@@ -256,7 +314,7 @@ def run_ttv_exp(
             logger.info(
                 f"Submitting quadrant {QUADRANTS[qi]} (idx={qi}) to pool"
             )
-            fut = exe.submit(eval_one_quadrant, qi, X, y, env)
+            fut = exe.submit(eval_one_quadrant, qi, X, y, env, method)
             futures[fut] = qi
         for fut in as_completed(futures):
             qi = futures[fut]
@@ -269,12 +327,15 @@ def run_ttv_exp(
 
     # Combine and save
     main_result_df = pd.concat(main_dfs, ignore_index=True)
-    main_out_path = os.path.join(RESULTS_PATH, "maxmse_ttv.csv")
+    is_balanced = "balanced" if balanced else "unbalanced"
+    name_main = f"max_{method}_{data_setting}_{is_balanced}.csv"
+    main_out_path = os.path.join(RESULTS_PATH, name_main)
     main_result_df.to_csv(main_out_path, index=False)
     logger.info(f"Saved main results to {main_out_path}")
 
     env_metrics_result_df = pd.concat(env_metrics_dfs, ignore_index=True)
-    env_metrics_out_path = os.path.join(RESULTS_PATH, "env_specific_mse.csv")
+    name_envspec = f"env_specific_{method}_{data_setting}_{is_balanced}.csv"
+    env_metrics_out_path = os.path.join(RESULTS_PATH, name_envspec)
     env_metrics_result_df.to_csv(env_metrics_out_path, index=False)
     logger.info(f"Saved environment metrics to {env_metrics_out_path}")
 
@@ -559,15 +620,37 @@ def run_mtry_resample_exp(
     logger.info(f"Saved resampling metrics to {path}")
 
 
-def main(version: str):
+def main(
+    version: str,
+    data_setting: int,
+    balanced: bool,
+    method: str,
+):
+    global QUADRANTS
+    if data_setting == 1:
+        QUADRANTS = ["SW", "SE", "NW", "NE"]
+    else:
+        QUADRANTS = ["Env 1", "Env 2", "Env 3", "Env 4"]
     logger.info("Loading data and assigning environments")
     X, y, Z = load_data()
-    env = assign_quadrant_env(Z)
+    if data_setting == 1:
+        env = assign_quadrant_env_v1(Z)
+    else:
+        env = assign_quadrant_env_v2(Z)
+    if balanced:
+        df = pd.concat([X, y, Z, env], axis=1)
+        df_balanced = df.groupby("env_quadrant").sample(
+            n=2500, random_state=SEED
+        )
+        X = df_balanced.drop(["MedHouseVal", "env_quadrant"], axis=1)
+        y = df_balanced["MedHouseVal"]
+        Z = df_balanced[["Latitude", "Longitude"]]
+        env = df_balanced["env_quadrant"]
 
     if version == "train_test_val":
         # Divide into train and test.
         # The train data is further divided into train and validation
-        run_ttv_exp(X, y, env)
+        run_ttv_exp(X, y, env, method, data_setting, balanced)
 
     elif version == "train_bootstrap":
         # The whole dataset is used to fit the models.
@@ -609,5 +692,28 @@ if __name__ == "__main__":
         help="Experiment version (default: 'train_test_val'). "
         "Must be one of 'train_test_val', 'train_bootstrap', 'train_resample', 'train_mtry' or 'train_mtry_resample'.",
     )
+    parser.add_argument(
+        "--data_setting",
+        type=int,
+        default=1,
+        help="Data setting (default: 1). ",
+    )
+    parser.add_argument(
+        "--balanced",
+        type=bool,
+        default=False,
+        help="Whether to make the dataset balanced (default: False).",
+    )
+    parser.add_argument(
+        "--method",
+        type=str,
+        default="mse",
+        choices=[
+            "mse",
+            "regret",
+        ],
+        help="Whether to minimize the maximum MSE or the maximum regret (default: 'mse'). "
+        "Must be one of 'mse', 'regret'.",
+    )
     args = parser.parse_args()
-    main(args.version)
+    main(args.version, args.data_setting, args.balanced, args.method)

@@ -322,9 +322,13 @@ def plot_max_mse_housing(
     metric: str = "Test_MSE",
     saveplot: bool = False,
     nameplot: str = "mse_heldout",
+    setting: int = 1,
 ) -> None:
-    # fixed quadrant order
-    QUADRANTS = ["SW", "SE", "NW", "NE"]
+    QUADRANTS = (
+        ["SW", "SE", "NW", "NE"]
+        if setting == 1
+        else ["Env 1", "Env 2", "Env 3", "Env 4"]
+    )
 
     # Compute means and 95% CIs
     grp = df.groupby(["HeldOutQuadrant", "Model"])[metric]
@@ -351,7 +355,7 @@ def plot_max_mse_housing(
             yerr=ci95[model],
             fmt="o",
             color=colors[idx],
-            markersize=10,
+            markersize=8,
             markeredgewidth=0,
             elinewidth=2.5,
             capsize=0,
@@ -381,8 +385,13 @@ def plot_mse_envs_housing(
     df_train: pd.DataFrame,
     saveplot: bool = False,
     nameplot: str = "env_specific_mse",
+    setting: int = 1,
 ):
-    QUADRANTS = ["SW", "SE", "NW", "NE"]
+    QUADRANTS = (
+        ["SW", "SE", "NW", "NE"]
+        if setting == 1
+        else ["Env 1", "Env 2", "Env 3", "Env 4"]
+    )
     models = ["RF", "Post-RF"]
     colors = ["lightskyblue", "orange"]
     delta = 0.12
@@ -424,7 +433,7 @@ def plot_mse_envs_housing(
                     yerr=ci95,
                     fmt="o",
                     color=colors[m_idx],
-                    markersize=10,
+                    markersize=8,
                     elinewidth=2.5,
                     capsize=0,
                     label=label,
@@ -631,7 +640,7 @@ def plot_mse_envs_housing_resample(
             yerr=ci95[model],
             fmt="o",
             color=colors[idx],
-            markersize=10,
+            markersize=8,
             markeredgewidth=0,
             elinewidth=2.5,
             capsize=0,
