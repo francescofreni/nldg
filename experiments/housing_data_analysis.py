@@ -648,7 +648,6 @@ def main(
         )
         X = df_balanced.drop(["MedHouseVal", "env_quadrant"], axis=1)
         y = df_balanced["MedHouseVal"]
-        Z = df_balanced[["Latitude", "Longitude"]]
         env = np.array(df_balanced["env_quadrant"])
 
     if version == "train_test_val":
