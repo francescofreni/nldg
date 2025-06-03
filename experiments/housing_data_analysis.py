@@ -148,7 +148,7 @@ def eval_one_quadrant(
     train_env_indices = np.unique(env_pool)
 
     # Compute the ERM solution in each environment
-    sols_erm_pool = np.zeros(env_pool)
+    sols_erm_pool = np.zeros(env_pool.shape[0])
     for e in np.unique(env_pool):
         mask_e = env_pool == e
         X_e = X_pool[mask_e]
