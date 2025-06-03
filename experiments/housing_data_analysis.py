@@ -82,12 +82,13 @@ def assign_quadrant_env_v1(
     return env
 
 
-def assign_quadrant_env_v2(Z: pd.DataFrame) -> np.ndarray:
+def assign_quadrant_env_v2(Z: pd.DataFrame, data_setting: int) -> np.ndarray:
     """
     Creates the environment label based on geographic criteria.
 
     Args:
         Z (pd.DataFrame): Additional covariates (Latitude, Longitude)
+        data_setting (int): Which data setting to use (2 or 3)
 
     Returns:
         env (np.ndarray): Environment label
@@ -101,9 +102,10 @@ def assign_quadrant_env_v2(Z: pd.DataFrame) -> np.ndarray:
     sw = (lat < 38) & west
     nw = (lat >= 38) & west
 
-    # For east side: split at 34.5
-    se = (lat < 34.5) & east
-    ne = (lat >= 34.5) & east
+    # For east side: split at 34.5 or 36
+    lat_thr = 34.5 if data_setting == 2 else 36
+    se = (lat < lat_thr) & east
+    ne = (lat >= lat_thr) & east
 
     env = np.zeros(len(Z), dtype=int)
     env[sw] = 0  # SW
@@ -636,11 +638,13 @@ def main(
     if data_setting == 1:
         env = assign_quadrant_env_v1(Z)
     else:
-        env = assign_quadrant_env_v2(Z)
+        env = assign_quadrant_env_v2(Z, data_setting)
     if balanced:
-        df = pd.concat([X, y, Z, env], axis=1)
+        n_sample = 1500 if data_setting == 3 else 2500
+        env_series = pd.Series(env, name="env_quadrant")
+        df = pd.concat([X, y, Z, env_series], axis=1)
         df_balanced = df.groupby("env_quadrant").sample(
-            n=2500, random_state=SEED
+            n=n_sample, random_state=SEED
         )
         X = df_balanced.drop(["MedHouseVal", "env_quadrant"], axis=1)
         y = df_balanced["MedHouseVal"]
