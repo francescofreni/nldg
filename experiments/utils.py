@@ -2,6 +2,10 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from sklearn.datasets import fetch_california_housing
+import geopandas as gpd
+import contextily as ctx
+from matplotlib.lines import Line2D
 
 
 # plt.rcParams.update(
@@ -317,7 +321,7 @@ def plot_max_mse_msl(
 # ============================================
 # Plotting functions for the real data example
 # ============================================
-def plot_max_mse_housing(
+def plot_max_score_housing(
     df: pd.DataFrame,
     metric: str = "Test_MSE",
     saveplot: bool = False,
@@ -330,7 +334,24 @@ def plot_max_mse_housing(
         else ["Env 1", "Env 2", "Env 3", "Env 4"]
     )
 
-    # Compute means and 95% CIs
+    # Dynamically get model list
+    num_models = len(df["Model"].unique())
+    models = (
+        ["RF", "Post-RF"]
+        if num_models == 2
+        else ["RF", "Post-RF-MSE", "Post-RF-Regret"]
+    )
+    num_models = len(models)
+    if num_models not in [2, 3]:
+        raise ValueError("Expected 2 or 3 models in the data.")
+
+    # Colors and offsets
+    default_colors = ["lightskyblue", "orange", "plum"]
+    colors = default_colors[:num_models]
+    delta = 0.1
+    offsets = np.linspace(-delta, +delta, num_models)
+
+    # Compute group stats
     grp = df.groupby(["HeldOutQuadrant", "Model"])[metric]
     means = grp.mean().unstack().reindex(QUADRANTS)
     stds = grp.std().unstack().reindex(QUADRANTS)
@@ -339,14 +360,9 @@ def plot_max_mse_housing(
 
     x0 = np.arange(len(QUADRANTS))
 
-    # colors for RF / Post-RF
-    colors = ["lightskyblue", "orange"]
-    models = ["RF", "Post-RF"]
-    delta = 0.1
-    offsets = np.linspace(-delta, +delta, len(models))
-
     fig, ax = plt.subplots(figsize=(8, 5))
 
+    # Plot each model
     for idx, (off, model) in enumerate(zip(offsets, models)):
         xm = x0 + off
         ax.errorbar(
@@ -365,7 +381,7 @@ def plot_max_mse_housing(
     ax.set_xticks(x0)
     ax.set_xticklabels(QUADRANTS)
     ax.set_xlabel("Held-Out Quadrant")
-    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.set_ylabel(r"$\mathsf{MSPE}$")
     ax.legend(loc="lower left", frameon=True)
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
 
@@ -380,20 +396,35 @@ def plot_max_mse_housing(
     plt.show()
 
 
-def plot_mse_envs_housing(
-    df_detailed: pd.DataFrame,
-    df_train: pd.DataFrame,
+def plot_score_envs_housing(
+    df_env_spec: pd.DataFrame,
+    df_main: pd.DataFrame | None = None,
     saveplot: bool = False,
     nameplot: str = "env_specific_mse",
     setting: int = 1,
+    score: str = "mse",
 ):
     QUADRANTS = (
         ["SW", "SE", "NW", "NE"]
         if setting == 1
         else ["Env 1", "Env 2", "Env 3", "Env 4"]
     )
-    models = ["RF", "Post-RF"]
-    colors = ["lightskyblue", "orange"]
+    target_score = "MSE" if score == "mse" else "Regret"
+
+    # Dynamically get model list
+    num_models = len(df_env_spec["Model"].unique())
+    models = (
+        ["RF", "Post-RF"]
+        if num_models == 2
+        else ["RF", "Post-RF-MSE", "Post-RF-Regret"]
+    )
+    num_models = len(models)
+    if num_models not in [2, 3]:
+        raise ValueError("Expected 2 or 3 models.")
+
+    # Colors and offsets
+    default_colors = ["lightskyblue", "orange", "plum"]
+    colors = default_colors[:num_models]
     delta = 0.12
     n_subenv = 3
     figsize = (12, 6)
@@ -410,11 +441,11 @@ def plot_mse_envs_housing(
             label_positions.append((ho, env, x_base))
 
             for m_idx, model in enumerate(models):
-                ser = df_detailed[
-                    (df_detailed["HeldOutQuadrant"] == ho)
-                    & (df_detailed["Model"] == model)
-                    & (df_detailed["EnvIndex"] == QUADRANTS.index(env))
-                ]["MSE"]
+                ser = df_env_spec[
+                    (df_env_spec["HeldOutQuadrant"] == ho)
+                    & (df_env_spec["Model"] == model)
+                    & (df_env_spec["EnvIndex"] == QUADRANTS.index(env))
+                ][target_score]
 
                 if ser.empty:
                     continue
@@ -423,7 +454,7 @@ def plot_mse_envs_housing(
                 std = ser.std(ddof=1)
                 ci95 = 1.96 * std / np.sqrt(ser.count())
 
-                x = x_base + (m_idx - 0.5) * delta
+                x = x_base + (m_idx - (num_models - 1) / 2) * delta
                 label = model if not seen[model] else "_nolegend_"
                 seen[model] = True
 
@@ -474,56 +505,58 @@ def plot_mse_envs_housing(
             fontweight="bold",
         )
 
-    # Add horizontal lines from df_train
-    for i, ho in enumerate(QUADRANTS):
-        for m_idx, model in enumerate(models):
-            df_sub = df_train[
-                (df_train["HeldOutQuadrant"] == ho)
-                & (df_train["Model"] == model)
-            ]
+    # Add horizontal lines from df_main
+    if score == "mse":
+        for i, ho in enumerate(QUADRANTS):
+            for m_idx, model in enumerate(models):
+                df_sub = df_main[
+                    (df_main["HeldOutQuadrant"] == ho)
+                    & (df_main["Model"] == model)
+                ]
 
-            if df_sub.empty:
-                continue
+                if df_sub.empty:
+                    continue
 
-            train_mean = df_sub["Train_MSE"].mean()
-            train_std = df_sub["Train_MSE"].std(ddof=1)
-            ci95 = 1.96 * train_std / np.sqrt(len(df_sub))
+                train_mean = df_sub["Train_MSE"].mean()
+                train_std = df_sub["Train_MSE"].std(ddof=1)
+                ci95 = 1.96 * train_std / np.sqrt(len(df_sub))
 
-            # Compute horizontal span range for this quadrant
-            start = i * n_subenv - 0.4
-            end = (i + 1) * n_subenv - 0.6
+                # Compute horizontal span range for this quadrant
+                start = i * n_subenv - 0.4
+                end = (i + 1) * n_subenv - 0.6
 
-            label = (
-                f"{model} Overall MSE"
-                if (i == len(QUADRANTS) - 1)
-                else "_nolegend_"
-            )
-            ax.hlines(
-                y=train_mean,
-                xmin=start,
-                xmax=end,
-                color=colors[m_idx],
-                linestyle="--",
-                linewidth=2,
-                alpha=0.8,
-                label=label,
-            )
+                label = (
+                    f"{model} Overall MSE"
+                    if (i == len(QUADRANTS) - 1)
+                    else "_nolegend_"
+                )
+                ax.hlines(
+                    y=train_mean,
+                    xmin=start,
+                    xmax=end,
+                    color=colors[m_idx],
+                    linestyle="--",
+                    linewidth=2,
+                    alpha=0.8,
+                    label=label,
+                )
 
-            x_min, x_max = ax.get_xlim()
-            xmin_norm = (start - x_min) / (x_max - x_min)
-            xmax_norm = (end - x_min) / (x_max - x_min)
+                x_min, x_max = ax.get_xlim()
+                xmin_norm = (start - x_min) / (x_max - x_min)
+                xmax_norm = (end - x_min) / (x_max - x_min)
 
-            ax.axhspan(
-                train_mean - ci95,
-                train_mean + ci95,
-                xmin=xmin_norm,
-                xmax=xmax_norm,
-                color=colors[m_idx],
-                alpha=0.15,
-            )
+                ax.axhspan(
+                    train_mean - ci95,
+                    train_mean + ci95,
+                    xmin=xmin_norm,
+                    xmax=xmax_norm,
+                    color=colors[m_idx],
+                    alpha=0.15,
+                )
 
-    ax.legend(loc="upper right", frameon=True)
-    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.legend(loc="best", frameon=True)
+    lab = r"$\mathsf{MSE}$" if score == "mse" else r"$\mathsf{Regret}$"
+    ax.set_ylabel(lab)
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
 
     plt.subplots_adjust(top=0.9, bottom=0.2)
@@ -789,4 +822,85 @@ def plot_max_mse_mtry_resample(
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
+    plt.show()
+
+
+def plot_quadrants_with_basemap():
+    def assign_quadrant(Z: pd.DataFrame) -> pd.Series:
+        lat = Z["Latitude"]
+        lon = Z["Longitude"]
+
+        west = lon < -121
+        east = ~west  # same as lon >= -121
+
+        # For west side: split at 38
+        sw = (lat < 38) & west
+        nw = (lat >= 38) & west
+
+        # For east side: split at 34.5 or 36
+        se = (lat < 34.5) & east
+        ne = (lat >= 34.5) & east
+
+        quadrant = pd.Series(index=Z.index, dtype="Int64")
+        quadrant[sw] = 0  # SW
+        quadrant[se] = 1  # SE
+        quadrant[nw] = 2  # NW
+        quadrant[ne] = 3  # NE
+
+        if quadrant.isna().any():
+            raise ValueError("Some rows failed to get a quadrant label.")
+
+        return quadrant.rename("env_quadrant")
+
+    X, y = fetch_california_housing(return_X_y=True, as_frame=True)
+    Z = X[["Latitude", "Longitude"]]
+    X = X.drop(["Latitude", "Longitude"], axis=1)
+    env = assign_quadrant(Z)
+
+    df = Z.copy()
+    df["quadrant"] = env
+    gdf = gpd.GeoDataFrame(
+        df,
+        geometry=gpd.points_from_xy(df["Longitude"], df["Latitude"]),
+        crs="EPSG:4326",
+    ).to_crs(epsg=3857)
+
+    colors = {0: "lightskyblue", 1: "orange", 2: "plum", 3: "yellowgreen"}
+    labels = {
+        0: rf"Env 1: $\bar{{y}}$ = {round(np.mean(y[env==0]), 2)}",
+        1: rf"Env 2: $\bar{{y}}$ = {round(np.mean(y[env==1]), 2)}",
+        2: rf"Env 3: $\bar{{y}}$ = {round(np.mean(y[env==2]), 2)}",
+        3: rf"Env 4: $\bar{{y}}$ = {round(np.mean(y[env==3]), 2)}",
+    }
+
+    fig, ax = plt.subplots(figsize=(8, 10))
+    for q in range(4):
+        gdf[gdf["quadrant"] == q].plot(
+            ax=ax, markersize=3, color=colors[q], label=labels[q], alpha=0.3
+        )
+
+    legend_elements = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            color="w",
+            label=labels[q],
+            markerfacecolor=colors[q],
+            markersize=10,
+            alpha=0.6,
+        )
+        for q in range(4)
+    ]
+    ax.legend(handles=legend_elements, title="Quadrant", loc="best")
+
+    ctx.add_basemap(ax, source=ctx.providers.CartoDB.Positron)
+    ax.set_axis_off()
+    plt.tight_layout()
+    script_dir = os.path.dirname(__file__)
+    parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+    plots_dir = os.path.join(parent_dir, "results", "figures")
+    os.makedirs(plots_dir, exist_ok=True)
+    outpath = os.path.join(plots_dir, "quadrants_plot")
+    plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()
