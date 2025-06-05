@@ -204,10 +204,10 @@ def eval_one_quadrant(
             rf.modify_predictions_trees(env_tr)
 
             preds_tr_minmax, weights_rf_refined = rf.refine_weights(
-                X_tr, y_tr, env_tr, X_tr
+                X_val, y_val, env_val, X_tr
             )
             preds_test_minmax, _ = rf.refine_weights(
-                X_tr, y_tr, env_tr, X_test
+                X_val, y_val, env_val, X_test
             )
         else:
             rf.modify_predictions_trees(
