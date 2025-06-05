@@ -123,6 +123,7 @@ def eval_one_quadrant(
     env: np.ndarray,
     method: str,
     refine_weights: bool,
+    alpha: float,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     For one held-out quadrant, run B repetitions and collect:
@@ -136,6 +137,7 @@ def eval_one_quadrant(
         env (np.ndarray): Environment labels
         method (str): Minimize the maximum MSE or the maximum regret
         refine_weights (bool): Whether to refine the weights of the forest
+        alpha (float): Term that balances between MSE and Regret
 
     Returns:
         Tuple (main_df, env_metrics_df): Two dataframes with performance metrics
@@ -206,7 +208,10 @@ def eval_one_quadrant(
             rf.modify_predictions_trees(env_tr)
         else:
             rf.modify_predictions_trees(
-                env_tr, method="regret", sols_erm=sols_erm_tr
+                env_tr,
+                method="regret",
+                sols_erm=sols_erm_tr,
+                alpha=alpha,
             )
         if method == "mse" and refine_weights:
             preds_tr_minmax, weights_rf_refined = rf.refine_weights(
@@ -305,6 +310,7 @@ def run_ttv_exp(
     data_setting: int,
     balanced: bool,
     refine_weights: bool,
+    alpha: float,
 ) -> None:
     """
     Leave-one-quadrant-out with train/val/test split
@@ -317,6 +323,7 @@ def run_ttv_exp(
         data_setting (int): Which data setting is being used
         balanced (bool): Whether the dataset is balanced
         refine_weights (bool): Whether to refine the weights of the forest
+        alpha (float): Term that balances between MSE and Regret
     """
     # Parallelize over quadrants
     main_dfs = []
@@ -329,7 +336,7 @@ def run_ttv_exp(
                 f"Submitting quadrant {QUADRANTS[qi]} (idx={qi}) to pool"
             )
             fut = exe.submit(
-                eval_one_quadrant, qi, X, y, env, method, refine_weights
+                eval_one_quadrant, qi, X, y, env, method, refine_weights, alpha
             )
             futures[fut] = qi
         for fut in as_completed(futures):
@@ -642,6 +649,7 @@ def main(
     balanced: bool,
     method: str,
     refine_weights: bool,
+    alpha: float,
 ):
     global QUADRANTS
     if data_setting == 1:
@@ -668,7 +676,9 @@ def main(
     if version == "train_test_val":
         # Divide into train and test.
         # The train data is further divided into train and validation
-        run_ttv_exp(X, y, env, method, data_setting, balanced, refine_weights)
+        run_ttv_exp(
+            X, y, env, method, data_setting, balanced, refine_weights, alpha
+        )
 
     elif version == "train_bootstrap":
         # The whole dataset is used to fit the models.
@@ -739,6 +749,12 @@ if __name__ == "__main__":
         default=False,
         help="Whether to refine the weights of the forest (default: False).",
     )
+    parser.add_argument(
+        "--alpha",
+        type=float,
+        default=1.0,
+        help="Parameter that balances between MSE and regret (default: 1.0).",
+    )
     args = parser.parse_args()
     main(
         args.version,
@@ -746,4 +762,5 @@ if __name__ == "__main__":
         args.balanced,
         args.method,
         args.refine_weights,
+        args.alpha,
     )
