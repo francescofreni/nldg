@@ -40,7 +40,7 @@ def main(
         Etr = np.array(dtr["E"])
 
         # Default RF
-        start = time.time()
+        start = time.process_time()
         rf = RandomForest(
             "Regression",
             n_estimators=n_estimators,
@@ -48,7 +48,7 @@ def main(
             seed=i,
         )
         rf.fit(Xtr, Ytr)
-        end = time.time()
+        end = time.process_time()
         time_rf = end - start
         runtime_dict["RF"].append(time_rf)
         fitted_rf = rf.predict(Xtr)
@@ -58,7 +58,7 @@ def main(
         maxmse_dict["RF"].append(maxmse_rf)
 
         # MaggingRF
-        start = time.time()
+        start = time.process_time()
         rf_magging = MaggingRF_PB(
             n_estimators=n_estimators,
             min_samples_leaf=min_samples_leaf,
@@ -68,7 +68,7 @@ def main(
         fitted_magging, preds_magging = rf_magging.fit_predict_magging(
             Xtr, Ytr, Etr, Xtr
         )
-        end = time.time()
+        end = time.process_time()
         runtime_dict["MaggingRF"].append(end - start)
         mse_dict["MaggingRF"].append(mean_squared_error(Ytr, fitted_magging))
         mse_envs_magging, maxmse_magging = max_mse(
@@ -78,7 +78,7 @@ def main(
         maxmse_dict["MaggingRF"].append(maxmse_magging)
 
         # MinMaxRF-M0 / L-MMRF
-        start = time.time()
+        start = time.process_time()
         rf_minmax_m0 = RandomForest(
             "MinMaxRegression",
             n_estimators=n_estimators,
@@ -87,7 +87,7 @@ def main(
             minmax_method="base",
         )
         rf_minmax_m0.fit(Xtr, Ytr, Etr)
-        end = time.time()
+        end = time.process_time()
         time_minmax_m0 = end - start
         runtime_dict["L-MMRF"].append(time_minmax_m0)
         fitted_minmax_m0 = rf_minmax_m0.predict(Xtr)
@@ -99,9 +99,9 @@ def main(
         maxmse_dict["L-MMRF"].append(maxmse_minmax_m0)
 
         # MinMaxRF-M1 / Post-RF
-        start = time.time()
+        start = time.process_time()
         rf.modify_predictions_trees(Etr)
-        end = time.time()
+        end = time.process_time()
         time_minmax_m1 = end - start
         time_minmax_m1 += time_rf
         runtime_dict["Post-RF"].append(time_minmax_m1)
@@ -114,9 +114,9 @@ def main(
         maxmse_dict["Post-RF"].append(maxmse_minmax_m1)
 
         # MinMaxRF-M2 / Post-L-MMRF
-        start = time.time()
+        start = time.process_time()
         rf_minmax_m0.modify_predictions_trees(Etr)
-        end = time.time()
+        end = time.process_time()
         time_minmax_m2 = end - start
         time_minmax_m2 += time_minmax_m0
         runtime_dict["Post-L-MMRF"].append(time_minmax_m2)
@@ -131,7 +131,7 @@ def main(
         maxmse_dict["Post-L-MMRF"].append(maxmse_minmax_m2)
 
         # MinMaxRF-M3 / G-DFS-MMRF
-        start = time.time()
+        start = time.process_time()
         rf_minmax_m3 = RandomForest(
             "MinMaxRegression",
             n_estimators=n_estimators,
@@ -140,7 +140,7 @@ def main(
             minmax_method="fullopt",
         )
         rf_minmax_m3.fit(Xtr, Ytr, Etr)
-        end = time.time()
+        end = time.process_time()
         runtime_dict["G-DFS-MMRF"].append(end - start)
         fitted_minmax_m3 = rf_minmax_m3.predict(Xtr)
         mse_dict["G-DFS-MMRF"].append(
@@ -153,7 +153,7 @@ def main(
         maxmse_dict["G-DFS-MMRF"].append(maxmse_minmax_m3)
 
         # MinMaxRF-M4 / G-MMRF
-        start = time.time()
+        start = time.process_time()
         rf_minmax_m4 = RandomForest(
             "MinMaxRegression",
             n_estimators=n_estimators,
@@ -162,7 +162,7 @@ def main(
             minmax_method="adafullopt",
         )
         rf_minmax_m4.fit(Xtr, Ytr, Etr)
-        end = time.time()
+        end = time.process_time()
         runtime_dict["G-MMRF"].append(end - start)
         fitted_minmax_m4 = rf_minmax_m4.predict(Xtr)
         mse_dict["G-MMRF"].append(mean_squared_error(Ytr, fitted_minmax_m4))
