@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -8,70 +9,6 @@ import random
 # ===============
 # DATA GENERATION
 # ===============
-def gen_data(
-    n_train: int = 500,
-    n_test: int = 100,
-    random_state: int = 0,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """
-    Generates train data from three environments.
-
-    Args:
-        n_train: Number of training samples.
-        n_test: Number of test samples.
-        random_state: Random seed.
-
-    Returns:
-        A tuple containing:
-        - df_train: DataFrame with training data.
-        - df_test_1: DataFrame with test data.
-        - df_test_2 DataFrame with different test data.
-    """
-    rng = np.random.default_rng(random_state)
-    p = 2
-    Sigma = np.eye(p) * 3.5
-    sigma = 0.3
-    n_e = n_train // 3
-
-    def generate_environment(env_id, n):
-        m = np.zeros(p)
-        X = rng.multivariate_normal(mean=m, cov=Sigma, size=n)
-        eps = sigma * rng.normal(0, 1, size=n)
-
-        if env_id == 0:
-            Y = 2 * np.sin(X[:, 0]) + 2 * X[:, 1] + eps
-        elif env_id == 1:
-            Y = 2 * np.sin(X[:, 0]) + 3 * X[:, 1] + eps
-        elif env_id == 2:
-            Y = 2 * np.sin(X[:, 0]) - 3 * X[:, 1] + eps
-        else:
-            raise ValueError("Invalid environment ID")
-
-        data = {f"X{i+1}": X[:, i] for i in range(p)}
-        data.update({"Y": Y, "E": env_id})
-
-        return pd.DataFrame(data)
-
-    df_train = pd.concat(
-        [generate_environment(env_id, n_e) for env_id in range(3)],
-        ignore_index=True,
-    )
-
-    X = rng.multivariate_normal(mean=np.zeros(p), cov=Sigma, size=n_test)
-    eps = rng.normal(0, 1, size=n_test)
-    Y1 = 2 * np.sin(X[:, 0]) + eps
-    Y2 = 2 * np.sin(X[:, 0]) + 3 * np.cos(X[:, 1]) + eps
-    df_test_1 = pd.DataFrame({f"X{i+1}": X[:, i] for i in range(p)})
-    df_test_1["Y"] = Y1
-    df_test_1["E"] = -1
-
-    df_test_2 = pd.DataFrame({f"X{i + 1}": X[:, i] for i in range(p)})
-    df_test_2["Y"] = Y2
-    df_test_2["E"] = -1
-
-    return df_train, df_test_1, df_test_2
-
-
 def gen_data_v2(
     n: int = 500,
     random_state: int = 0,
@@ -223,7 +160,8 @@ def gen_data_v5(
 def gen_data_v6(
     n: int = 300,
     random_state: int = 0,
-    noise_std=0.2,
+    noise_std: float = 0.2,
+    new_x: bool = False,
 ) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
     n_e = n // 3
@@ -232,9 +170,13 @@ def gen_data_v6(
     Y = np.where(X <= 0, X / 2, 3 * X) + rng.normal(0, noise_std, size=n_e)
     df1 = pd.DataFrame({"X": X, "Y": Y, "E": 0})
 
+    if new_x:
+        X = rng.uniform(-4, 4, size=n_e)
     Y = np.where(X <= 0, 3 * X, X / 2) + rng.normal(0, noise_std, size=n_e)
     df2 = pd.DataFrame({"X": X, "Y": Y, "E": 1})
 
+    if new_x:
+        X = rng.uniform(-4, 4, size=n_e)
     Y = np.where(X <= 0, 2.5 * X, X) + rng.normal(0, noise_std, size=n_e)
     df3 = pd.DataFrame({"X": X, "Y": Y, "E": 2})
 
@@ -242,7 +184,9 @@ def gen_data_v6(
     return df_all
 
 
-def gen_data_v7(n: int = 300, random_state: int = 0) -> pd.DataFrame:
+def gen_data_v7(
+    n: int = 300, random_state: int = 0, new_x: bool = False
+) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
     n_e = n // 3
     noise_std = 0.1
@@ -253,9 +197,13 @@ def gen_data_v7(n: int = 300, random_state: int = 0) -> pd.DataFrame:
     )
     df1 = pd.DataFrame({"X": X, "Y": Y, "E": 0})
 
+    if new_x:
+        X = rng.uniform(-4, 4, size=n_e)
     Y = np.where(X <= 0, X + 2, -X + 2) + rng.normal(0, noise_std, size=n_e)
     df2 = pd.DataFrame({"X": X, "Y": Y, "E": 1})
 
+    if new_x:
+        X = rng.uniform(-4, 4, size=n_e)
     Y = np.zeros(len(X))
     Y[X <= -2] = -(X[X <= -2] + 4) / 2
     Y[(X > -2) & (X <= 2)] = X[(X > -2) & (X <= 2)] / 2
@@ -267,23 +215,24 @@ def gen_data_v7(n: int = 300, random_state: int = 0) -> pd.DataFrame:
     return df_all
 
 
-def gen_data_v8(n: int = 300, random_state: int = 0) -> pd.DataFrame:
+def gen_data_v8(
+    n: int = 300, random_state: int = 0, new_x: bool = False
+) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
     n_e = n // 3
     noise_std = 0.1
 
-    # X = rng.uniform(-2, 2, n_e)
-    # Y = X + rng.normal(0, noise_std, n_e)
     X = rng.uniform(-np.pi, np.pi, size=n_e)
     Y = np.sin(X) + rng.normal(0, noise_std, size=n_e)
     df1 = pd.DataFrame({"X": X, "Y": Y, "E": 0})
 
-    # Y = -X + rng.normal(0, noise_std, n_e)
+    if new_x:
+        X = rng.uniform(-np.pi, np.pi, size=n_e)
     Y = 2 * np.sin(X + 2 * np.pi / 3) + rng.normal(0, noise_std, size=n_e)
     df2 = pd.DataFrame({"X": X, "Y": Y, "E": 1})
 
-    # X = rng.uniform(-1, 1, n_e)
-    # Y = 1 * np.ones(n_e) + rng.normal(0, noise_std, n_e)
+    if new_x:
+        X = rng.uniform(-np.pi, np.pi, size=n_e)
     Y = np.sin(X + 4 * np.pi / 3) + rng.normal(0, noise_std, size=n_e)
     df3 = pd.DataFrame({"X": X, "Y": Y, "E": 2})
 
@@ -443,6 +392,9 @@ def plot_dtr(
     saveplot=False,
     nameplot="setting5",
 ):
+    """
+    Plotting function for Random Forest results
+    """
     # coolwarm_cmap = matplotlib.colormaps['coolwarm']
     # line_colors = [coolwarm_cmap(1.0), coolwarm_cmap(0.7), coolwarm_cmap(0.85)]
     line_colors = ["lightskyblue", "orange", "mediumpurple", "yellowgreen"]
@@ -579,4 +531,100 @@ def plot_dtr(
     plt.tight_layout()
     if saveplot:
         plt.savefig(f"{nameplot}.png", dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+def plot_dtr_ss(
+    dtr,
+    x_grid,
+    preds_erm,
+    preds_minimax,
+    preds_magging=None,
+    optfun=None,
+    saveplot=False,
+    nameplot="setting5",
+):
+    """
+    Plotting function for smoothing splines results
+    """
+    line_colors = ["lightskyblue", "orange", "mediumpurple"]
+    data_colors = ["black", "grey", "silver"]
+    environments = sorted(dtr["E"].unique())
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for idx, env in enumerate(environments):
+        marker_style = "o"
+        ax.scatter(
+            dtr[dtr["E"] == env]["X"],
+            dtr[dtr["E"] == env]["Y"],
+            color=data_colors[idx],
+            marker=marker_style,
+            alpha=0.5,
+            s=30,
+            label=f"Env {env + 1}",
+        )
+
+    ax.plot(x_grid, preds_erm, color=line_colors[0], linewidth=2, label="SS")
+    ax.plot(
+        x_grid,
+        preds_minimax,
+        color=line_colors[1],
+        linewidth=2,
+        label="MinimaxSS",
+    )
+    if preds_magging is not None:
+        ax.plot(
+            x_grid,
+            preds_magging,
+            color=line_colors[2],
+            linewidth=2,
+            label="MaggingSS",
+        )
+
+    if optfun == 1:
+        y_opt = 0.8 * np.sin(x_grid / 2) ** 2 + 3
+        ax.plot(
+            x_grid,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            linestyle="--",
+            label="Optimal",
+        )
+    elif optfun == 2:
+        y_opt = np.where(x_grid > 0, 2.4 * x_grid, -2.4 * x_grid)
+        ax.plot(
+            x_grid,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            linestyle="--",
+            label="Optimal",
+        )
+    elif optfun == 3:
+        y_opt = np.where(x_grid > 0, 1.75 * x_grid, 1.75 * x_grid)
+        ax.plot(
+            x_grid,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            linestyle="--",
+            label="Optimal",
+        )
+
+    ax.set_xlabel("$X$")
+    ax.set_ylabel("$Y$")
+    ax.grid(True, linewidth=0.2)
+
+    handles, labels = ax.get_legend_handles_labels()
+    ax.legend(handles=handles, loc="upper left")
+
+    plt.tight_layout()
+    if saveplot:
+        script_dir = os.getcwd()
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        plots_dir = os.path.join(parent_dir, "results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()

@@ -10,6 +10,7 @@ from scipy.optimize import minimize
 class MaggingRF_PB:
     """
     Distribution Generalization with Random Forest Regressor.
+    Implements the magging estimator.
     """
 
     def __init__(
