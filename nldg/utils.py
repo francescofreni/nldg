@@ -427,15 +427,24 @@ def plot_dtr(
                 dtr["fitted_minmax"],
                 color=line_colors[1],
                 linewidth=2,
-                label="MinMaxRF",
+                label="MinimaxRF",
             )
-            ax.plot(
-                dtr["X_sorted"],
-                dtr["fitted_magging"],
-                color=line_colors[2],
-                linewidth=2,
-                label="MaggingRF",
-            )
+            if "fitted_minmax_xtrgrd" in dtr:
+                ax.plot(
+                    dtr["X_sorted"],
+                    dtr["fitted_minmax_xtrgrd"],
+                    color=line_colors[2],
+                    linewidth=2,
+                    label="MinimaxRF-xtrgrd",
+                )
+            if "fitted_magging" in dtr:
+                ax.plot(
+                    dtr["X_sorted"],
+                    dtr["fitted_magging"],
+                    color=line_colors[2],
+                    linewidth=2,
+                    label="MaggingRF",
+                )
         else:
             ax.plot(
                 dtr["X_sorted"],
