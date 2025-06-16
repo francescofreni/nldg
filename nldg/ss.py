@@ -3,6 +3,8 @@ import cvxpy as cp
 from scipy.interpolate import BSpline
 from scipy.stats import iqr
 import torch
+from typing import Callable, Optional
+import warnings
 
 
 class MinimaxSmoothSpline:
@@ -24,9 +26,13 @@ class MinimaxSmoothSpline:
         Observation weights. Must be non-negative. If None, uniform weights are used.
     degree : int, optional (default=3)
         Degree of the B-spline basis. Common choices are 1 (linear), 2 (quadratic), 3 (cubic).
-    lam : float, optional (default=0.01)
+    lam : float, optional (default=None)
         Smoothing parameter controlling the trade-off between fidelity to data
         and smoothness (penalized second derivative).
+    cv: bool (default=False)
+        If True, performs ordinary leave-one-out cross-validation when method is `erm`,
+        and 5-fold cross-validation if method is `minimax`.
+        If cv is True and lambda is not None, lambda is overwritten after performing LOOCV.
     all_knots : bool, optional (default=False)
         If True, uses all unique x values as internal knots. If False, selects
         a reduced number of knots using `nknots_func`.
@@ -71,8 +77,11 @@ class MinimaxSmoothSpline:
     Notes
     -----
     - This implementation generalizes `smooth.spline` to a robust minimax setting.
-    - `cp` may be often preferred.
+    - `cp` may be often preferred over `extragradient`.
     - Spline fitting uses second-derivative penalization similar to classical smoothing splines.
+    - Cross-validation with the minimax approach may be computational expensive and not all values of
+      lambda can be used: the second-derivative matrix is ill-conditioned if the number of basis functions
+      is large.
 
     Examples
     --------
@@ -85,17 +94,18 @@ class MinimaxSmoothSpline:
 
     def __init__(
         self,
-        x,
-        y,
-        env=None,
-        w=None,
-        degree=3,
-        lam=0.01,
-        all_knots=False,
-        nknots_func=None,
-        tol=None,
-        method="minimax",
-        opt_method="cp",
+        x: np.ndarray,
+        y: np.ndarray,
+        env: Optional[np.ndarray] = None,
+        w: Optional[np.ndarray] = None,
+        degree: int = 3,
+        lam: Optional[float] = None,
+        cv: bool = False,
+        all_knots: bool = False,
+        nknots_func: Optional[Callable[[int], int]] = None,
+        tol: Optional[float] = None,
+        method: str = "minimax",
+        opt_method: str = "cp",
         **kwargs,
     ):
         if method not in ["erm", "minimax"]:
@@ -114,6 +124,7 @@ class MinimaxSmoothSpline:
 
         self.degree = degree
         self.lam = lam
+        self.cv = cv
 
         x = np.asarray(x).flatten()
         y = np.asarray(y).flatten()
@@ -375,6 +386,88 @@ class MinimaxSmoothSpline:
 
         return beta.detach().numpy(), p.detach().numpy()
 
+    # TODO: maybe instead of doing k-fold cv we could simply split in train and validation
+    #  in order to try out more lambda values.
+    def _kfcv_cp(self, Omega):
+        lambdas = np.logspace(-3, 0, 15)
+        K = 5
+        cv_scores = np.zeros(len(lambdas))
+
+        envs = np.unique(self.envbar)
+        env_indices = {e: np.where(self.envbar == e)[0] for e in envs}
+
+        # make K stratified folds to keep the proportions of environments
+        np.random.seed(123)
+        folds = [[] for _ in range(K)]
+        for indices in env_indices.values():
+            np.random.shuffle(indices)
+            for i, idx in enumerate(np.array_split(indices, K)):
+                folds[i].extend(idx)
+        folds = [np.array(sorted(f)) for f in folds]
+
+        for k in range(K):
+            val_idx = folds[k]
+            train_idx = np.setdiff1d(np.arange(len(self.ux)), val_idx)
+
+            # training data
+            ux_train = self.ux[train_idx]
+            ybar_train = self.ybar[train_idx]
+            wbar_train = self.wbar[train_idx]
+            envbar_train = self.envbar[train_idx]
+            N_train = self._bspline_dm(ux_train)
+
+            # variable and constraints definition
+            beta = cp.Variable(self.M)
+            t = cp.Variable(nonneg=True)
+            constraints = []
+            for e in np.unique(envbar_train):
+                mask = envbar_train == e
+                Ne = N_train[mask]
+                We = np.diag(wbar_train[mask])
+                res = ybar_train[mask] - Ne @ beta
+                constraints.append(cp.quad_form(res, We) / np.sum(mask) <= t)
+
+            # validation data
+            ux_val = self.ux[val_idx]
+            ybar_val = self.ybar[val_idx]
+            envbar_val = self.envbar[val_idx]
+            N_val = self._bspline_dm(ux_val)
+
+            beta_prev = None  # warm start
+
+            for i, lam in enumerate(lambdas):
+                objective = cp.Minimize(t + lam * cp.quad_form(beta, Omega))
+                problem = cp.Problem(objective, constraints)
+
+                if beta_prev is not None:
+                    beta.value = beta_prev
+
+                try:
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", category=UserWarning)
+                        problem.solve(warm_start=True, verbose=False)
+                except Exception:
+                    cv_scores[i] += np.inf
+                    continue
+
+                if problem.status not in ["optimal", "optimal_inaccurate"]:
+                    cv_scores[i] += np.inf
+                    continue
+
+                beta_prev = beta.value
+
+                y_pred = N_val @ beta.value
+                mse_envs = []
+                for e in np.unique(envbar_val):
+                    mask = envbar_val == e
+                    mse_e = np.mean((ybar_val[mask] - y_pred[mask]) ** 2)
+                    mse_envs.append(mse_e)
+                cv_scores[i] += max(mse_envs)
+
+        cv_scores /= K
+        best_idx = np.argmin(cv_scores)
+        self.lam = lambdas[best_idx]
+
     def _fit(self, **kwargs):
         # Use fine grid like in working code - at least 400 points
         n_grid_points = max(400, 10 * self.M)
@@ -388,12 +481,32 @@ class MinimaxSmoothSpline:
 
         if self.method == "erm":
             N = self._bspline_dm(self.ux)
-            WN = N * self.wbar[:, None]
-            NTWX = WN.T @ N
-            NTWy = WN.T @ self.ybar
-            self.coef = np.linalg.solve(NTWX + self.lam * Omega, NTWy)
+            NTW = N.T * self.wbar
+            NTWN = NTW @ N
+            NTWy = NTW @ self.ybar
+            if self.cv:
+                lambdas = np.logspace(-3, 2, 30)
+                cv_errors = []
+                for lam in lambdas:
+                    A = NTWN + lam * Omega
+                    B = np.linalg.solve(A, NTW)
+                    S = N @ B
+                    yhat = S @ self.ybar
+                    leverages = np.diag(S)
+                    numer = (self.ybar - yhat) ** 2
+                    denom = (1 - leverages) ** 2
+                    loocv_error = np.mean(numer / denom)
+                    cv_errors.append(loocv_error)
+                best_idx = np.argmin(cv_errors)
+                best_lambda = lambdas[best_idx]
+                self.lam = best_lambda
+            self.coef = np.linalg.solve(NTWN + self.lam * Omega, NTWy)
         else:
+            # TODO: we may want to propose a thinning strategy for the matrix of second derivatives:
+            #  this would allow for better stability and convergence with the optimization methods.
             if self.opt_method == "cp":
+                if self.cv:
+                    self._kfcv_cp(Omega)
                 beta = cp.Variable(self.M)
                 t = cp.Variable(nonneg=True)
                 constraints = []
@@ -415,7 +528,9 @@ class MinimaxSmoothSpline:
                     t + self.lam * cp.quad_form(beta, Omega)
                 )
                 problem = cp.Problem(objective, constraints)
-                problem.solve()
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore", UserWarning)
+                    problem.solve()
 
                 if problem.status not in ["optimal", "optimal_inaccurate"]:
                     print(f"Warning: Problem status is {problem.status}")
