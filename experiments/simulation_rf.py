@@ -34,7 +34,7 @@ def main(
     mse_dict = copy.deepcopy(results_dict)
 
     for i in tqdm(range(nsim)):
-        dtr = gen_data_v6(n=n, noise_std=noise_std, random_state=i)
+        dtr = gen_data_v6(n=n, noise_std=noise_std, random_state=i, new_x=True)
         Xtr = np.array(dtr.drop(columns=["E", "Y"]))
         Ytr = np.array(dtr["Y"])
         Etr = np.array(dtr["E"])
