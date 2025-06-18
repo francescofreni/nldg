@@ -236,7 +236,7 @@ class MinimaxSmoothSpline:
         self._fit(**kwargs)
 
     @staticmethod
-    def _nknots_smspl(n):
+    def _nknots_smspl(n: int):
         if n < 50:
             return n
         else:
@@ -253,7 +253,7 @@ class MinimaxSmoothSpline:
             else:
                 return int(200 + (n - 3200) ** 0.2)
 
-    def _bspline_dm(self, x_vals):
+    def _bspline_dm(self, x_vals: np.ndarray):
         X = np.zeros((len(x_vals), self.M))
         coeffs = np.eye(self.M)
         for i in range(self.M):
@@ -261,7 +261,7 @@ class MinimaxSmoothSpline:
             X[:, i] = b(x_vals)
         return X
 
-    def _omega(self, grid):
+    def _omega(self, grid: np.ndarray):
         M = self.M
 
         # Precompute all second derivatives at once
@@ -285,6 +285,13 @@ class MinimaxSmoothSpline:
 
     @staticmethod
     def _project_onto_simplex(v: np.ndarray) -> np.ndarray:
+        """
+        Projection onto the probability simplex.
+        Reference: Wang et al. (2013).
+            "Projection onto the probability simplex:
+            An efficient algorithm with a simple proof, and an application"
+            https://arxiv.org/pdf/1309.1541
+        """
         original_shape = v.shape
         v_flat = v.flatten()
         D = v_flat.size
@@ -308,10 +315,13 @@ class MinimaxSmoothSpline:
 
     def _train_extragradient(
         self,
-        alpha=0.5,
-        epochs=1000,
-        seed=42,
-        verbose=False,
+        alpha: float = 0.5,
+        epochs: int = 1000,
+        seed: int = 42,
+        verbose: bool = False,
+        early_stopping: bool = False,
+        patience: int = 5,
+        min_delta: float = 1e-4,
     ):
         torch.manual_seed(seed)
         np.random.seed(seed)
@@ -337,6 +347,8 @@ class MinimaxSmoothSpline:
         beta = torch.zeros(self.M, dtype=torch.float64)
         p = torch.ones(E, dtype=torch.float64) / E
 
+        best_max_loss = np.inf
+        epochs_no_improvement = 0
         for t in range(epochs):
             losses = []
             grad = torch.zeros_like(beta)
@@ -380,15 +392,30 @@ class MinimaxSmoothSpline:
                 self._project_onto_simplex((p + alpha * losses_h).numpy())
             )
 
+            max_loss = torch.max(losses_h)
+
             if verbose and t % (epochs // 10) == 0:
                 obj = (p * losses).sum() + self.lam * (beta @ (Omega_t @ beta))
                 print(f"Iter {t}: obj = {obj.item():.5f}")
+
+            if best_max_loss - max_loss.item() > min_delta:
+                best_max_loss = max_loss.item()
+                epochs_no_improvement = 0
+            else:
+                epochs_no_improvement += 1
+
+            if early_stopping and (epochs_no_improvement >= patience):
+                if verbose:
+                    print(
+                        f"Early stopping at epoch {t}, best max_loss = {best_max_loss:.6f}"
+                    )
+                break
 
         return beta.detach().numpy(), p.detach().numpy()
 
     # TODO: maybe instead of doing k-fold cv we could simply split in train and validation
     #  in order to try out more lambda values.
-    def _kfcv_cp(self, Omega):
+    def _kfcv_cp(self, Omega: np.ndarray):
         lambdas = np.logspace(-3, 0, 15)
         K = 5
         cv_scores = np.zeros(len(lambdas))
@@ -544,7 +571,7 @@ class MinimaxSmoothSpline:
             self.knots, self.coef, self.degree, extrapolate=False
         )
 
-    def predict(self, x_new):
+    def predict(self, x_new: np.ndarray):
         x_new = np.asarray(x_new).flatten()
         # x_scaled = (x_new - self.ux[0]) / self.r_ux
         # return self.spline(x_scaled)
