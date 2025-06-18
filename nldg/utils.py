@@ -500,7 +500,7 @@ def plot_dtr(
             y_opt,
             color="orangered",
             linewidth=3,
-            label="Optimal",
+            label="Oracle",
             linestyle="--",
         )
     elif optfun == 2:
@@ -513,7 +513,7 @@ def plot_dtr(
             y_opt,
             color="orangered",
             linewidth=3,
-            label="Optimal",
+            label="Oracle",
             linestyle="--",
         )
     elif optfun == 3:
@@ -526,7 +526,7 @@ def plot_dtr(
             y_opt,
             color="orangered",
             linewidth=2,
-            label="Optimal",
+            label="Oracle",
             linestyle="--",
         )
 
@@ -598,7 +598,7 @@ def plot_dtr_ss(
             color="orangered",
             linewidth=2,
             linestyle="--",
-            label="Optimal",
+            label="Oracle",
         )
     elif optfun == 2:
         y_opt = np.where(x_grid > 0, 2.4 * x_grid, -2.4 * x_grid)
@@ -608,7 +608,7 @@ def plot_dtr_ss(
             color="orangered",
             linewidth=2,
             linestyle="--",
-            label="Optimal",
+            label="Oracle",
         )
     elif optfun == 3:
         y_opt = np.where(x_grid > 0, 1.75 * x_grid, 1.75 * x_grid)
@@ -618,7 +618,7 @@ def plot_dtr_ss(
             color="orangered",
             linewidth=2,
             linestyle="--",
-            label="Optimal",
+            label="Oracle",
         )
 
     ax.set_xlabel("$X$")
