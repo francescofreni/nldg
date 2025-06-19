@@ -82,6 +82,7 @@ def plot_mse_by_method(
     plt.xlabel("Method")
     plt.grid(True, axis="y", linewidth=0.3)
     plt.legend()
+    plt.ylim(0.3, 0.55)
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "bcd_mse_per_environment.png"), dpi=300)
     plt.close()
