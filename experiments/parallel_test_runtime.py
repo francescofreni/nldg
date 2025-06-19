@@ -1,7 +1,7 @@
 """
 DISCLAIMER:
 This script is intended for systems with more than 50 CPU cores.
-Running it on machines with fewer cores may lead to memory issues.
+Running it on machines with fewer cores or on Windows operating systems may lead to memory issues.
 """
 
 import os
