@@ -65,7 +65,7 @@ def plot_mse_by_method(
     x = np.arange(num_methods)
     width = 0.2
 
-    plt.figure(figsize=(12, 6))
+    plt.figure(figsize=(15, 6))
     for env_idx in range(3):
         mse_vals = [m[env_idx] for m in mse_matrix]
         plt.bar(
@@ -94,6 +94,7 @@ if __name__ == "__main__":
 
     env = assign_quadrant(Z)
 
+    print("Fitting standard Random Forest...", end=" ", flush=True)
     rf = RandomForest(
         "Regression",
         n_estimators=N_ESTIMATORS,
@@ -101,6 +102,7 @@ if __name__ == "__main__":
         seed=SEED,
     )
     rf.fit(X, y)
+    print("Done!", flush=True)
     fitted_rf = rf.predict(X)
     mse_envs_rf, _ = max_mse(y, fitted_rf, env, ret_ind=True)
 
@@ -112,9 +114,11 @@ if __name__ == "__main__":
         seed=SEED,
     )
     rf.fit(X, y)
+    print("Modifying predictions with non-BCD...", end=" ", flush=True)
     start = time.time()
     rf.modify_predictions_trees(env)
     end = time.time()
+    print("Done!", flush=True)
     non_bcd_time = end - start
     fitted_minimax = rf.predict(X)
     mse_envs_minimax, _ = max_mse(y, fitted_minimax, env, ret_ind=True)
@@ -132,9 +136,13 @@ if __name__ == "__main__":
             seed=SEED,
         )
         rf.fit(X, y)
+        print(
+            f"Modifying predictions with BCD (bs {b})...", end=" ", flush=True
+        )
         start = time.time()
         rf.modify_predictions_trees(env, bcd=True, patience=1, block_size=b)
         end = time.time()
+        print("Done!", flush=True)
         bcd_times.append(end - start)
 
         fitted_bcd = rf.predict(X)
