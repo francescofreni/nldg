@@ -4,3 +4,4 @@ build/
 *.png
 .idea/
 archive/
+notebooks/settings/

@@ -539,7 +539,12 @@ def plot_dtr(
 
     plt.tight_layout()
     if saveplot:
-        plt.savefig(f"{nameplot}.png", dpi=300, bbox_inches="tight")
+        script_dir = os.getcwd()
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        plots_dir = os.path.join(parent_dir, "results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()
 
 
@@ -636,4 +641,145 @@ def plot_dtr_ss(
         os.makedirs(plots_dir, exist_ok=True)
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
+    plt.show()
+
+
+def plot_dtr_all_methods(dtr, optfun=None, nameplot="setting5_allmethods"):
+    line_colors = [
+        "lightskyblue",
+        "orange",
+        "plum",
+        "yellowgreen",
+        "royalblue",
+        "darkred",
+        "mediumpurple",
+    ]
+    data_colors = ["black", "grey", "silver"]
+    environments = sorted(dtr["E"].unique())
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+    for idx, env in enumerate(environments):
+        marker_style = "o"
+        ax.scatter(
+            dtr[dtr["E"] == env]["X"],
+            dtr[dtr["E"] == env]["Y"],
+            color=data_colors[idx],
+            marker=marker_style,
+            alpha=0.5,
+            s=30,
+            label=f"Env {env + 1}",
+        )
+    ax.plot(
+        dtr["X_sorted"],
+        dtr["fitted_rf"],
+        color=line_colors[0],
+        linewidth=2,
+        label="RF",
+    )
+    ax.plot(
+        dtr["X_sorted"],
+        dtr["fitted_magging"],
+        color=line_colors[1],
+        linewidth=2,
+        label="MaggingRF",
+    )
+    ax.plot(
+        dtr["X_sorted"],
+        dtr["fitted_l_mmrf"],
+        color=line_colors[2],
+        linewidth=2,
+        label="L-MMRF",
+    )
+    ax.plot(
+        dtr["X_sorted"],
+        dtr["fitted_post_rf"],
+        color=line_colors[3],
+        linewidth=2,
+        label="Post-RF",
+    )
+    ax.plot(
+        dtr["X_sorted"],
+        dtr["fitted_post_l_mmrf"],
+        color=line_colors[4],
+        linewidth=2,
+        label="Post-L-MMRF",
+    )
+    ax.plot(
+        dtr["X_sorted"],
+        dtr["fitted_g_dfs_mmrf"],
+        color=line_colors[5],
+        linewidth=2,
+        label="G-DFS-MMRF",
+    )
+    ax.plot(
+        dtr["X_sorted"],
+        dtr["fitted_g_mmrf"],
+        color=line_colors[6],
+        linewidth=2,
+        label="G-MMRF",
+    )
+
+    if optfun == 1:
+        x_range = np.linspace(
+            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
+        )
+        y_opt = 0.8 * np.sin(x_range / 2) ** 2 + 3
+        ax.plot(
+            x_range,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            label="Oracle",
+            linestyle="--",
+        )
+    elif optfun == 2:
+        x_range = np.linspace(
+            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
+        )
+        y_opt = np.where(x_range > 0, 2.4 * x_range, -2.4 * x_range)
+        ax.plot(
+            x_range,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            label="Oracle",
+            linestyle="--",
+        )
+    elif optfun == 3:
+        x_range = np.linspace(
+            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
+        )
+        y_opt = np.where(x_range > 0, 1.75 * x_range, 1.75 * x_range)
+        ax.plot(
+            x_range,
+            y_opt,
+            color="orangered",
+            linewidth=2,
+            label="Oracle",
+            linestyle="--",
+        )
+
+    ax.set_xlabel("$X$")
+    ax.set_ylabel("$Y$")
+    ax.grid(True, linewidth=0.2)
+
+    handles, labels = ax.get_legend_handles_labels()
+
+    ax.legend(
+        handles=handles,
+        loc="upper center",
+        bbox_to_anchor=(0.5, -0.15),
+        ncol=5,
+        frameon=False,
+    )
+
+    plt.tight_layout()
+
+    script_dir = os.getcwd()
+    parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+    plots_dir = os.path.join(parent_dir, "results", "figures")
+    os.makedirs(plots_dir, exist_ok=True)
+    outpath = os.path.join(plots_dir, f"{nameplot}.png")
+    plt.savefig(outpath, dpi=300, bbox_inches="tight")
+
     plt.show()

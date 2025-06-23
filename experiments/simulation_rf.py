@@ -7,6 +7,7 @@ from nldg.utils import *
 from nldg.rf import MaggingRF_PB
 from adaXT.random_forest import RandomForest
 from tqdm import tqdm
+from utils import plot_max_mse_msl, plot_max_mse_boxplot
 
 
 def main(
@@ -200,9 +201,42 @@ def main(
     os.makedirs(out_data_dir, exist_ok=True)
 
     mse_df.to_csv(os.path.join(out_data_dir, "mse.csv"), index=False)
+    means = mse_df.mean(axis=0)
+    n = mse_df.shape[0]
+    stderr = mse_df.std(axis=0, ddof=1) / np.sqrt(n)
+    ci_lower = means - 1.96 * stderr
+    ci_upper = means + 1.96 * stderr
+    summary_mse_df = pd.DataFrame(
+        {"MSE": means, "CI Lower": ci_lower, "CI Upper": ci_upper}
+    )
+    summary_mse_df.to_csv(os.path.join(out_data_dir, "summary_mse.txt"))
+
     mse_envs_df.to_csv(os.path.join(out_data_dir, "mse_envs.csv"), index=False)
+
     maxmse_df.to_csv(os.path.join(out_data_dir, "max_mse.csv"), index=False)
+    means = maxmse_df.mean(axis=0)
+    n = maxmse_df.shape[0]
+    stderr = maxmse_df.std(axis=0, ddof=1) / np.sqrt(n)
+    ci_lower = means - 1.96 * stderr
+    ci_upper = means + 1.96 * stderr
+    summary_maxmse_df = pd.DataFrame(
+        {"MSE": means, "CI Lower": ci_lower, "CI Upper": ci_upper}
+    )
+    summary_maxmse_df.to_csv(os.path.join(out_data_dir, "summary_maxmse.txt"))
+    plot_max_mse_boxplot(maxmse_df, saveplot=True)
+
     runtime_df.to_csv(os.path.join(out_data_dir, "runtime.csv"), index=False)
+    means = runtime_df.mean(axis=0)
+    n = runtime_df.shape[0]
+    stderr = runtime_df.std(axis=0, ddof=1) / np.sqrt(n)
+    ci_lower = means - 1.96 * stderr
+    ci_upper = means + 1.96 * stderr
+    summary_runtime_df = pd.DataFrame(
+        {"Runtime": means, "CI Lower": ci_lower, "CI Upper": ci_upper}
+    )
+    summary_runtime_df.to_csv(
+        os.path.join(out_data_dir, "summary_runtime.txt")
+    )
 
     # Second simulation
     # min_samples_leaf = [25, 50, 75, 100, 150, 200, 250, 300]
@@ -268,6 +302,8 @@ def main(
     stacked_df.to_csv(
         os.path.join(out_data_dir, "max_mse_msl.csv"), index=False
     )
+
+    plot_max_mse_msl(stacked_df, saveplot=True)
 
 
 if __name__ == "__main__":

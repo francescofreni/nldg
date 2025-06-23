@@ -350,6 +350,7 @@ class MinimaxSmoothSpline:
         best_max_loss = np.inf
         epochs_no_improvement = 0
         for t in range(epochs):
+            # Compute losses and gradients at current point
             losses = []
             grad = torch.zeros_like(beta)
             for i, e in enumerate(E_unique):
@@ -365,6 +366,8 @@ class MinimaxSmoothSpline:
                 grad += p[i] * grad_e
             losses = torch.stack(losses)
             grad += 2 * self.lam * (Omega_t @ beta)
+
+            # Extragradient step 1: half-step
             beta_half = beta - alpha * grad
             p_half = torch.tensor(
                 self._project_onto_simplex((p + alpha * losses).numpy())
@@ -387,15 +390,31 @@ class MinimaxSmoothSpline:
             losses_h = torch.stack(losses_h)
             grad_h += 2 * self.lam * (Omega_t @ beta_half)
 
+            # Extragradient step 2: full step using half-step gradients
             beta = beta - alpha * grad_h
             p = torch.tensor(
                 self._project_onto_simplex((p + alpha * losses_h).numpy())
             )
 
-            max_loss = torch.max(losses_h)
+            # Evaluate at full step
+            losses_new = []
+            for i, e in enumerate(E_unique):
+                idx = env_t == e
+                N_e = N_full_t[idx]
+                y_e = y_t[idx]
+                w_e = w_t[idx]
+                pred_new = N_e @ beta
+                residual_new = pred_new - y_e
+                loss_new = torch.mean(w_e * residual_new**2)
+                losses_new.append(loss_new)
+            losses_new = torch.stack(losses_new)
+
+            max_loss = torch.max(losses_new)
 
             if verbose and t % (epochs // 10) == 0:
-                obj = (p * losses).sum() + self.lam * (beta @ (Omega_t @ beta))
+                obj = (p * losses_new).sum() + self.lam * (
+                    beta @ (Omega_t @ beta)
+                )
                 print(f"Iter {t}: obj = {obj.item():.5f}")
 
             if best_max_loss - max_loss.item() > min_delta:

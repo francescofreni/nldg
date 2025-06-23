@@ -97,6 +97,7 @@ def plot_max_mse_boxplot(
     max_mse_df: pd.DataFrame,
     saveplot: bool = False,
     nameplot: str = "max_mse_boxplot",
+    show: bool = False,
 ) -> None:
     color = "tab:blue"
     n = len(max_mse_df.columns)
@@ -142,7 +143,8 @@ def plot_max_mse_boxplot(
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
-    plt.show()
+    if show:
+        plt.show()
 
 
 def plot_mse_envs(
@@ -257,6 +259,7 @@ def plot_max_mse_msl(
     res: pd.DataFrame,
     saveplot: bool = False,
     nameplot: str = "max_mse_msl",
+    show: bool = False,
 ) -> None:
     colors = ["lightskyblue", "orange", "mediumpurple"]
     methods = ["RF", "Post-RF", "MaggingRF"]
@@ -315,7 +318,8 @@ def plot_max_mse_msl(
         os.makedirs(plots_dir, exist_ok=True)
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
-    plt.show()
+    if show:
+        plt.show()
 
 
 # ============================================
@@ -327,6 +331,7 @@ def plot_max_score_housing(
     saveplot: bool = False,
     nameplot: str = "mse_heldout",
     setting: int = 1,
+    show: bool = False,
 ) -> None:
     QUADRANTS = (
         ["SW", "SE", "NW", "NE"]
@@ -393,7 +398,8 @@ def plot_max_score_housing(
         os.makedirs(plots_dir, exist_ok=True)
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
-    plt.show()
+    if show:
+        plt.show()
 
 
 def plot_score_envs_housing(
@@ -403,6 +409,7 @@ def plot_score_envs_housing(
     nameplot: str = "env_specific_mse",
     setting: int = 1,
     score: str = "mse",
+    show: bool = False,
 ):
     QUADRANTS = (
         ["SW", "SE", "NW", "NE"]
@@ -573,7 +580,8 @@ def plot_score_envs_housing(
             bbox_inches="tight",
         )
 
-    plt.show()
+    if show:
+        plt.show()
 
 
 # def plot_mse_envs_housing_bootstrap(
@@ -762,6 +770,7 @@ def plot_max_mse_mtry_resample(
     res: pd.DataFrame,
     saveplot: bool = False,
     nameplot: str = "max_mse_mtry_resample",
+    show: bool = False,
 ) -> None:
     methods = ["RF", "Post-RF"]
     colors = ["lightskyblue", "orange"]
@@ -822,7 +831,8 @@ def plot_max_mse_mtry_resample(
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
-    plt.show()
+    if show:
+        plt.show()
 
 
 def plot_quadrants_with_basemap():

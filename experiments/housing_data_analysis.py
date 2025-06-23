@@ -10,6 +10,11 @@ from adaXT.random_forest import RandomForest
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from tqdm import tqdm
+from utils import (
+    plot_max_mse_mtry_resample,
+    plot_max_score_housing,
+    plot_score_envs_housing,
+)
 
 # Setup logging
 logging.basicConfig(
@@ -356,11 +361,25 @@ def run_ttv_exp(
     main_result_df.to_csv(main_out_path, index=False)
     logger.info(f"Saved main results to {main_out_path}")
 
+    plot_max_score_housing(
+        main_result_df,
+        saveplot=True,
+        nameplot=f"mse_heldout_{data_setting}_{is_balanced}",
+    )
+
     env_metrics_result_df = pd.concat(env_metrics_dfs, ignore_index=True)
     name_envspec = f"env_specific_{method}_{data_setting}_{is_balanced}.csv"
     env_metrics_out_path = os.path.join(RESULTS_PATH, name_envspec)
     env_metrics_result_df.to_csv(env_metrics_out_path, index=False)
     logger.info(f"Saved environment metrics to {env_metrics_out_path}")
+
+    plot_score_envs_housing(
+        env_metrics_result_df,
+        main_result_df,
+        saveplot=True,
+        nameplot=f"env_specific_{method}_{data_setting}_{is_balanced}",
+        score=method,
+    )
 
 
 def run_t_bootstrap_exp(
@@ -640,6 +659,7 @@ def run_mtry_resample_exp(
 
     path = os.path.join(RESULTS_PATH, "maxmse_mtry_resample.csv")
     df_all.to_csv(path, index=False)
+    plot_max_mse_mtry_resample(df_all, saveplot=True)
     logger.info(f"Saved resampling metrics to {path}")
 
 
