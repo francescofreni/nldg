@@ -33,7 +33,7 @@ cd adaXT
 pip install .
 cd ../nldg  # On Windows use cd ..\nldg
 ```
-To install it in editable mode (for modifying the code and seeing the changes immediately) and with developer dependencies (for testing and code formatting), replace the last line with:
+To install it in editable mode (for modifying the code and seeing the changes immediately) and with developer dependencies (for testing and code formatting), use
 
 ```bash
 pip install -e ".[dev]"
