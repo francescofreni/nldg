@@ -66,9 +66,9 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 │   └── utils                        # Helper functions: data generation, plotting, metrics
 |
 ├── notebooks           
-│   ├── demo_rf                      # Demo for Minimax Random Forest
-│   ├── demo_ss                      # Demo for Minimax Smoothing Splines
-│   └── minimax_rf                   # Different solutions to the Minimax Random Forest problem
+│   ├── demo_rf                      # Demo for WORME Random Forest
+│   ├── demo_ss                      # Demo for WORME Smoothing Splines
+│   └── worme_rf                     # Different solutions to the WORME Random Forest problem
 |
 └── results
     ├── figures                      # Saved figures

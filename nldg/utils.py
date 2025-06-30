@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import torch
 import random
 
+NAME = "WORME"
+
 
 # ===============
 # DATA GENERATION
@@ -71,7 +73,9 @@ def gen_data_v2(
 
 
 def gen_data_v3(
-    n: int = 500, random_state: int = 0, setting: int = 1
+    n: int = 500,
+    random_state: int = 0,
+    setting: int = 1,
 ) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
 
@@ -111,7 +115,9 @@ def gen_data_v3(
 
 
 def gen_data_v4(
-    n_easy: int = 300, n_hard: int = 300, random_state: int = 0
+    n_easy: int = 300,
+    n_hard: int = 300,
+    random_state: int = 0,
 ) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
 
@@ -132,26 +138,34 @@ def gen_data_v4(
 def gen_data_v5(
     n_samples: int = 500,
     adv_fraction: float = 0.1,
-    noise_var_env2=10.0,
+    noise_var_env2: float = 10.0,
     random_state: int = 0,
+    setting: int = 1,
 ) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
 
-    X = rng.uniform(-5, 5, size=(n_samples, 1))
+    if setting == 1:
+        X = rng.uniform(-5, 5, size=(n_samples, 1))
+        y = 2.0 * X.squeeze() + 1.0 + rng.normal(0, 1.0, size=n_samples)
+        n_adv = int(adv_fraction * n_samples)
+        adv_indices = rng.choice(n_samples, n_adv, replace=False)
+        y[adv_indices] += rng.normal(0, noise_var_env2, size=n_adv) + 0.5 * (
+            X[adv_indices].squeeze() ** 2
+        )  # + 10
+    else:
+        X = rng.uniform(0, 2, size=(n_samples, 1))
+        y = X.squeeze() + rng.normal(0, 0.5, size=n_samples)
+        n_adv = int(adv_fraction * n_samples)
+        adv_indices = rng.choice(n_samples, n_adv, replace=False)
 
-    y = 2.0 * X.squeeze() + 1.0 + rng.normal(0, 1.0, size=n_samples)
-
-    n_adv = int(adv_fraction * n_samples)
-    adv_indices = rng.choice(n_samples, n_adv, replace=False)
-
-    # Inject adversarial noise: high-variance noise + slight non-linear distortion
-    y[adv_indices] += rng.normal(0, noise_var_env2, size=n_adv) + 0.5 * (
-        X[adv_indices].squeeze() ** 2
-    )  # + 10
+        y[adv_indices] += (
+            rng.normal(0, noise_var_env2, size=n_adv)
+            + 0.5 * X[adv_indices].squeeze() ** 2
+            + X[adv_indices].squeeze()
+        ) + 2
 
     env = np.zeros(n_samples, dtype=int)
     env[adv_indices] = 1
-
     df = pd.DataFrame({"X": X.squeeze(), "Y": y, "E": env})
 
     return df
@@ -162,12 +176,18 @@ def gen_data_v6(
     random_state: int = 0,
     noise_std: float = 0.2,
     new_x: bool = False,
+    setting: int = 1,
 ) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
     n_e = n // 3
 
     X = rng.uniform(-4, 4, size=n_e)
-    Y = np.where(X <= 0, X / 2, 3 * X) + rng.normal(0, noise_std, size=n_e)
+    if setting == 1:
+        Y = np.where(X <= 0, X / 2, 3 * X) + rng.normal(0, noise_std, size=n_e)
+    else:
+        Y = np.where(X <= 0, -X / 2, 4 * X) + rng.normal(
+            0, noise_std, size=n_e
+        )
     df1 = pd.DataFrame({"X": X, "Y": Y, "E": 0})
 
     if new_x:
@@ -185,7 +205,9 @@ def gen_data_v6(
 
 
 def gen_data_v7(
-    n: int = 300, random_state: int = 0, new_x: bool = False
+    n: int = 300,
+    random_state: int = 0,
+    new_x: bool = False,
 ) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
     n_e = n // 3
@@ -216,7 +238,9 @@ def gen_data_v7(
 
 
 def gen_data_v8(
-    n: int = 300, random_state: int = 0, new_x: bool = False
+    n: int = 300,
+    random_state: int = 0,
+    new_x: bool = False,
 ) -> pd.DataFrame:
     rng = np.random.default_rng(random_state)
     n_e = n // 3
@@ -286,6 +310,7 @@ def min_xplvar(
     Env: np.ndarray,
     verbose: bool = False,
     ret_ind: bool = False,
+    demean: bool = True,
 ) -> float | tuple[list, float]:
     """
     Compute the minimum explained variance across environments.
@@ -300,6 +325,7 @@ def min_xplvar(
         Env (np.ndarray): Environment labels for each sample.
         verbose (bool): Whether to print the explained variance for each environment.
         ret_ind (bool): Whether to return also the explained variance for each environment.
+        demean (bool): Whether the response was centered in each environment.
 
     Returns:
         if ret_ind:
@@ -311,7 +337,10 @@ def min_xplvar(
     for env in np.unique(Env):
         Ytrue_e = Ytrue[Env == env]
         Ypred_e = Ypred[Env == env]
-        ev = np.mean(Ytrue_e**2) - np.mean((Ytrue_e - Ypred_e) ** 2)
+        if demean:
+            ev = np.mean(Ytrue_e**2) - np.mean((Ytrue_e - Ypred_e) ** 2)
+        else:
+            ev = np.var(Ytrue_e) - np.var(Ytrue_e - Ypred_e)
         xplvar_envs.append(ev)
         if verbose:
             print(f"Environment {env} explained variance: {ev}")
@@ -385,19 +414,23 @@ def set_all_seeds(seed: int):
 # PLOTTING
 # ========
 def plot_dtr(
-    dtr,
-    optfun=None,
-    refined=False,
-    gdro=False,
-    saveplot=False,
-    nameplot="setting5",
+    dtr: pd.DataFrame,
+    optfun: int | None = None,
+    gdro: bool = False,
+    obj_comparison: bool = False,
+    saveplot: bool = False,
+    nameplot: str = "setting5",
 ):
     """
-    Plotting function for Random Forest results
+    Plotting function for random forest results
     """
-    # coolwarm_cmap = matplotlib.colormaps['coolwarm']
-    # line_colors = [coolwarm_cmap(1.0), coolwarm_cmap(0.7), coolwarm_cmap(0.85)]
-    line_colors = ["lightskyblue", "orange", "mediumpurple", "yellowgreen"]
+    line_colors = [
+        "lightskyblue",
+        "orange",
+        "mediumpurple",
+        "yellowgreen",
+        "firebrick",
+    ]
     data_colors = ["black", "grey", "silver"]
     environments = sorted(dtr["E"].unique())
 
@@ -413,8 +446,8 @@ def plot_dtr(
             s=30,
             label=f"Env {env + 1}",
         )
-    if not gdro:
-        if not refined:
+    if not obj_comparison:
+        if not gdro:
             ax.plot(
                 dtr["X_sorted"],
                 dtr["fitted_rf"],
@@ -422,12 +455,17 @@ def plot_dtr(
                 linewidth=2,
                 label="RF",
             )
+            lab = (
+                f"{NAME}-RF(posthoc)"
+                if "fitted_minmax_xtrgrd" in dtr
+                else f"{NAME}-RF"
+            )
             ax.plot(
                 dtr["X_sorted"],
                 dtr["fitted_minmax"],
                 color=line_colors[1],
                 linewidth=2,
-                label="MinimaxRF",
+                label=lab,
             )
             if "fitted_minmax_xtrgrd" in dtr:
                 ax.plot(
@@ -435,7 +473,7 @@ def plot_dtr(
                     dtr["fitted_minmax_xtrgrd"],
                     color=line_colors[2],
                     linewidth=2,
-                    label="MinimaxRF-xtrgrd",
+                    label=f"{NAME}-RF(posthoc-xtrgrd)",
                 )
             if "fitted_magging" in dtr:
                 ax.plot(
@@ -443,92 +481,85 @@ def plot_dtr(
                     dtr["fitted_magging"],
                     color=line_colors[2],
                     linewidth=2,
-                    label="MaggingRF",
+                    label="RF(magging)",
                 )
         else:
             ax.plot(
                 dtr["X_sorted"],
-                dtr["fitted_rf"],
+                dtr["fitted_default"],
                 color=line_colors[0],
                 linewidth=2,
-                label="RF",
+                label="NN",
             )
             ax.plot(
                 dtr["X_sorted"],
-                dtr["fitted_rf_refined"],
+                dtr["fitted_gdro"],
                 color=line_colors[1],
                 linewidth=2,
-                label="RF-refined",
-            )
-            ax.plot(
-                dtr["X_sorted"],
-                dtr["fitted_minmax"],
-                color=line_colors[2],
-                linewidth=2,
-                label="MinMaxRF",
-            )
-            ax.plot(
-                dtr["X_sorted"],
-                dtr["fitted_minmax_refined"],
-                color=line_colors[3],
-                linewidth=2,
-                label="MinMaxRF-refined",
+                label="NN-GDRO",
             )
     else:
         ax.plot(
             dtr["X_sorted"],
-            dtr["fitted_default"],
+            dtr["fitted_rf"],
             color=line_colors[0],
             linewidth=2,
-            label="NN",
+            label="RF",
         )
         ax.plot(
             dtr["X_sorted"],
-            dtr["fitted_gdro"],
+            dtr["fitted_mse"],
             color=line_colors[1],
             linewidth=2,
-            label="NN-GDRO",
+            label=f"{NAME}-RF(posthoc-mse)",
+        )
+        ax.plot(
+            dtr["X_sorted"],
+            dtr["fitted_xv"],
+            color=line_colors[2],
+            linewidth=2,
+            label=f"{NAME}-RF(posthoc-xv)",
+        )
+        ax.plot(
+            dtr["X_sorted"],
+            dtr["fitted_regret"],
+            color=line_colors[3],
+            linewidth=2,
+            label=f"{NAME}-RF(posthoc-regret)",
+        )
+        ax.plot(
+            dtr["X_sorted"],
+            dtr["fitted_magging"],
+            color=line_colors[4],
+            linewidth=2,
+            label="RF(magging)",
         )
 
-    if optfun == 1:
+    if optfun is not None:
         x_range = np.linspace(
             dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
         )
-        y_opt = 0.8 * np.sin(x_range / 2) ** 2 + 3
-        ax.plot(
-            x_range,
-            y_opt,
-            color="orangered",
-            linewidth=3,
-            label="Oracle",
-            linestyle="--",
-        )
-    elif optfun == 2:
-        x_range = np.linspace(
-            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
-        )
-        y_opt = np.where(x_range > 0, 2.4 * x_range, -2.4 * x_range)
-        ax.plot(
-            x_range,
-            y_opt,
-            color="orangered",
-            linewidth=3,
-            label="Oracle",
-            linestyle="--",
-        )
-    elif optfun == 3:
-        x_range = np.linspace(
-            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
-        )
-        y_opt = np.where(x_range > 0, 1.75 * x_range, 1.75 * x_range)
-        ax.plot(
-            x_range,
-            y_opt,
-            color="orangered",
-            linewidth=2,
-            label="Oracle",
-            linestyle="--",
-        )
+
+        if optfun == 1:
+            y_opt = 0.8 * np.sin(x_range / 2) ** 2 + 3
+        elif optfun == 2:
+            y_opt = np.where(x_range > 0, 2.4 * x_range, -2.4 * x_range)
+        elif optfun == 3:
+            y_opt = np.where(x_range > 0, 1.75 * x_range, 1.75 * x_range)
+        elif optfun == 4:
+            y_opt = np.where(x_range > 0, 2.25 * x_range, 1.25 * x_range)
+        else:
+            y_opt = None
+
+        if y_opt is not None:
+            ax.plot(
+                x_range,
+                y_opt,
+                color="orangered",
+                linewidth=3,
+                label="Oracle",
+                linestyle="--",
+            )
 
     ax.set_xlabel("$X$")
     ax.set_ylabel("$Y$")
@@ -549,19 +580,28 @@ def plot_dtr(
 
 
 def plot_dtr_ss(
-    dtr,
-    x_grid,
-    preds_erm,
-    preds_minimax,
-    preds_magging=None,
-    optfun=None,
-    saveplot=False,
-    nameplot="setting5",
+    dtr: pd.DataFrame,
+    x_grid: np.ndarray,
+    preds_erm: np.ndarray,
+    preds_mse: np.ndarray,
+    preds_xv: np.ndarray | None = None,
+    preds_regret: np.ndarray | None = None,
+    preds_magging: np.ndarray | None = None,
+    obj_comparison: bool = False,
+    optfun: int | None = None,
+    saveplot: bool = False,
+    nameplot: str = "setting5",
 ):
     """
     Plotting function for smoothing splines results
     """
-    line_colors = ["lightskyblue", "orange", "mediumpurple"]
+    line_colors = [
+        "lightskyblue",
+        "orange",
+        "mediumpurple",
+        "yellowgreen",
+        "firebrick",
+    ]
     data_colors = ["black", "grey", "silver"]
     environments = sorted(dtr["E"].unique())
 
@@ -581,50 +621,58 @@ def plot_dtr_ss(
     ax.plot(x_grid, preds_erm, color=line_colors[0], linewidth=2, label="SS")
     ax.plot(
         x_grid,
-        preds_minimax,
+        preds_mse,
         color=line_colors[1],
         linewidth=2,
-        label="MinimaxSS",
+        label=f"{NAME}-SS(posthoc-mse)",
     )
+    if preds_xv is not None:
+        ax.plot(
+            x_grid,
+            preds_xv,
+            color=line_colors[2],
+            linewidth=2,
+            label=f"{NAME}-SS(posthoc-xv)",
+        )
+    if preds_regret is not None:
+        ax.plot(
+            x_grid,
+            preds_regret,
+            color=line_colors[3],
+            linewidth=2,
+            label=f"{NAME}-SS(posthoc-regret)",
+        )
     if preds_magging is not None:
+        col_idx = 4 if obj_comparison else 2
         ax.plot(
             x_grid,
             preds_magging,
-            color=line_colors[2],
+            color=line_colors[col_idx],
             linewidth=2,
-            label="MaggingSS",
+            label="SS(magging)",
         )
 
-    if optfun == 1:
-        y_opt = 0.8 * np.sin(x_grid / 2) ** 2 + 3
-        ax.plot(
-            x_grid,
-            y_opt,
-            color="orangered",
-            linewidth=2,
-            linestyle="--",
-            label="Oracle",
-        )
-    elif optfun == 2:
-        y_opt = np.where(x_grid > 0, 2.4 * x_grid, -2.4 * x_grid)
-        ax.plot(
-            x_grid,
-            y_opt,
-            color="orangered",
-            linewidth=2,
-            linestyle="--",
-            label="Oracle",
-        )
-    elif optfun == 3:
-        y_opt = np.where(x_grid > 0, 1.75 * x_grid, 1.75 * x_grid)
-        ax.plot(
-            x_grid,
-            y_opt,
-            color="orangered",
-            linewidth=2,
-            linestyle="--",
-            label="Oracle",
-        )
+    if optfun is not None:
+        if optfun == 1:
+            y_opt = 0.8 * np.sin(x_grid / 2) ** 2 + 3
+        elif optfun == 2:
+            y_opt = np.where(x_grid > 0, 2.4 * x_grid, -2.4 * x_grid)
+        elif optfun == 3:
+            y_opt = np.where(x_grid > 0, 1.75 * x_grid, 1.75 * x_grid)
+        elif optfun == 4:
+            y_opt = np.where(x_grid > 0, 2.25 * x_grid, 1.25 * x_grid)
+        else:
+            y_opt = None
+
+        if y_opt is not None:
+            ax.plot(
+                x_grid,
+                y_opt,
+                color="orangered",
+                linewidth=3,
+                label="Oracle",
+                linestyle="--",
+            )
 
     ax.set_xlabel("$X$")
     ax.set_ylabel("$Y$")
@@ -644,7 +692,12 @@ def plot_dtr_ss(
     plt.show()
 
 
-def plot_dtr_all_methods(dtr, optfun=None, nameplot="setting5_allmethods"):
+def plot_dtr_all_methods(
+    dtr: pd.DataFrame,
+    optfun: int | None = None,
+    saveplot: bool = False,
+    nameplot: str = "setting5_allmethods",
+):
     line_colors = [
         "lightskyblue",
         "orange",
@@ -657,7 +710,7 @@ def plot_dtr_all_methods(dtr, optfun=None, nameplot="setting5_allmethods"):
     data_colors = ["black", "grey", "silver"]
     environments = sorted(dtr["E"].unique())
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=(10, 7))
     for idx, env in enumerate(environments):
         marker_style = "o"
         ax.scatter(
@@ -681,83 +734,69 @@ def plot_dtr_all_methods(dtr, optfun=None, nameplot="setting5_allmethods"):
         dtr["fitted_magging"],
         color=line_colors[1],
         linewidth=2,
-        label="MaggingRF",
+        label="RF(magging)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_l_mmrf"],
         color=line_colors[2],
         linewidth=2,
-        label="L-MMRF",
+        label=f"{NAME}-RF(local)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_post_rf"],
         color=line_colors[3],
         linewidth=2,
-        label="Post-RF",
+        label=f"{NAME}-RF(posthoc)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_post_l_mmrf"],
         color=line_colors[4],
         linewidth=2,
-        label="Post-L-MMRF",
+        label=f"{NAME}-RF(posthoc-local)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_g_dfs_mmrf"],
         color=line_colors[5],
         linewidth=2,
-        label="G-DFS-MMRF",
+        label=f"{NAME}-RF(global-dfs)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_g_mmrf"],
         color=line_colors[6],
         linewidth=2,
-        label="G-MMRF",
+        label=f"{NAME}-RF(global)",
     )
 
-    if optfun == 1:
+    if optfun is not None:
         x_range = np.linspace(
             dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
         )
-        y_opt = 0.8 * np.sin(x_range / 2) ** 2 + 3
-        ax.plot(
-            x_range,
-            y_opt,
-            color="orangered",
-            linewidth=2,
-            label="Oracle",
-            linestyle="--",
-        )
-    elif optfun == 2:
-        x_range = np.linspace(
-            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
-        )
-        y_opt = np.where(x_range > 0, 2.4 * x_range, -2.4 * x_range)
-        ax.plot(
-            x_range,
-            y_opt,
-            color="orangered",
-            linewidth=2,
-            label="Oracle",
-            linestyle="--",
-        )
-    elif optfun == 3:
-        x_range = np.linspace(
-            dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000
-        )
-        y_opt = np.where(x_range > 0, 1.75 * x_range, 1.75 * x_range)
-        ax.plot(
-            x_range,
-            y_opt,
-            color="orangered",
-            linewidth=2,
-            label="Oracle",
-            linestyle="--",
-        )
+
+        if optfun == 1:
+            y_opt = 0.8 * np.sin(x_range / 2) ** 2 + 3
+        elif optfun == 2:
+            y_opt = np.where(x_range > 0, 2.4 * x_range, -2.4 * x_range)
+        elif optfun == 3:
+            y_opt = np.where(x_range > 0, 1.75 * x_range, 1.75 * x_range)
+        elif optfun == 4:
+            y_opt = np.where(x_range > 0, 2.25 * x_range, 1.25 * x_range)
+        else:
+            y_opt = None
+
+        if y_opt is not None:
+            ax.plot(
+                x_range,
+                y_opt,
+                color="orangered",
+                linewidth=3,
+                label="Oracle",
+                linestyle="--",
+            )
 
     ax.set_xlabel("$X$")
     ax.set_ylabel("$Y$")
@@ -775,11 +814,12 @@ def plot_dtr_all_methods(dtr, optfun=None, nameplot="setting5_allmethods"):
 
     plt.tight_layout()
 
-    script_dir = os.getcwd()
-    parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
-    plots_dir = os.path.join(parent_dir, "results", "figures")
-    os.makedirs(plots_dir, exist_ok=True)
-    outpath = os.path.join(plots_dir, f"{nameplot}.png")
-    plt.savefig(outpath, dpi=300, bbox_inches="tight")
+    if saveplot:
+        script_dir = os.getcwd()
+        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+        plots_dir = os.path.join(parent_dir, "results", "figures")
+        os.makedirs(plots_dir, exist_ok=True)
+        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
     plt.show()

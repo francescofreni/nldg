@@ -1,6 +1,7 @@
 import numpy as np
 import cvxpy as cp
 from scipy.interpolate import BSpline
+from scipy.optimize import minimize
 from scipy.stats import iqr
 import torch
 from typing import Callable, Optional
@@ -18,9 +19,9 @@ class MinimaxSmoothSpline:
         Predictor variable values. Must be finite and 1-dimensional.
     y : array-like
         Response variable values. Must be finite and of the same length as `x`.
-    env : array-like, optional (required if method="minimax")
+    env : array-like, optional (required if method is different from "erm")
         Environment labels corresponding to each (x, y) point. Used only for
-        the "minimax" method to define groups over which to minimize the
+        the minimax method to define groups over which to minimize the
         maximum mean squared error.
     w : array-like, optional
         Observation weights. Must be non-negative. If None, uniform weights are used.
@@ -31,7 +32,7 @@ class MinimaxSmoothSpline:
         and smoothness (penalized second derivative).
     cv: bool (default=False)
         If True, performs ordinary leave-one-out cross-validation when method is `erm`,
-        and 5-fold cross-validation if method is `minimax`.
+        and 5-fold cross-validation otherwise.
         If cv is True and lambda is not None, lambda is overwritten after performing LOOCV.
     all_knots : bool, optional (default=False)
         If True, uses all unique x values as internal knots. If False, selects
@@ -41,15 +42,22 @@ class MinimaxSmoothSpline:
         `all_knots` is False. Defaults to a heuristic based on data size.
     tol : float, optional
         Tolerance for merging similar x values. Defaults to `1e-6 * IQR(x)`.
-    method : {"erm", "minimax"}, optional (default="minimax")
+    method : {"erm", "mse", "regret", "xplvar"}, optional (default="mse")
         Estimation method:
             - "erm": Empirical Risk Minimization (standard smoothing spline)
-            - "minimax": Minimizes the worst-case environment-specific MSE
+            - "mse": Minimizes the worst-case environment-specific MSE
+            - "regret": Minimizes the maximum regret across environments
+            - "xplvar": Maximizes the minimal explained variance across environments
+    sols_erm : np.ndarray, optional (default=None)
+        Environment specific predictions used to compute the regret
     opt_method : {"cp", "extragradient"}, optional (default="cp")
         Optimization method for minimax objective:
             - "cp": Convex program using CVXPY
             - "extragradient": Gradient-based saddle point optimization
-
+    solver : str, optional (default = None)
+        Solver used by cvxpy. Examples are 'ECOS', 'SCS', 'CLARABEL'
+    seed : int (default = 123)
+        Seed used for CV when method is not 'erm'
     **kwargs :
         Additional arguments passed to extragradient optimizer if `opt_method="extragradient"`,
         e.g., `alpha`, `epochs`, `verbose`, etc.
@@ -85,7 +93,7 @@ class MinimaxSmoothSpline:
 
     Examples
     --------
-    >>> spline = MinimaxSmoothSpline(x, y, env=env_labels, method="minimax")
+    >>> spline = MinimaxSmoothSpline(x, y, env=env_labels, method="mse")
     >>> y_pred = spline.predict(x_new)
 
     >>> spline_erm = MinimaxSmoothSpline(x, y, method="erm")
@@ -104,27 +112,40 @@ class MinimaxSmoothSpline:
         all_knots: bool = False,
         nknots_func: Optional[Callable[[int], int]] = None,
         tol: Optional[float] = None,
-        method: str = "minimax",
+        method: str = "mse",
+        sols_erm: np.ndarray | None = None,
         opt_method: str = "cp",
+        solver: Optional[str] = None,
+        seed: int = 123,
         **kwargs,
-    ):
-        if method not in ["erm", "minimax"]:
-            raise ValueError("method must be 'erm' or 'minimax'")
+    ) -> None:
+        if method not in ["erm", "mse", "regret", "xplvar"]:
+            raise ValueError(
+                "method must be one of 'erm', 'mse', 'regret', 'xplvar'"
+            )
         self.method = method
+        self.sols_erm = sols_erm
 
-        if self.method == "minimax" and env is None:
-            raise ValueError("env must not be None if method is minimax")
+        if self.method in ["mse", "regret", "xplvar"] and env is None:
+            raise ValueError(
+                "env must not be None if method is one of 'mse', 'regret', 'xplvar'"
+            )
+
+        if self.method == "regret" and sols_erm is None:
+            raise ValueError("sols_erm must be provided if method is 'regret'")
 
         if opt_method not in ["cp", "extragradient"]:
             raise ValueError("opt_method must be 'cp' or 'extragradient'")
         self.opt_method = opt_method
+        self.solver = solver
 
-        if self.method == "minimax":
+        if self.method != "erm":
             env = np.asarray(env).flatten()
 
         self.degree = degree
         self.lam = lam
         self.cv = cv
+        self.seed = seed
 
         x = np.asarray(x).flatten()
         y = np.asarray(y).flatten()
@@ -160,6 +181,8 @@ class MinimaxSmoothSpline:
         ux = np.sort(x[idx_first])
         uxx = np.sort(xx[idx_first])
         nx = len(ux)
+        if self.method == "regret":
+            self.sols_erm = self.sols_erm[idx_first]
 
         if nx <= 3:
             raise ValueError("need at least four unique x values")
@@ -167,12 +190,12 @@ class MinimaxSmoothSpline:
         if nx == n:
             ox = np.argsort(x)
             tmp = np.column_stack([w, w * y, w * y**2])[ox]
-            if self.method == "minimax":
+            if self.method != "erm":
                 self.envbar = env[ox]
         else:
             ox = np.searchsorted(uxx, xx)
             tmp = np.zeros((nx, 3))
-            if self.method == "minimax":
+            if self.method != "erm":
                 envbar = np.empty(nx, dtype=env.dtype)
             for i in range(nx):
                 mask = ox == i
@@ -181,10 +204,10 @@ class MinimaxSmoothSpline:
                 tmp[i, 0] = np.sum(wi)
                 tmp[i, 1] = np.sum(wi * yi)
                 tmp[i, 2] = np.sum(wi * yi**2)
-                if self.method == "minimax":
+                if self.method != "erm":
                     vals, counts = np.unique(env[mask], return_counts=True)
                     envbar[i] = vals[np.argmax(counts)]
-            if self.method == "minimax":
+            if self.method != "erm":
                 self.envbar = envbar
 
         self.wbar = tmp[:, 0]
@@ -236,7 +259,7 @@ class MinimaxSmoothSpline:
         self._fit(**kwargs)
 
     @staticmethod
-    def _nknots_smspl(n: int):
+    def _nknots_smspl(n: int) -> int:
         if n < 50:
             return n
         else:
@@ -253,7 +276,7 @@ class MinimaxSmoothSpline:
             else:
                 return int(200 + (n - 3200) ** 0.2)
 
-    def _bspline_dm(self, x_vals: np.ndarray):
+    def _bspline_dm(self, x_vals: np.ndarray) -> np.ndarray:
         X = np.zeros((len(x_vals), self.M))
         coeffs = np.eye(self.M)
         for i in range(self.M):
@@ -261,7 +284,7 @@ class MinimaxSmoothSpline:
             X[:, i] = b(x_vals)
         return X
 
-    def _omega(self, grid: np.ndarray):
+    def _omega(self, grid: np.ndarray) -> np.ndarray:
         M = self.M
 
         # Precompute all second derivatives at once
@@ -322,7 +345,7 @@ class MinimaxSmoothSpline:
         early_stopping: bool = False,
         patience: int = 5,
         min_delta: float = 1e-4,
-    ):
+    ) -> tuple[np.ndarray, np.ndarray]:
         torch.manual_seed(seed)
         np.random.seed(seed)
 
@@ -434,7 +457,7 @@ class MinimaxSmoothSpline:
 
     # TODO: maybe instead of doing k-fold cv we could simply split in train and validation
     #  in order to try out more lambda values.
-    def _kfcv_cp(self, Omega: np.ndarray):
+    def _kfcv_cp(self, Omega: np.ndarray) -> None:
         lambdas = np.logspace(-3, 0, 15)
         K = 5
         cv_scores = np.zeros(len(lambdas))
@@ -443,7 +466,7 @@ class MinimaxSmoothSpline:
         env_indices = {e: np.where(self.envbar == e)[0] for e in envs}
 
         # make K stratified folds to keep the proportions of environments
-        np.random.seed(123)
+        np.random.seed(self.seed)
         folds = [[] for _ in range(K)]
         for indices in env_indices.values():
             np.random.shuffle(indices)
@@ -461,6 +484,8 @@ class MinimaxSmoothSpline:
             wbar_train = self.wbar[train_idx]
             envbar_train = self.envbar[train_idx]
             N_train = self._bspline_dm(ux_train)
+            if self.method == "regret":
+                sols_erm_train = self.sols_erm[train_idx]
 
             # variable and constraints definition
             beta = cp.Variable(self.M)
@@ -471,13 +496,35 @@ class MinimaxSmoothSpline:
                 Ne = N_train[mask]
                 We = np.diag(wbar_train[mask])
                 res = ybar_train[mask] - Ne @ beta
-                constraints.append(cp.quad_form(res, We) / np.sum(mask) <= t)
+                if self.method == "mse":
+                    constraints.append(
+                        cp.quad_form(res, We) / np.sum(mask) <= t
+                    )
+                elif self.method == "xplvar":
+                    constraints.append(
+                        (cp.quad_form(res, We) - np.sum(ybar_train[mask] ** 2))
+                        / np.sum(mask)
+                        <= t
+                    )
+                else:
+                    constraints.append(
+                        (
+                            cp.quad_form(res, We)
+                            - cp.sum_squares(
+                                ybar_train[mask] - sols_erm_train[mask]
+                            )
+                        )
+                        / np.sum(mask)
+                        <= t
+                    )
 
             # validation data
             ux_val = self.ux[val_idx]
             ybar_val = self.ybar[val_idx]
             envbar_val = self.envbar[val_idx]
             N_val = self._bspline_dm(ux_val)
+            if self.method == "regret":
+                sols_erm_val = self.sols_erm[val_idx]
 
             beta_prev = None  # warm start
 
@@ -491,7 +538,14 @@ class MinimaxSmoothSpline:
                 try:
                     with warnings.catch_warnings():
                         warnings.simplefilter("ignore", category=UserWarning)
-                        problem.solve(warm_start=True, verbose=False)
+                        if self.solver is None:
+                            problem.solve(warm_start=True, verbose=False)
+                        else:
+                            problem.solve(
+                                warm_start=True,
+                                verbose=False,
+                                solver=self.solver,
+                            )
                 except Exception:
                     cv_scores[i] += np.inf
                     continue
@@ -503,18 +557,27 @@ class MinimaxSmoothSpline:
                 beta_prev = beta.value
 
                 y_pred = N_val @ beta.value
-                mse_envs = []
+                score_envs = []
                 for e in np.unique(envbar_val):
                     mask = envbar_val == e
-                    mse_e = np.mean((ybar_val[mask] - y_pred[mask]) ** 2)
-                    mse_envs.append(mse_e)
-                cv_scores[i] += max(mse_envs)
+                    if self.method == "mse":
+                        score_e = np.mean((ybar_val[mask] - y_pred[mask]) ** 2)
+                    elif self.method == "xplvar":
+                        score_e = np.mean(
+                            (ybar_val[mask] - y_pred[mask]) ** 2
+                        ) - np.mean(ybar_val[mask] ** 2)
+                    else:
+                        score_e = np.mean(
+                            (ybar_val[mask] - y_pred[mask]) ** 2
+                        ) - np.mean((ybar_val[mask] - sols_erm_val[mask]) ** 2)
+                    score_envs.append(score_e)
+                cv_scores[i] += max(score_envs)
 
         cv_scores /= K
         best_idx = np.argmin(cv_scores)
         self.lam = lambdas[best_idx]
 
-    def _fit(self, **kwargs):
+    def _fit(self, **kwargs) -> None:
         # Use fine grid like in working code - at least 400 points
         n_grid_points = max(400, 10 * self.M)
         x_grid = np.linspace(self.x_min, self.x_max, n_grid_points)
@@ -554,21 +617,43 @@ class MinimaxSmoothSpline:
                 if self.cv:
                     self._kfcv_cp(Omega)
                 beta = cp.Variable(self.M)
-                t = cp.Variable(nonneg=True)
+                if self.method == "mse":
+                    t = cp.Variable(nonneg=True)
+                else:
+                    t = cp.Variable()
                 constraints = []
                 for e in np.unique(self.envbar):
                     mask = self.envbar == e
-                    count_env = np.sum(mask)
+                    count_env = cp.sum(self.wbar[mask])
                     # Get the unique x values for this environment
                     x_env = self.ux[mask]
                     y_env = self.ybar[mask]
                     N_e = self._bspline_dm(x_env)
                     W_e = np.diag(self.wbar[mask])
                     residual = y_env - N_e @ beta
-                    constraints.append(
-                        cp.quad_form(residual, W_e) / count_env <= t
-                    )
-                    # constraints.append(cp.mean(cp.square(y_env - N_e @ beta)) <= t)
+                    if self.method == "mse":
+                        constraints.append(
+                            cp.quad_form(residual, W_e) / count_env <= t
+                        )
+                        # constraints.append(cp.mean(cp.square(y_env - N_e @ beta)) <= t)
+                    elif self.method == "xplvar":
+                        constraints.append(
+                            (
+                                cp.quad_form(residual, W_e)
+                                - cp.sum_squares(y_env)
+                            )
+                            / count_env
+                            <= t
+                        )
+                    else:
+                        constraints.append(
+                            (
+                                cp.quad_form(residual, W_e)
+                                - cp.sum_squares(y_env - self.sols_erm[mask])
+                            )
+                            / count_env
+                            <= t
+                        )
 
                 objective = cp.Minimize(
                     t + self.lam * cp.quad_form(beta, Omega)
@@ -576,13 +661,17 @@ class MinimaxSmoothSpline:
                 problem = cp.Problem(objective, constraints)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore", UserWarning)
-                    problem.solve()
+                    if self.solver is None:
+                        problem.solve()
+                    else:
+                        problem.solve(solver=self.solver)
 
                 if problem.status not in ["optimal", "optimal_inaccurate"]:
                     print(f"Warning: Problem status is {problem.status}")
 
                 self.coef = beta.value
             else:
+                # TODO: implement the extragradient method for the regret and explained variance.
                 beta, _ = self._train_extragradient(**kwargs)
                 self.coef = beta
 
@@ -590,8 +679,109 @@ class MinimaxSmoothSpline:
             self.knots, self.coef, self.degree, extrapolate=False
         )
 
-    def predict(self, x_new: np.ndarray):
+    def predict(self, x_new: np.ndarray) -> np.ndarray:
         x_new = np.asarray(x_new).flatten()
         # x_scaled = (x_new - self.ux[0]) / self.r_ux
         # return self.spline(x_scaled)
         return self.spline(x_new)
+
+
+class MaggingSmoothSpline:
+    """
+    Fit the magging estimator using smoothing splines.
+    """
+
+    def __init__(
+        self,
+    ) -> None:
+        self.weights_magging = None
+        self.model_list = []
+
+    def fit(
+        self,
+        Xtr: np.ndarray,
+        Ytr: np.ndarray,
+        Etr: np.ndarray,
+        **kwargs,
+    ) -> np.ndarray:
+        """
+        Finds the optimal weights of the magging estimator.
+
+        Parameters
+        ----------
+        Xtr : np.ndarray
+            Feature matrix of the training data.
+        Ytr : np.ndarray
+            Response vector of the training data.
+        Etr : np.ndarray
+            Environment label of the training data.
+        kwargs :
+            Additional arguments passed to the MinimaxSmoothSpline instances
+
+        Returns
+        -------
+        fitted : np.ndarray
+            Fitted values.
+        """
+
+        def obj_magging(w: np.ndarray, F: np.ndarray) -> float:
+            return np.dot(w.T, np.dot(F.T, F).dot(w))
+
+        n_envs = len(np.unique(Etr))
+        winit = np.array([1 / n_envs] * n_envs)
+        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
+        bounds = [[0, 1] for _ in range(n_envs)]
+
+        fitted_envs = []
+        for e in np.unique(Etr):
+            Xtr_e = Xtr[Etr == e]
+            Ytr_e = Ytr[Etr == e]
+            erm_ss_e = MinimaxSmoothSpline(
+                Xtr_e, Ytr_e, cv=True, method="erm", **kwargs
+            )
+            self.model_list.append(erm_ss_e)
+            fitted_envs.append(erm_ss_e.predict(Xtr))
+
+        fitted_envs = np.column_stack(fitted_envs)
+
+        nan_mask = np.isnan(fitted_envs)
+        if nan_mask.any():
+            row_means = np.nanmean(fitted_envs, axis=1)
+            rows, cols = np.where(nan_mask)
+            fitted_envs[rows, cols] = row_means[rows]
+
+        wmag = minimize(
+            obj_magging,
+            winit,
+            args=(fitted_envs,),
+            bounds=bounds,
+            constraints=constraints,
+        ).x
+        self.weights_magging = wmag
+        fitted = np.dot(wmag, fitted_envs.T)
+
+        return fitted
+
+    def get_weights(self) -> np.ndarray | None:
+        return self.weights_magging
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        Predicts using the optimal weights found with magging
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Feature matrix of the test data.
+
+        Returns
+        -------
+        preds : np.ndarray
+            Predicted values.
+        """
+        preds_envs = []
+        for model in self.model_list:
+            preds_envs.append(model.predict(X))
+        preds_envs = np.column_stack(preds_envs)
+        preds = np.dot(self.weights_magging, preds_envs.T)
+        return preds
