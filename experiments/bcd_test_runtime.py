@@ -88,6 +88,50 @@ def plot_mse_by_method(
     plt.close()
 
 
+def plot_max_mse_vs_blocksize(
+    max_mse_rf,
+    max_mse_non_bcd,
+    max_mse_bcd_dict,
+    block_sizes,
+    out_dir,
+):
+    bcd_vals = [max_mse_bcd_dict[bs] for bs in block_sizes]
+    plt.figure(figsize=(8, 4))
+
+    plt.axhline(
+        y=max_mse_rf,
+        linestyle="--",
+        linewidth=2,
+        color="lightskyblue",
+        label="RF",
+    )
+    plt.axhline(
+        y=max_mse_non_bcd,
+        linestyle="--",
+        linewidth=2,
+        color="orange",
+        label="WORME-RF(posthoc-mse)",
+    )
+
+    plt.plot(
+        block_sizes,
+        bcd_vals,
+        marker="o",
+        color="mediumpurple",
+        markeredgecolor="white",
+        label="WORME-RF(posthoc-mse-BCD)",
+    )
+
+    plt.xlabel("Block size $b$")
+    plt.ylabel("Maximum MSE across environments")
+    plt.grid(True, linewidth=0.2)
+    plt.legend()
+    plt.tight_layout()
+
+    plt.savefig(os.path.join(out_dir, "bcd_max_mse.png"), dpi=300)
+    plt.close()
+
+
 if __name__ == "__main__":
     X, y = fetch_california_housing(return_X_y=True, as_frame=True)
     Z = X[["Latitude", "Longitude"]]
@@ -105,7 +149,7 @@ if __name__ == "__main__":
     rf.fit(X, y)
     print("Done!", flush=True)
     fitted_rf = rf.predict(X)
-    mse_envs_rf, _ = max_mse(y, fitted_rf, env, ret_ind=True)
+    mse_envs_rf, maxmse_rf = max_mse(y, fitted_rf, env, ret_ind=True)
 
     # Non-BCD Minimax
     rf = RandomForest(
@@ -122,12 +166,15 @@ if __name__ == "__main__":
     print("Done!", flush=True)
     non_bcd_time = end - start
     fitted_minimax = rf.predict(X)
-    mse_envs_minimax, _ = max_mse(y, fitted_minimax, env, ret_ind=True)
+    mse_envs_minimax, maxmse_minimax = max_mse(
+        y, fitted_minimax, env, ret_ind=True
+    )
 
     # BCD Variants
     block_sizes = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
     bcd_times = []
     mse_envs_bcd = {}
+    max_mse_bcd = {}
 
     for b in block_sizes:
         rf = RandomForest(
@@ -147,8 +194,9 @@ if __name__ == "__main__":
         bcd_times.append(end - start)
 
         fitted_bcd = rf.predict(X)
-        mse_envs, _ = max_mse(y, fitted_bcd, env, ret_ind=True)
+        mse_envs, maxmse_bcd = max_mse(y, fitted_bcd, env, ret_ind=True)
         mse_envs_bcd[b] = mse_envs
+        max_mse_bcd[b] = maxmse_bcd
 
     script_dir = os.path.dirname(__file__)
     parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
@@ -159,4 +207,7 @@ if __name__ == "__main__":
     plot_bcd_runtime(block_sizes, bcd_times, non_bcd_time, plots_dir)
     plot_mse_by_method(
         mse_envs_rf, mse_envs_minimax, mse_envs_bcd, block_sizes, plots_dir
+    )
+    plot_max_mse_vs_blocksize(
+        maxmse_rf, maxmse_minimax, max_mse_bcd, block_sizes, plots_dir
     )
