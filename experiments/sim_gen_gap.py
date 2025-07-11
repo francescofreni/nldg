@@ -134,7 +134,6 @@ if __name__ == "__main__":
     # Regret
     sols_erm = np.zeros(env_label.shape[0])
     sols_erm_trees = np.zeros((N_ESTIMATORS, env_label.shape[0]))
-    rf_envs = []
     for env in np.unique(env_label):
         mask = env_label == env
         X_e = X_tr[mask]
@@ -146,7 +145,6 @@ if __name__ == "__main__":
             seed=SEED,
         )
         rf_e.fit(X_e, Y_e)
-        rf_envs.append(rf_e)
         fitted_e = rf_e.predict(X_e)
         sols_erm[mask] = fitted_e
         for i in range(N_ESTIMATORS):
@@ -192,11 +190,19 @@ if __name__ == "__main__":
         for env in np.unique(env_label):
             mask = env_label == env
             X_e = X_tr_new[mask]
-            fitted_e = rf_envs[env].predict(X_e)
+            Y_e = y_tr_new[mask]
+            rf_e = RandomForest(
+                "Regression",
+                n_estimators=N_ESTIMATORS,
+                min_samples_leaf=MIN_SAMPLES_LEAF,
+                seed=SEED,
+            )
+            rf_e.fit(X_e, Y_e)
+            fitted_e = rf_e.predict(X_e)
             sols_erm_new[mask] = fitted_e
         fitted_regret = rf_regret.predict(X_tr_new)
         max_regret_tr = max_regret(
-            y_tr_new, fitted_regret, sols_erm, env_label
+            y_tr_new, fitted_regret, sols_erm_new, env_label
         )
         max_regret_tr_list.append(max_regret_tr)
 
@@ -268,21 +274,21 @@ if __name__ == "__main__":
 
     output_path = os.path.join(OUT_DIR, "results.txt")
     with open(output_path, "w") as f:
-        f.write("MSE")
+        f.write("MSE\n")
         f.write(f"Statistic: {ret_mse.statistic:.4f}\n")
         f.write(f"p-value: {ret_mse.pvalue:.4g}\n")
         f.write(
             f"(95%) Confidence Interval: [{ci_mse.low:.4f}, {ci_mse.high:.4f}]\n"
         )
 
-        f.write("\nNegative Reward")
+        f.write("\nNegative Reward\n")
         f.write(f"Statistic: {ret_negrew.statistic:.4f}\n")
         f.write(f"p-value: {ret_negrew.pvalue:.4g}\n")
         f.write(
             f"(95%) Confidence Interval: [{ci_negrew.low:.4f}, {ci_negrew.high:.4f}]\n"
         )
 
-        f.write("\nRegret")
+        f.write("\nRegret\n")
         f.write(f"Statistic: {ret_regret.statistic:.4f}\n")
         f.write(f"p-value: {ret_regret.pvalue:.4g}\n")
         f.write(
