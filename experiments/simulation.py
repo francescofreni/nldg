@@ -16,10 +16,10 @@ RNG = np.random.default_rng(SEED)
 N_ESTIMATORS = 50
 MIN_SAMPLES_LEAF = 20
 E = 3  # number of training environments
-N_TRAIN_PER_ENV = [1000, 1000, 1000]
-N_TEST = 1000
+N_TRAIN_PER_ENV = [500, 500, 500]
+N_TEST = 500
 N_SIM = 100
-GRID_SIZE = 100
+GRID_SIZE = 15
 Q1_VALS = np.linspace(0, 1, GRID_SIZE)
 Q2_VALS = np.linspace(0, 1, GRID_SIZE)
 
@@ -74,7 +74,7 @@ def plot_tricontour(diff_map, metric):
         diff_grid.append(np.mean(diffs))
 
     plt.figure(figsize=(8, 7))
-    sc = plt.tricontourf(q1_grid, q2_grid, diff_grid, levels=100, cmap="Blues")
+    sc = plt.tricontourf(q1_grid, q2_grid, diff_grid, levels=30, cmap="Blues")
 
     cbar = plt.colorbar(sc, pad=0.02, aspect=30)
     # cbar.set_label(
@@ -105,8 +105,68 @@ def plot_tricontour(diff_map, metric):
 
 
 if __name__ == "__main__":
+    # Generate training data
     x_grid = np.linspace(-1, 1, 1000).reshape(-1, 1)
     f_env = [sample_gp_function(x_grid) for _ in range(E)]
+    X_tr, y_tr, env_label = generate_data()
+
+    # Model fitting
+    # MSE
+    rf_mse = RandomForest(
+        "Regression",
+        n_estimators=N_ESTIMATORS,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        seed=SEED,
+    )
+    rf_mse.fit(X_tr, y_tr)
+    rf_mse.modify_predictions_trees(env_label)
+
+    # Negative Reward
+    rf_negrew = RandomForest(
+        "Regression",
+        n_estimators=N_ESTIMATORS,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        seed=SEED,
+    )
+    rf_negrew.fit(X_tr, y_tr)
+    rf_negrew.modify_predictions_trees(env_label, method="xplvar")
+
+    # Regret
+    sols_erm = np.zeros(env_label.shape[0])
+    sols_erm_trees = np.zeros((N_ESTIMATORS, env_label.shape[0]))
+    rf_envs = []
+    for env in np.unique(env_label):
+        mask = env_label == env
+        X_e = X_tr[mask]
+        Y_e = y_tr[mask]
+        rf_e = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED,
+        )
+        rf_e.fit(X_e, Y_e)
+        rf_envs.append(rf_e)
+        fitted_e = rf_e.predict(X_e)
+        sols_erm[mask] = fitted_e
+        for i in range(N_ESTIMATORS):
+            fitted_e_tree = rf_e.trees[i].predict(X_e)
+            sols_erm_trees[i, mask] = fitted_e_tree
+    rf_regret = RandomForest(
+        "Regression",
+        n_estimators=N_ESTIMATORS,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        seed=SEED,
+    )
+    rf_regret.fit(X_tr, y_tr)
+    rf_regret.modify_predictions_trees(
+        env_label,
+        method="regret",
+        sols_erm=sols_erm,
+        sols_erm_trees=sols_erm_trees,
+    )
+
+    # Comparison
     max_mse_tr_list, max_negrew_tr_list, max_regret_tr_list = [], [], []
     max_mse_te_list, max_negrew_te_list, max_regret_te_list = [], [], []
     mse_diff_map, negrew_diff_map, regret_diff_map = (
@@ -115,73 +175,39 @@ if __name__ == "__main__":
         defaultdict(list),
     )
     for i in tqdm(range(N_SIM)):
-        X_tr, y_tr, env_label = generate_data()
+        X_tr_new, y_tr_new, env_label = generate_data()
 
         # MSE
-        rf_mse = RandomForest(
-            "Regression",
-            n_estimators=N_ESTIMATORS,
-            min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=SEED,
-        )
-        rf_mse.fit(X_tr, y_tr)
-        rf_mse.modify_predictions_trees(env_label)
-        fitted_mse = rf_mse.predict(X_tr)
-        max_mse_tr = max_mse(y_tr, fitted_mse, env_label)
+        fitted_mse = rf_mse.predict(X_tr_new)
+        max_mse_tr = max_mse(y_tr_new, fitted_mse, env_label)
         max_mse_tr_list.append(max_mse_tr)
 
         # Negative Reward
-        rf_negrew = RandomForest(
-            "Regression",
-            n_estimators=N_ESTIMATORS,
-            min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=SEED,
-        )
-        rf_negrew.fit(X_tr, y_tr)
-        rf_negrew.modify_predictions_trees(env_label, method="xplvar")
-        fitted_negrew = rf_negrew.predict(X_tr)
-        max_negrew_tr = -min_xplvar(y_tr, fitted_negrew, env_label)
+        fitted_negrew = rf_negrew.predict(X_tr_new)
+        max_negrew_tr = -min_xplvar(y_tr_new, fitted_negrew, env_label)
         max_negrew_tr_list.append(max_negrew_tr)
 
         # Regret
-        sols_erm = np.zeros(env_label.shape[0])
-        sols_erm_trees = np.zeros((N_ESTIMATORS, env_label.shape[0]))
+        sols_erm_new = np.zeros(env_label.shape[0])
         for env in np.unique(env_label):
             mask = env_label == env
-            X_e = X_tr[mask]
-            Y_e = y_tr[mask]
-            rf_e = RandomForest(
-                "Regression",
-                n_estimators=N_ESTIMATORS,
-                min_samples_leaf=MIN_SAMPLES_LEAF,
-                seed=SEED,
-            )
-            rf_e.fit(X_e, Y_e)
-            fitted_e = rf_e.predict(X_e)
-            sols_erm[mask] = fitted_e
-            for i in range(N_ESTIMATORS):
-                fitted_e_tree = rf_e.trees[i].predict(X_e)
-                sols_erm_trees[i, mask] = fitted_e_tree
-        rf_regret = RandomForest(
-            "Regression",
-            n_estimators=N_ESTIMATORS,
-            min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=SEED,
+            X_e = X_tr_new[mask]
+            fitted_e = rf_envs[env].predict(X_e)
+            sols_erm_new[mask] = fitted_e
+        fitted_regret = rf_regret.predict(X_tr_new)
+        max_regret_tr = max_regret(
+            y_tr_new, fitted_regret, sols_erm, env_label
         )
-        rf_regret.fit(X_tr, y_tr)
-        rf_regret.modify_predictions_trees(
-            env_label,
-            method="regret",
-            sols_erm=sols_erm,
-            sols_erm_trees=sols_erm_trees,
-        )
-        fitted_regret = rf_regret.predict(X_tr)
-        max_regret_tr = max_regret(y_tr, fitted_regret, sols_erm, env_label)
         max_regret_tr_list.append(max_regret_tr)
 
         # Test environment
         X_te = RNG.uniform(-1, 1, size=(N_TEST, 1))
         eps_te = RNG.normal(0, SIGMA_EPS, size=N_TEST)
+
+        preds_mse = rf_mse.predict(X_te)
+        preds_negrew = rf_negrew.predict(X_te)
+        preds_regret = rf_regret.predict(X_te)
+
         max_mse_te, max_negrew_te, max_regret_te = -np.inf, -np.inf, -np.inf
         for q1, q2 in product(Q1_VALS, Q2_VALS):
             if q1 + q2 > 1:
@@ -190,14 +216,13 @@ if __name__ == "__main__":
             q = [q1, q2, q3]
             f_te = lambda x: sum(q[e] * f_env[e](x) for e in range(E))
             y_te = f_te(X_te) + eps_te
-            preds_mse = rf_mse.predict(X_te)
-            preds_negrew = rf_negrew.predict(X_te)
-            preds_regret = rf_regret.predict(X_te)
+
             # MSE
             mse_te = mean_squared_error(y_te, preds_mse)
             max_mse_te = max(max_mse_te, mse_te)
             mse_diff = mse_te - max_mse_tr
             mse_diff_map[(q1, q2)].append(mse_diff)
+
             # Negative reward
             negrew_te = mean_squared_error(y_te, preds_negrew) - np.mean(
                 y_te**2
@@ -205,6 +230,7 @@ if __name__ == "__main__":
             max_negrew_te = max(max_negrew_te, negrew_te)
             negrew_diff = negrew_te - max_negrew_tr
             negrew_diff_map[(q1, q2)].append(negrew_diff)
+
             # Regret
             rf_regret_te = RandomForest(
                 "Regression",
@@ -220,6 +246,7 @@ if __name__ == "__main__":
             max_regret_te = max(max_regret_te, regret_te)
             regret_diff = regret_te - max_regret_tr
             regret_diff_map[(q1, q2)].append(regret_diff)
+
         max_mse_te_list.append(max_mse_te)
         max_negrew_te_list.append(max_negrew_te)
         max_regret_te_list.append(max_regret_te)
