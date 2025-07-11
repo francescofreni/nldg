@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 import torch
 import random
 
-NAME = "WORME"
+NAME_RF = "WORME-RF"
+NAME_SS = "WORME-SS"
 
 
 # ===============
@@ -420,6 +421,8 @@ def plot_dtr(
     obj_comparison: bool = False,
     saveplot: bool = False,
     nameplot: str = "setting5",
+    suffix: str | None = None,
+    legend_pos: str = "upper left",
 ):
     """
     Plotting function for random forest results
@@ -455,11 +458,14 @@ def plot_dtr(
                 linewidth=2,
                 label="RF",
             )
-            lab = (
-                f"{NAME}-RF(posthoc)"
-                if "fitted_minmax_xtrgrd" in dtr
-                else f"{NAME}-RF"
-            )
+            if suffix is None:
+                lab = (
+                    f"{NAME_RF}(posthoc-mse)"
+                    if "fitted_minmax_xtrgrd" in dtr
+                    else f"{NAME_RF}"
+                )
+            else:
+                lab = f"{NAME_RF}({suffix})"
             ax.plot(
                 dtr["X_sorted"],
                 dtr["fitted_minmax"],
@@ -467,13 +473,40 @@ def plot_dtr(
                 linewidth=2,
                 label=lab,
             )
+            if "y_clean" in dtr:
+                y_clean = np.array(dtr["y_clean"]).ravel()
+                X = np.array(dtr["X"][dtr["E"] == 0]).ravel()
+                env_label = np.array(dtr["E"]).ravel()
+                sorted_idx = np.argsort(X)
+                X_sorted = X[sorted_idx]
+                ax.plot(
+                    X_sorted,
+                    y_clean[env_label == 0][sorted_idx],
+                    color=line_colors[2],
+                    linewidth=2,
+                    label="$f^{e_1}$",
+                )
+                ax.plot(
+                    X_sorted,
+                    y_clean[env_label == 1][sorted_idx],
+                    color=line_colors[3],
+                    linewidth=2,
+                    label="$f^{e_2}$",
+                )
+                ax.plot(
+                    X_sorted,
+                    y_clean[env_label == 2][sorted_idx],
+                    color=line_colors[4],
+                    linewidth=2,
+                    label="$f^{e_3}$",
+                )
             if "fitted_minmax_xtrgrd" in dtr:
                 ax.plot(
                     dtr["X_sorted"],
                     dtr["fitted_minmax_xtrgrd"],
                     color=line_colors[2],
                     linewidth=2,
-                    label=f"{NAME}-RF(posthoc-xtrgrd)",
+                    label=f"{NAME_RF}(posthoc-mse-xtrgrd)",
                 )
             if "fitted_magging" in dtr:
                 ax.plot(
@@ -511,29 +544,30 @@ def plot_dtr(
             dtr["fitted_mse"],
             color=line_colors[1],
             linewidth=2,
-            label=f"{NAME}-RF(posthoc-mse)",
+            label=f"{NAME_RF}(posthoc-mse)",
         )
         ax.plot(
             dtr["X_sorted"],
             dtr["fitted_xv"],
             color=line_colors[2],
             linewidth=2,
-            label=f"{NAME}-RF(posthoc-xv)",
+            label=f"{NAME_RF}(posthoc-xv)",
         )
         ax.plot(
             dtr["X_sorted"],
             dtr["fitted_regret"],
             color=line_colors[3],
             linewidth=2,
-            label=f"{NAME}-RF(posthoc-regret)",
+            label=f"{NAME_RF}(posthoc-regret)",
         )
-        ax.plot(
-            dtr["X_sorted"],
-            dtr["fitted_magging"],
-            color=line_colors[4],
-            linewidth=2,
-            label="RF(magging)",
-        )
+        if "fitted_magging" in dtr:
+            ax.plot(
+                dtr["X_sorted"],
+                dtr["fitted_magging"],
+                color=line_colors[4],
+                linewidth=2,
+                label="RF(magging)",
+            )
 
     if optfun is not None:
         x_range = np.linspace(
@@ -566,7 +600,7 @@ def plot_dtr(
     ax.grid(True, linewidth=0.2)
 
     handles, labels = ax.get_legend_handles_labels()
-    ax.legend(handles=handles, loc="upper left")
+    ax.legend(handles=handles, loc=legend_pos)
 
     plt.tight_layout()
     if saveplot:
@@ -624,7 +658,7 @@ def plot_dtr_ss(
         preds_mse,
         color=line_colors[1],
         linewidth=2,
-        label=f"{NAME}-SS(posthoc-mse)",
+        label=f"{NAME_SS}(posthoc-mse)",
     )
     if preds_xv is not None:
         ax.plot(
@@ -632,7 +666,7 @@ def plot_dtr_ss(
             preds_xv,
             color=line_colors[2],
             linewidth=2,
-            label=f"{NAME}-SS(posthoc-xv)",
+            label=f"{NAME_SS}(posthoc-xv)",
         )
     if preds_regret is not None:
         ax.plot(
@@ -640,7 +674,7 @@ def plot_dtr_ss(
             preds_regret,
             color=line_colors[3],
             linewidth=2,
-            label=f"{NAME}-SS(posthoc-regret)",
+            label=f"{NAME_SS}(posthoc-regret)",
         )
     if preds_magging is not None:
         col_idx = 4 if obj_comparison else 2
@@ -741,35 +775,35 @@ def plot_dtr_all_methods(
         dtr["fitted_l_mmrf"],
         color=line_colors[2],
         linewidth=2,
-        label=f"{NAME}-RF(local)",
+        label=f"{NAME_RF}(local)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_post_rf"],
         color=line_colors[3],
         linewidth=2,
-        label=f"{NAME}-RF(posthoc)",
+        label=f"{NAME_RF}(posthoc)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_post_l_mmrf"],
         color=line_colors[4],
         linewidth=2,
-        label=f"{NAME}-RF(posthoc-local)",
+        label=f"{NAME_RF}(posthoc-local)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_g_dfs_mmrf"],
         color=line_colors[5],
         linewidth=2,
-        label=f"{NAME}-RF(global-dfs)",
+        label=f"{NAME_RF}(global-dfs)",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["fitted_g_mmrf"],
         color=line_colors[6],
         linewidth=2,
-        label=f"{NAME}-RF(global)",
+        label=f"{NAME_RF}(global)",
     )
 
     if optfun is not None:
@@ -822,4 +856,37 @@ def plot_dtr_all_methods(
         outpath = os.path.join(plots_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
+    plt.show()
+
+
+def plot_tricontour(diff_map, metric):
+    q1_grid, q2_grid, diff_grid = [], [], []
+    for (q1, q2), diffs in diff_map.items():
+        q1_grid.append(q1)
+        q2_grid.append(q2)
+        diff_grid.append(np.mean(diffs))
+
+    plt.figure(figsize=(6, 5))
+    sc = plt.tricontourf(q1_grid, q2_grid, diff_grid, levels=30, cmap="Blues")
+
+    cbar = plt.colorbar(sc, pad=0.02, aspect=30)
+    # cbar.set_label(
+    #     r"$\max_{e^\prime\in\mathcal{E}_{\text{te}}^\prime}\hat{R}_{e^\prime}^{\text{MSE}}(\bm{c}^*) - \hat{R}^{\text{MSE}}(\bm{c}^*)$",
+    #     fontsize=12
+    # )
+    if metric == "mse":
+        lab = "MSE"
+    elif metric == "negrew":
+        lab = "Negative reward"
+    else:
+        lab = "Regret"
+    cbar.set_label(f"Average Generalization Gap ({lab})", fontsize=12)
+    cbar.ax.tick_params(labelsize=10)
+    plt.xlabel("$q_1$", fontsize=12)
+    plt.ylabel("$q_2$", fontsize=12)
+    plt.xticks(fontsize=10)
+    plt.yticks(fontsize=10)
+    plt.plot([0, 1, 0], [0, 0, 1], color="black", lw=1)
+
+    plt.tight_layout()
     plt.show()

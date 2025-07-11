@@ -8,7 +8,7 @@ from typing import Callable, Optional
 import warnings
 
 
-class MinimaxSmoothSpline:
+class MinMaxSmoothSpline:
     """
     Fit a smoothing spline to (x, y) data using either empirical risk minimization (ERM)
     or a minimax strategy over environments.
@@ -93,10 +93,10 @@ class MinimaxSmoothSpline:
 
     Examples
     --------
-    >>> spline = MinimaxSmoothSpline(x, y, env=env_labels, method="mse")
+    >>> spline = MinMaxSmoothSpline(x, y, env=env_labels, method="mse")
     >>> y_pred = spline.predict(x_new)
 
-    >>> spline_erm = MinimaxSmoothSpline(x, y, method="erm")
+    >>> spline_erm = MinMaxSmoothSpline(x, y, method="erm")
     >>> y_smooth = spline_erm.predict(x_new)
     """
 
@@ -716,7 +716,7 @@ class MaggingSmoothSpline:
         Etr : np.ndarray
             Environment label of the training data.
         kwargs :
-            Additional arguments passed to the MinimaxSmoothSpline instances
+            Additional arguments passed to the MinMaxSmoothSpline instances
 
         Returns
         -------
@@ -736,7 +736,7 @@ class MaggingSmoothSpline:
         for e in np.unique(Etr):
             Xtr_e = Xtr[Etr == e]
             Ytr_e = Ytr[Etr == e]
-            erm_ss_e = MinimaxSmoothSpline(
+            erm_ss_e = MinMaxSmoothSpline(
                 Xtr_e, Ytr_e, cv=True, method="erm", **kwargs
             )
             self.model_list.append(erm_ss_e)
