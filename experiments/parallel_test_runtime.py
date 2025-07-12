@@ -27,7 +27,7 @@ def plot_runtime(
         marker="o",
         markeredgecolor="white",
     )
-    axs[0].set_ylabel("Runtime (s)")
+    axs[0].set_ylabel("Runtime ($s$)")
     axs[0].set_title("CP Runtime vs Number of Cores")
     axs[0].grid(True, linewidth=0.2)
 
@@ -40,7 +40,7 @@ def plot_runtime(
         markeredgecolor="white",
     )
     axs[1].set_xlabel("Number of Cores")
-    axs[1].set_ylabel("Runtime (s)")
+    axs[1].set_ylabel("Runtime ($s$)")
     axs[1].set_title("Extragradient Runtime vs Number of Cores")
     axs[1].grid(True, linewidth=0.2)
 

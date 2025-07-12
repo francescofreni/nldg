@@ -26,7 +26,9 @@ Q2_VALS = np.linspace(0, 1, GRID_SIZE)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-OUT_DIR = os.path.join(RESULTS_DIR, "output_simulation")
+SIM_DIR = os.path.join(RESULTS_DIR, "output_simulation")
+os.makedirs(SIM_DIR, exist_ok=True)
+OUT_DIR = os.path.join(SIM_DIR, "sim_gen_gap")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 # mpl.rcParams['text.usetex'] = True

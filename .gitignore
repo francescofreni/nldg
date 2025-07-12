@@ -1,6 +1,7 @@
 build/
 *.egg-info/
 *.csv
+*.txt
 *.png
 .idea/
 archive/

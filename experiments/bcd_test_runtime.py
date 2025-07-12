@@ -10,6 +10,7 @@ from adaXT.random_forest import RandomForest
 N_ESTIMATORS = 25
 MIN_SAMPLES_LEAF = 30
 SEED = 42
+NAME_RF = "WORME-RF"
 
 
 def assign_quadrant(
@@ -42,8 +43,8 @@ def plot_bcd_runtime(block_sizes, bcd_times, baseline_time, out_dir):
     plt.axhline(
         y=baseline_time, color="orange", linestyle="--", label="Non-BCD"
     )
-    plt.xlabel("Block Size")
-    plt.ylabel("Runtime (s)")
+    plt.xlabel("Block Size $b$")
+    plt.ylabel("Runtime ($s$)")
     plt.grid(True, linewidth=0.2)
     plt.legend()
     plt.tight_layout()
@@ -54,10 +55,10 @@ def plot_bcd_runtime(block_sizes, bcd_times, baseline_time, out_dir):
 def plot_mse_by_method(
     mse_rf, mse_non_bcd, mse_bcd_dict, block_sizes, out_dir
 ):
-    env_labels = ["Env 1", "Env 2", "Env 3"]
+    env_labels = ["Env 1", "Env 2", "Env 3", "Env 4"]
     methods = ["RF", "Non-BCD"] + [f"BCD (bs={b})" for b in block_sizes]
     num_methods = len(methods)
-    env_colors = ["lightskyblue", "orange", "mediumpurple"]
+    env_colors = ["lightskyblue", "orange", "mediumpurple", "yellowgreen"]
 
     # Stack MSEs per method (rows) × envs (columns)
     mse_matrix = [mse_rf, mse_non_bcd, *[mse_bcd_dict[b] for b in block_sizes]]
@@ -66,7 +67,7 @@ def plot_mse_by_method(
     width = 0.2
 
     plt.figure(figsize=(15, 6))
-    for env_idx in range(3):
+    for env_idx in range(4):
         mse_vals = [m[env_idx] for m in mse_matrix]
         plt.bar(
             x
@@ -110,7 +111,7 @@ def plot_max_mse_vs_blocksize(
         linestyle="--",
         linewidth=2,
         color="orange",
-        label="WORME-RF(posthoc-mse)",
+        label=f"{NAME_RF}(posthoc-mse)",
     )
 
     plt.plot(
@@ -119,7 +120,7 @@ def plot_max_mse_vs_blocksize(
         marker="o",
         color="mediumpurple",
         markeredgecolor="white",
-        label="WORME-RF(posthoc-mse-BCD)",
+        label=f"{NAME_RF}(posthoc-mse-BCD)",
     )
 
     plt.xlabel("Block size $b$")

@@ -7,6 +7,8 @@ import geopandas as gpd
 import contextily as ctx
 from matplotlib.lines import Line2D
 
+NAME_RF = "WORME-RF"
+
 
 # plt.rcParams.update(
 #     {
@@ -118,17 +120,17 @@ def plot_max_mse_boxplot(
         medianprops=dict(color="tab:blue", linewidth=2),
     )
 
-    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.set_ylabel("MSE")
     ax.set_xticks(pos)
     ax.set_xticklabels(
         [
-            r"$\mathsf{RF}$",
-            r"$\mathsf{MaggingRF}$",
-            r"$\mathsf{L\text{-}MMRF}$",
-            r"$\mathsf{Post\text{-}RF}$",
-            r"$\mathsf{Post\text{-}L\text{-}MMRF}$",
-            r"$\mathsf{G\text{-}DFS\text{-}MMRF}$",
-            r"$\mathsf{G\text{-}MMRF}$",
+            "RF",
+            "RF(magging)",
+            f"{NAME_RF}(local)",
+            f"{NAME_RF}(posthoc)",
+            f"{NAME_RF}(posthoc-local)",
+            f"{NAME_RF}(global-dfs)",
+            f"{NAME_RF}(global)",
         ],
     )
     ax.grid(True, linewidth=0.2, axis="y")
@@ -138,9 +140,10 @@ def plot_max_mse_boxplot(
         script_dir = os.getcwd()
         parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
         results_dir = os.path.join(parent_dir, "results")
-        plots_dir = os.path.join(results_dir, "figures")
-        os.makedirs(plots_dir, exist_ok=True)
-        outpath = os.path.join(plots_dir, f"{nameplot}.png")
+        sim_dir = os.path.join(results_dir, "output_simulation")
+        sim_dir = os.path.join(sim_dir, "sim_diff_methods")
+        os.makedirs(sim_dir, exist_ok=True)
+        outpath = os.path.join(sim_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
     if show:
@@ -914,3 +917,22 @@ def plot_quadrants_with_basemap():
     outpath = os.path.join(plots_dir, "quadrants_plot")
     plt.savefig(outpath, dpi=300, bbox_inches="tight")
     plt.show()
+
+
+# ==========
+# Additional
+# ==========
+def get_df(res_dict):
+    rows = []
+    for method, lists in res_dict.items():
+        for sim_id, res_envs in enumerate(lists):
+            for env_id, res in enumerate(res_envs):
+                rows.append(
+                    {
+                        "MSE": res,
+                        "env_id": env_id,
+                        "sim_id": sim_id,
+                        "method": method,
+                    }
+                )
+    return pd.DataFrame(rows)
