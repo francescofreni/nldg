@@ -234,4 +234,4 @@ if __name__ == "__main__":
                     f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
                 )
 
-        plot_max_mse_boxplot(maxmse_df, saveplot=True)
+        plot_max_mse_boxplot(maxmse_df, saveplot=True, out_dir=OUT_DIR)

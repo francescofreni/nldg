@@ -100,12 +100,13 @@ def plot_max_mse_boxplot(
     saveplot: bool = False,
     nameplot: str = "max_mse_boxplot",
     show: bool = False,
+    out_dir: str | None = None,
 ) -> None:
     color = "tab:blue"
     n = len(max_mse_df.columns)
     pos = np.arange(n)
 
-    fig, ax = plt.subplots(figsize=(WIDTH, HEIGHT))
+    fig, ax = plt.subplots(figsize=(WIDTH + 2, HEIGHT))
 
     # Boxplot instead of violinplot
     ax.boxplot(
@@ -137,13 +138,7 @@ def plot_max_mse_boxplot(
     plt.tight_layout()
 
     if saveplot:
-        script_dir = os.getcwd()
-        parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
-        results_dir = os.path.join(parent_dir, "results")
-        sim_dir = os.path.join(results_dir, "output_simulation")
-        sim_dir = os.path.join(sim_dir, "sim_diff_methods")
-        os.makedirs(sim_dir, exist_ok=True)
-        outpath = os.path.join(sim_dir, f"{nameplot}.png")
+        outpath = os.path.join(out_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
     if show:
