@@ -42,12 +42,12 @@ class MinMaxSmoothSpline:
         `all_knots` is False. Defaults to a heuristic based on data size.
     tol : float, optional
         Tolerance for merging similar x values. Defaults to `1e-6 * IQR(x)`.
-    method : {"erm", "mse", "regret", "xplvar"}, optional (default="mse")
+    method : {"erm", "mse", "regret", "reward"}, optional (default="mse")
         Estimation method:
             - "erm": Empirical Risk Minimization (standard smoothing spline)
             - "mse": Minimizes the worst-case environment-specific MSE
             - "regret": Minimizes the maximum regret across environments
-            - "xplvar": Maximizes the minimal explained variance across environments
+            - "reward": Maximizes the minimal reward across environments
     sols_erm : np.ndarray, optional (default=None)
         Environment specific predictions used to compute the regret
     opt_method : {"cp", "extragradient"}, optional (default="cp")
@@ -119,16 +119,16 @@ class MinMaxSmoothSpline:
         seed: int = 123,
         **kwargs,
     ) -> None:
-        if method not in ["erm", "mse", "regret", "xplvar"]:
+        if method not in ["erm", "mse", "regret", "reward"]:
             raise ValueError(
-                "method must be one of 'erm', 'mse', 'regret', 'xplvar'"
+                "method must be one of 'erm', 'mse', 'regret', 'reward'"
             )
         self.method = method
         self.sols_erm = sols_erm
 
-        if self.method in ["mse", "regret", "xplvar"] and env is None:
+        if self.method in ["mse", "regret", "reward"] and env is None:
             raise ValueError(
-                "env must not be None if method is one of 'mse', 'regret', 'xplvar'"
+                "env must not be None if method is one of 'mse', 'regret', 'reward'"
             )
 
         if self.method == "regret" and sols_erm is None:
@@ -500,7 +500,7 @@ class MinMaxSmoothSpline:
                     constraints.append(
                         cp.quad_form(res, We) / np.sum(mask) <= t
                     )
-                elif self.method == "xplvar":
+                elif self.method == "reward":
                     constraints.append(
                         (cp.quad_form(res, We) - np.sum(ybar_train[mask] ** 2))
                         / np.sum(mask)
@@ -562,7 +562,7 @@ class MinMaxSmoothSpline:
                     mask = envbar_val == e
                     if self.method == "mse":
                         score_e = np.mean((ybar_val[mask] - y_pred[mask]) ** 2)
-                    elif self.method == "xplvar":
+                    elif self.method == "reward":
                         score_e = np.mean(
                             (ybar_val[mask] - y_pred[mask]) ** 2
                         ) - np.mean(ybar_val[mask] ** 2)
@@ -636,7 +636,7 @@ class MinMaxSmoothSpline:
                             cp.quad_form(residual, W_e) / count_env <= t
                         )
                         # constraints.append(cp.mean(cp.square(y_env - N_e @ beta)) <= t)
-                    elif self.method == "xplvar":
+                    elif self.method == "reward":
                         constraints.append(
                             (
                                 cp.quad_form(residual, W_e)

@@ -51,6 +51,7 @@ def make_dataset(f, env_id, n_samples):
     eps = RNG.normal(0, SIGMA_EPS, size=n_samples)
     y = f(X) + eps
     env_lab = np.full(n_samples, env_id)
+    # y = y - np.mean(y)
     return X, y, env_lab
 
 
@@ -131,7 +132,7 @@ if __name__ == "__main__":
         seed=SEED,
     )
     rf_negrew.fit(X_tr, y_tr)
-    rf_negrew.modify_predictions_trees(env_label, method="xplvar")
+    rf_negrew.modify_predictions_trees(env_label, method="reward")
 
     # Regret
     sols_erm = np.zeros(env_label.shape[0])
@@ -184,7 +185,7 @@ if __name__ == "__main__":
 
         # Negative Reward
         fitted_negrew = rf_negrew.predict(X_tr_new)
-        max_negrew_tr = -min_xplvar(y_tr_new, fitted_negrew, env_label)
+        max_negrew_tr = -min_reward(y_tr_new, fitted_negrew, env_label)
         max_negrew_tr_list.append(max_negrew_tr)
 
         # Regret
@@ -224,6 +225,7 @@ if __name__ == "__main__":
             q = [q1, q2, q3]
             f_te = lambda x: sum(q[e] * f_env[e](x) for e in range(E))
             y_te = f_te(X_te) + eps_te
+            # y_te = y_te - np.mean(y_te)
 
             # MSE
             mse_te = mean_squared_error(y_te, preds_mse)

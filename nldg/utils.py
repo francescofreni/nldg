@@ -305,50 +305,47 @@ def max_mse(
     return maxmse
 
 
-def min_xplvar(
+def min_reward(
     Ytrue: np.ndarray,
     Ypred: np.ndarray,
     Env: np.ndarray,
     verbose: bool = False,
     ret_ind: bool = False,
-    demean: bool = True,
 ) -> float | tuple[list, float]:
     """
-    Compute the minimum explained variance across environments.
+    Compute the minimum reward across environments.
 
-    For each environment, the explained variance is computed as:
+    For each environment, the reward is computed as:
         EV = mean(Ytrue^2) - mean((Ytrue - Ypred)^2)
-    This function returns the minimum EV across all environments.
+    This function returns the minimum reward across all environments.
 
     Args:
         Ytrue (np.ndarray): True target values.
         Ypred (np.ndarray): Predicted target values.
         Env (np.ndarray): Environment labels for each sample.
-        verbose (bool): Whether to print the explained variance for each environment.
-        ret_ind (bool): Whether to return also the explained variance for each environment.
+        verbose (bool): Whether to print the reward for each environment.
+        ret_ind (bool): Whether to return also the reward for each environment.
         demean (bool): Whether the response was centered in each environment.
 
     Returns:
         if ret_ind:
-            xplvar_envs (list): Explained variance for each environment.
-        min_ev (float): Minimum explained variance across environments.
+            reward_envs (list): Reward for each environment.
+        min_reward (float): Minimum reward across environments.
     """
-    min_ev = float("inf")
-    xplvar_envs = []
+    min_reward = float("inf")
+    reward_envs = []
     for env in np.unique(Env):
         Ytrue_e = Ytrue[Env == env]
         Ypred_e = Ypred[Env == env]
-        if demean:
-            ev = np.mean(Ytrue_e**2) - np.mean((Ytrue_e - Ypred_e) ** 2)
-        else:
-            ev = np.var(Ytrue_e) - np.var(Ytrue_e - Ypred_e)
-        xplvar_envs.append(ev)
+        reward = np.mean(Ytrue_e**2) - np.mean((Ytrue_e - Ypred_e) ** 2)
+        # reward = np.var(Ytrue_e) - np.var(Ytrue_e - Ypred_e)
+        reward_envs.append(reward)
         if verbose:
-            print(f"Environment {env} explained variance: {ev}")
-        min_ev = min(min_ev, ev)
+            print(f"Environment {env} reward: {reward}")
+        min_reward = min(min_reward, reward)
     if ret_ind:
-        return xplvar_envs, min_ev
-    return min_ev
+        return reward_envs, min_reward
+    return min_reward
 
 
 def max_regret(
@@ -422,7 +419,7 @@ def plot_dtr(
     saveplot: bool = False,
     nameplot: str = "setting5",
     suffix: str | None = None,
-    legend_pos: str = "upper left",
+    legend_pos: None | str = "upper left",
 ):
     """
     Plotting function for random forest results
@@ -462,7 +459,7 @@ def plot_dtr(
                 lab = (
                     f"{NAME_RF}(posthoc-mse)"
                     if "fitted_minmax_xtrgrd" in dtr
-                    else f"{NAME_RF}"
+                    else f"{NAME_RF}(mse)"
                 )
             else:
                 lab = f"{NAME_RF}({suffix})"
@@ -548,17 +545,17 @@ def plot_dtr(
         )
         ax.plot(
             dtr["X_sorted"],
-            dtr["fitted_xv"],
+            dtr["fitted_nrw"],
             color=line_colors[2],
             linewidth=2,
-            label=f"{NAME_RF}(posthoc-xv)",
+            label=f"{NAME_RF}(posthoc-nrw)",
         )
         ax.plot(
             dtr["X_sorted"],
             dtr["fitted_regret"],
             color=line_colors[3],
             linewidth=2,
-            label=f"{NAME_RF}(posthoc-regret)",
+            label=f"{NAME_RF}(posthoc-reg)",
         )
         if "fitted_magging" in dtr:
             ax.plot(
@@ -618,7 +615,7 @@ def plot_dtr_ss(
     x_grid: np.ndarray,
     preds_erm: np.ndarray,
     preds_mse: np.ndarray,
-    preds_xv: np.ndarray | None = None,
+    preds_nrw: np.ndarray | None = None,
     preds_regret: np.ndarray | None = None,
     preds_magging: np.ndarray | None = None,
     obj_comparison: bool = False,
@@ -660,13 +657,13 @@ def plot_dtr_ss(
         linewidth=2,
         label=f"{NAME_SS}(posthoc-mse)",
     )
-    if preds_xv is not None:
+    if preds_nrw is not None:
         ax.plot(
             x_grid,
-            preds_xv,
+            preds_nrw,
             color=line_colors[2],
             linewidth=2,
-            label=f"{NAME_SS}(posthoc-xv)",
+            label=f"{NAME_SS}(posthoc-nrw)",
         )
     if preds_regret is not None:
         ax.plot(
@@ -674,7 +671,7 @@ def plot_dtr_ss(
             preds_regret,
             color=line_colors[3],
             linewidth=2,
-            label=f"{NAME_SS}(posthoc-regret)",
+            label=f"{NAME_SS}(posthoc-reg)",
         )
     if preds_magging is not None:
         col_idx = 4 if obj_comparison else 2

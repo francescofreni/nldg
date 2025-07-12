@@ -56,7 +56,7 @@ def plot_mse_by_method(
     mse_rf, mse_non_bcd, mse_bcd_dict, block_sizes, out_dir
 ):
     env_labels = ["Env 1", "Env 2", "Env 3", "Env 4"]
-    methods = ["RF", "Non-BCD"] + [f"BCD (bs={b})" for b in block_sizes]
+    methods = ["RF", "Non-BCD"] + [f"BCD ($b$={b})" for b in block_sizes]
     num_methods = len(methods)
     env_colors = ["lightskyblue", "orange", "mediumpurple", "yellowgreen"]
 
