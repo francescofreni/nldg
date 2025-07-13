@@ -129,6 +129,9 @@ def eval_one_quadrant(
         rf_regret_te.fit(X_test, y_test)
         sols_erm_te = rf_regret_te.predict(X_test)
 
+    if method == "nrw":
+        y_test = y_test - np.mean(y_test)
+
     main_records = []
     env_metrics_records = []
 
@@ -168,8 +171,16 @@ def eval_one_quadrant(
                 fitted_e = rf_e.predict(X_e)
                 sols_erm_tr[mask_e] = fitted_e
                 for i in range(N_ESTIMATORS):
-                    fitted_e_tree = rf_e.trees[i].predict(X_e)
+                    fitted_e_tree = rf_e.trees[i].predict(X_e.to_numpy())
                     sols_erm_tr_trees[i, mask_e] = fitted_e_tree
+
+        if method == "nrw":
+            y_tr_demean = np.zeros(y_tr)
+            for env in np.unique(env_tr):
+                mask = env_tr == env
+                y_tr_e = y_tr[mask]
+                y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
+            y_tr = y_tr_demean
 
         # Fit and predict
         rf = RandomForest(
@@ -238,8 +249,8 @@ def eval_one_quadrant(
                 y_test, preds_test
             ) - mean_squared_error(y_test, sols_erm_te)
 
-            risk_envs_tr_posthoc, max_risk_tr_posthoc = max_mse(
-                y_tr, preds_tr_posthoc, env_tr, ret_ind=True
+            risk_envs_tr_posthoc, max_risk_tr_posthoc = max_regret(
+                y_tr, preds_tr_posthoc, sols_erm_tr, env_tr, ret_ind=True
             )
             risk_tr_posthoc = np.nan
             risk_test_posthoc = mean_squared_error(

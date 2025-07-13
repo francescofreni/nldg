@@ -111,11 +111,11 @@ def plot_test_risk(
     ax.set_xticklabels(QUADRANTS)
     ax.set_xlabel("Held-Out Quadrant")
     if method == "mse":
-        lab = r"$\mathsf{MSPE}$"
+        lab = "MSPE"
     elif method == "nrw":
-        lab = r"$\mathsf{Negative Reward}$"
+        lab = "Negative Reward"
     else:
-        lab = r"$\mathsf{Regret}$"
+        lab = "Regret"
     ax.set_ylabel(lab)
     ax.legend(loc=legend_pos, frameon=True)
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
@@ -278,9 +278,9 @@ def plot_envs_risk(
     if method == "mse":
         lab = r"$\mathsf{MSE}$"
     elif method == "nrw":
-        lab = r"$\mathsf{Negative Reward}$"
+        lab = "Negative Reward"
     else:
-        lab = r"$\mathsf{Regret}$"
+        lab = "Regret"
     ax.set_ylabel(lab)
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
 
