@@ -171,7 +171,9 @@ def eval_one_quadrant(
                 fitted_e = rf_e.predict(X_e)
                 sols_erm_tr[mask_e] = fitted_e
                 for i in range(N_ESTIMATORS):
-                    fitted_e_tree = rf_e.trees[i].predict(X_e.to_numpy())
+                    fitted_e_tree = rf_e.trees[i].predict(
+                        np.ascontiguousarray(X_e.to_numpy())
+                    )
                     sols_erm_tr_trees[i, mask_e] = fitted_e_tree
 
         if method == "nrw":
