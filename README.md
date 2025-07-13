@@ -51,29 +51,32 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 |
 ├── experiments 
 │   ├── bcd_test_runtime             # Comparison between BCD and default variants
-│   ├── housing_data_analysis        # California housing experiments
-│   ├── housing_data_import          # Script to import data
+│   ├── ca_housing_analysis          # California housing experiments
+│   ├── ca_housing_data_import       # Script to import data
 │   ├── parallel_test_runtime        # Experiment to check the effect of parallelization
-│   ├── results_rf                   # Plots for simulation and real-world data example
-│   ├── simulation_rf                # Simulation experiments with Minimax Random Forest
-│   └── utils                        # Helper functions: plotting
+│   ├── sim_diff_methods             # Comparing different variants of WORME Forest
+│   ├── sim_gen_gap                  # Verifying generalization guarantees
+│   └── utils                        # Helper functions
 |
 ├── nldg           
 │   ├── nn                           # Neural Network class
 │   ├── rf                           # Magging Random Forest class
-│   ├── ss                           # Minimax Smoothing Spline class
+│   ├── ss                           # WORME Smoothing Spline class
 │   ├── train_nn                     # GDRO
 │   └── utils                        # Helper functions: data generation, plotting, metrics
 |
-├── notebooks           
-│   ├── demo_rf                      # Demo for WORME Random Forest
+├── notebooks
+│   ├── all_methods                  # Different variants of WORME Forest        
+│   ├── demo_rf                      # Demo for WORME Forest
 │   ├── demo_ss                      # Demo for WORME Smoothing Splines
-│   └── worme_rf                     # Different solutions to the WORME Random Forest problem
+│   └── miscellanea                  # Additional plots and settings
 |
 └── results
     ├── figures                      # Saved figures
-    ├── output_data_housing_rf       # Saved results real-world data experiment
-    └── output_data_simulation_rf    # Saved results simulation experiment
+    ├── output_ca_housing            # Saved results real-world data experiment
+    └── output_simulation
+        ├── sim_diff_methods         # Saved results variants comparison
+        └── sim_gen_gap              # Saved results generalization guarantees
 ```
 
 
@@ -81,12 +84,12 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 
 ### Simulated data
 
-#### 1) Minimizing the max MSE over training environments
+#### 1) Comparing different WORME Forest implementations
 ```bash
-python experiments/simulation_rf.py
+python experiments/sim_diff_methods.py
 ```
 
-#### 2) Runtime parallelization experiment
+#### 2) Runtime parallelization experiment (only if $50$+ cores are available!)
 ```bash
 python experiments/parallel_test_runtime.py
 ```
@@ -98,18 +101,11 @@ python experiments/parallel_test_runtime.py
 python experiments/bcd_test_runtime.py
 ```
 
-#### 2) RF and MinimaxRF comparison with different $m_\text{try}$ values
+#### 2) Main experiment
 ```bash
-python experiments/housing_data_import.py
-python experiments/housing_data_analysis.py --version "train_mtry_resample"
+python experiments/ca_housing_data_import.py
+python experiments/ca_housing_analysis.py
 ```
-
-#### 3) Experiment with held-out data
-```bash
-python experiments/housing_data_import.py
-python experiments/housing_data_analysis.py
-```
-
 
 [//]: # (## 📚 Documentation)
 
