@@ -210,17 +210,21 @@ def eval_one_quadrant(
             risk_tr_posthoc = mean_squared_error(y_tr, preds_tr_posthoc)
             risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
         elif method == "nrw":
-            risk_envs_tr, max_risk_tr = -min_reward(
+            risk_envs_tr, max_risk_tr = min_reward(
                 y_tr, preds_tr, env_tr, ret_ind=True
             )
+            risk_envs_tr = -np.array(risk_envs_tr)
+            max_risk_tr = -max_risk_tr
             risk_tr = np.nan
             risk_test = mean_squared_error(y_test, preds_test) - np.mean(
                 y_test**2
             )
 
-            risk_envs_tr_posthoc, max_risk_tr_posthoc = -min_reward(
+            risk_envs_tr_posthoc, max_risk_tr_posthoc = min_reward(
                 y_tr, preds_tr_posthoc, env_tr, ret_ind=True
             )
+            risk_envs_tr_posthoc = -np.array(risk_envs_tr_posthoc)
+            max_risk_tr_posthoc = -max_risk_tr_posthoc
             risk_tr_posthoc = np.nan
             risk_test_posthoc = mean_squared_error(
                 y_test, preds_test_posthoc
