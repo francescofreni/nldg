@@ -175,7 +175,7 @@ def eval_one_quadrant(
                     sols_erm_tr_trees[i, mask_e] = fitted_e_tree
 
         if method == "nrw":
-            y_tr_demean = np.zeros(y_tr)
+            y_tr_demean = np.zeros_like(y_tr)
             for env in np.unique(env_tr):
                 mask = env_tr == env
                 y_tr_e = y_tr[mask]
@@ -230,6 +230,7 @@ def eval_one_quadrant(
             risk_test = mean_squared_error(y_test, preds_test) - np.mean(
                 y_test**2
             )
+            # risk_test = mean_squared_error(y_test, preds_test)
 
             risk_envs_tr_posthoc, max_risk_tr_posthoc = min_reward(
                 y_tr, preds_tr_posthoc, env_tr, ret_ind=True
@@ -240,6 +241,7 @@ def eval_one_quadrant(
             risk_test_posthoc = mean_squared_error(
                 y_test, preds_test_posthoc
             ) - np.mean(y_test**2)
+            # risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
         else:
             risk_envs_tr, max_risk_tr = max_regret(
                 y_tr, preds_tr, sols_erm_tr, env_tr, ret_ind=True
@@ -248,6 +250,7 @@ def eval_one_quadrant(
             risk_test = mean_squared_error(
                 y_test, preds_test
             ) - mean_squared_error(y_test, sols_erm_te)
+            # risk_test = mean_squared_error(y_test, preds_test)
 
             risk_envs_tr_posthoc, max_risk_tr_posthoc = max_regret(
                 y_tr, preds_tr_posthoc, sols_erm_tr, env_tr, ret_ind=True
@@ -256,6 +259,7 @@ def eval_one_quadrant(
             risk_test_posthoc = mean_squared_error(
                 y_test, preds_test_posthoc
             ) - mean_squared_error(y_test, sols_erm_te)
+            # risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
 
         for (
             model_name,

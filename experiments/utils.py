@@ -114,8 +114,10 @@ def plot_test_risk(
         lab = "MSPE"
     elif method == "nrw":
         lab = "Negative Reward"
+        # lab = "MSPE"
     else:
         lab = "Regret"
+        # lab = "MSPE"
     ax.set_ylabel(lab)
     ax.legend(loc=legend_pos, frameon=True)
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
