@@ -129,8 +129,8 @@ def eval_one_quadrant(
         rf_regret_te.fit(X_test, y_test)
         sols_erm_te = rf_regret_te.predict(X_test)
 
-    # if method == "nrw":
-    #     y_test = y_test - np.mean(y_test)
+    if method == "nrw":
+        y_test = y_test - np.mean(y_test)
 
     main_records = []
     env_metrics_records = []
@@ -176,13 +176,13 @@ def eval_one_quadrant(
                     )
                     sols_erm_tr_trees[i, mask_e] = fitted_e_tree
 
-        # if method == "nrw":
-        #     y_tr_demean = np.zeros_like(y_tr)
-        #     for env in np.unique(env_tr):
-        #         mask = env_tr == env
-        #         y_tr_e = y_tr[mask]
-        #         y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
-        #     y_tr = y_tr_demean
+        if method == "nrw":
+            y_tr_demean = np.zeros_like(y_tr)
+            for env in np.unique(env_tr):
+                mask = env_tr == env
+                y_tr_e = y_tr[mask]
+                y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
+            y_tr = y_tr_demean
 
         # Fit and predict
         rf = RandomForest(
@@ -434,11 +434,11 @@ def mtry_exp(
                 rf_e.fit(X_e, Y_e)
                 fitted_e = rf_e.predict(X_e)
                 sols_erm[mask] = fitted_e
-                for i in range(N_ESTIMATORS):
-                    fitted_e_tree = rf_e.trees[i].predict(
+                for k in range(N_ESTIMATORS):
+                    fitted_e_tree = rf_e.trees[k].predict(
                         np.ascontiguousarray(X_e.to_numpy())
                     )
-                    sols_erm_trees[i, mask] = fitted_e_tree
+                    sols_erm_trees[k, mask] = fitted_e_tree
 
             # RF
             rf = RandomForest(
