@@ -129,8 +129,8 @@ def eval_one_quadrant(
         rf_regret_te.fit(X_test, y_test)
         sols_erm_te = rf_regret_te.predict(X_test)
 
-    if method == "nrw":
-        y_test = y_test - np.mean(y_test)
+    # if method == "nrw":
+    #     y_test = y_test - np.mean(y_test)
 
     main_records = []
     env_metrics_records = []
@@ -176,13 +176,13 @@ def eval_one_quadrant(
                     )
                     sols_erm_tr_trees[i, mask_e] = fitted_e_tree
 
-        if method == "nrw":
-            y_tr_demean = np.zeros_like(y_tr)
-            for env in np.unique(env_tr):
-                mask = env_tr == env
-                y_tr_e = y_tr[mask]
-                y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
-            y_tr = y_tr_demean
+        # if method == "nrw":
+        #     y_tr_demean = np.zeros_like(y_tr)
+        #     for env in np.unique(env_tr):
+        #         mask = env_tr == env
+        #         y_tr_e = y_tr[mask]
+        #         y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
+        #     y_tr = y_tr_demean
 
         # Fit and predict
         rf = RandomForest(
@@ -229,10 +229,10 @@ def eval_one_quadrant(
             risk_envs_tr = -np.array(risk_envs_tr)
             max_risk_tr = -max_risk_tr
             risk_tr = np.nan
-            risk_test = mean_squared_error(y_test, preds_test) - np.mean(
-                y_test**2
-            )
-            # risk_test = mean_squared_error(y_test, preds_test)
+            # risk_test = mean_squared_error(y_test, preds_test) - np.mean(
+            #     y_test**2
+            # )
+            risk_test = mean_squared_error(y_test, preds_test)
 
             risk_envs_tr_posthoc, max_risk_tr_posthoc = min_reward(
                 y_tr, preds_tr_posthoc, env_tr, ret_ind=True
@@ -240,28 +240,28 @@ def eval_one_quadrant(
             risk_envs_tr_posthoc = -np.array(risk_envs_tr_posthoc)
             max_risk_tr_posthoc = -max_risk_tr_posthoc
             risk_tr_posthoc = np.nan
-            risk_test_posthoc = mean_squared_error(
-                y_test, preds_test_posthoc
-            ) - np.mean(y_test**2)
-            # risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
+            # risk_test_posthoc = mean_squared_error(
+            #     y_test, preds_test_posthoc
+            # ) - np.mean(y_test**2)
+            risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
         else:
             risk_envs_tr, max_risk_tr = max_regret(
                 y_tr, preds_tr, sols_erm_tr, env_tr, ret_ind=True
             )
             risk_tr = np.nan
-            risk_test = mean_squared_error(
-                y_test, preds_test
-            ) - mean_squared_error(y_test, sols_erm_te)
-            # risk_test = mean_squared_error(y_test, preds_test)
+            # risk_test = mean_squared_error(
+            #     y_test, preds_test
+            # ) - mean_squared_error(y_test, sols_erm_te)
+            risk_test = mean_squared_error(y_test, preds_test)
 
             risk_envs_tr_posthoc, max_risk_tr_posthoc = max_regret(
                 y_tr, preds_tr_posthoc, sols_erm_tr, env_tr, ret_ind=True
             )
             risk_tr_posthoc = np.nan
-            risk_test_posthoc = mean_squared_error(
-                y_test, preds_test_posthoc
-            ) - mean_squared_error(y_test, sols_erm_te)
-            # risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
+            # risk_test_posthoc = mean_squared_error(
+            #     y_test, preds_test_posthoc
+            # ) - mean_squared_error(y_test, sols_erm_te)
+            risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
 
         for (
             model_name,
@@ -392,8 +392,16 @@ def mtry_exp(
     mtry_values = np.arange(1, X.shape[1] + 1)
     p = len(mtry_values)
 
-    results_rf_mse, results_rf_nrw, results_rf_reg = np.zeros((N, p))
-    results_mse, results_nrw, results_reg = np.zeros((N, p))
+    results_rf_mse, results_rf_nrw, results_rf_reg = (
+        np.zeros((N, p)),
+        np.zeros((N, p)),
+        np.zeros((N, p)),
+    )
+    results_mse, results_nrw, results_reg = (
+        np.zeros((N, p)),
+        np.zeros((N, p)),
+        np.zeros((N, p)),
+    )
 
     for i in tqdm(range(N)):
         X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
@@ -427,7 +435,9 @@ def mtry_exp(
                 fitted_e = rf_e.predict(X_e)
                 sols_erm[mask] = fitted_e
                 for i in range(N_ESTIMATORS):
-                    fitted_e_tree = rf_e.trees[i].predict(X_e)
+                    fitted_e_tree = rf_e.trees[i].predict(
+                        np.ascontiguousarray(X_e.to_numpy())
+                    )
                     sols_erm_trees[i, mask] = fitted_e_tree
 
             # RF
