@@ -481,13 +481,15 @@ def mtry_exp(
 
             # min max MSE
             rf_mse = copy.deepcopy(rf)
-            rf_mse.modify_predictions_trees(env_tr)
+            rf_mse.modify_predictions_trees(env_tr, solver="ECOS")
             fitted_mse = rf_mse.predict(X_tr)
             results_mse[i, j] = max_mse(y_tr, fitted_mse, env_tr)
 
             # min max Negative Reward
             rf_nrw = copy.deepcopy(rf)
-            rf_nrw.modify_predictions_trees(env_tr, method="reward")
+            rf_nrw.modify_predictions_trees(
+                env_tr, method="reward", solver="ECOS"
+            )
             fitted_nrw = rf_nrw.predict(X_tr)
             results_nrw[i, j] = -min_reward(y_tr, fitted_nrw, env_tr)
 
