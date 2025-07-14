@@ -38,7 +38,8 @@ dependencies = [
     "pre-commit",
     "cvxpy",
     "geopandas",
-    "contextily"
+    "contextily",
+    "ecos",
 ]
 
 [project.optional-dependencies]
