@@ -14,6 +14,7 @@ from utils import (
     plot_max_mse_mtry,
     plot_test_risk,
     plot_envs_risk,
+    plot_test_risk_all_methods,
 )
 
 # Setup logging
@@ -30,7 +31,8 @@ os.makedirs(RESULTS_DIR, exist_ok=True)
 OUT_DIR = os.path.join(RESULTS_DIR, "output_ca_housing")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-QUADRANTS = ["SW", "SE", "NW", "NE"]
+# QUADRANTS = ["SW", "SE", "NW", "NE"]
+QUADRANTS = ["Env 1", "Env 2", "Env 3", "Env 4"]
 B = 20
 VAL_PERCENTAGE = 0.2
 N_ESTIMATORS = 25
@@ -73,16 +75,32 @@ def assign_quadrant(
         env (np.ndarray): Environment label
     """
     lat, lon = Z["Latitude"], Z["Longitude"]
-    north = lat >= 35
-    south = ~north
-    east = lon >= -120
-    west = ~east
+
+    # north = lat >= 35
+    # south = ~north
+    # east = lon >= -120
+    # west = ~east
+    #
+    # env = np.zeros(len(Z), dtype=int)
+    # env[south & west] = 0  # SW
+    # env[south & east] = 1  # SE
+    # env[north & west] = 2  # NW
+    # env[north & east] = 3  # NE
+
+    west = lon < -121.5
+    east = ~west
+    sw = (lat < 38) & west
+    nw = (lat >= 38) & west
+    lat_thr = 34.5
+    se = (lat < lat_thr) & east
+    ne = (lat >= lat_thr) & east
 
     env = np.zeros(len(Z), dtype=int)
-    env[south & west] = 0  # SW
-    env[south & east] = 1  # SE
-    env[north & west] = 2  # NW
-    env[north & east] = 3  # NE
+    env[sw] = 0  # SW
+    env[se] = 1  # SE
+    env[nw] = 2  # NW
+    env[ne] = 3  # NE
+
     return env
 
 
@@ -129,8 +147,8 @@ def eval_one_quadrant(
         rf_regret_te.fit(X_test, y_test)
         sols_erm_te = rf_regret_te.predict(X_test)
 
-    if method == "nrw":
-        y_test = y_test - np.mean(y_test)
+    # if method == "nrw":
+    #     y_test = y_test - np.mean(y_test)
 
     main_records = []
     env_metrics_records = []
@@ -176,13 +194,13 @@ def eval_one_quadrant(
                     )
                     sols_erm_tr_trees[i, mask_e] = fitted_e_tree
 
-        if method == "nrw":
-            y_tr_demean = np.zeros_like(y_tr)
-            for env in np.unique(env_tr):
-                mask = env_tr == env
-                y_tr_e = y_tr[mask]
-                y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
-            y_tr = y_tr_demean
+        # if method == "nrw":
+        #     y_tr_demean = np.zeros_like(y_tr)
+        #     for env in np.unique(env_tr):
+        #         mask = env_tr == env
+        #         y_tr_e = y_tr[mask]
+        #         y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
+        #     y_tr = y_tr_demean
 
         # Fit and predict
         rf = RandomForest(
@@ -321,7 +339,7 @@ def gen_exp(
     y: pd.Series,
     env: np.ndarray,
     method: str,
-) -> None:
+) -> pd.DataFrame:
     """
     Leave-one-quadrant-out with train/val/test split
 
@@ -330,6 +348,9 @@ def gen_exp(
         y (pd.Series): Target vector
         env (np.ndarray): Environment labels
         method (str): Minimize the maximum MSE ("mse"), negative reward ("nrw"), or regret ("reg")
+
+    Returns:
+        main_result_df (pd.DataFrame): Max risk and results on test data
     """
     # Parallelize over quadrants
     main_dfs = []
@@ -357,7 +378,7 @@ def gen_exp(
     plot_test_risk(
         main_result_df,
         saveplot=True,
-        nameplot=f"heldout_{method}",
+        nameplot=f"heldout_mse_{method}",
         method=method,
         out_dir=OUT_DIR,
     )
@@ -371,6 +392,8 @@ def gen_exp(
         method=method,
         out_dir=OUT_DIR,
     )
+
+    return main_result_df
 
 
 def mtry_exp(
@@ -475,6 +498,7 @@ def mtry_exp(
                 method="regret",
                 sols_erm=sols_erm,
                 sols_erm_trees=sols_erm_trees,
+                solver="ECOS",
             )
             fitted_reg = rf_reg.predict(X_tr)
             results_reg[i, j] = max_regret(y_tr, fitted_reg, sols_erm, env_tr)
@@ -526,17 +550,20 @@ if __name__ == "__main__":
     env = assign_quadrant(Z)
 
     print("\nRunning experiment: Minimize maximum MSE across environments\n")
-    gen_exp(X, y, env, "mse")
+    mse_df = gen_exp(X, y, env, "mse")
 
     print(
         "\nRunning experiment: Minimize maximum negative reward across environments\n"
     )
-    gen_exp(X, y, env, "nrw")
+    nrw_df = gen_exp(X, y, env, "nrw")
 
     print(
         "\nRunning experiment: Minimize maximum regret across environments\n"
     )
-    gen_exp(X, y, env, "reg")
+    reg_df = gen_exp(X, y, env, "reg")
+
+    combined_df = pd.concat([mse_df, nrw_df, reg_df], ignore_index=True)
+    plot_test_risk_all_methods(combined_df, saveplot=True, out_dir=OUT_DIR)
 
     print("\nRunning mtry experiment:\n")
     mtry_exp(X, y, env)

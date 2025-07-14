@@ -6,6 +6,8 @@ from matplotlib.lines import Line2D
 
 NAME_RF = "WORME-RF"
 WIDTH, HEIGHT = 10, 6
+# QUADRANTS = ["SW", "SE", "NW", "NE"]
+QUADRANTS = ["Env 1", "Env 2", "Env 3", "Env 4"]
 
 
 # =====================================
@@ -69,10 +71,8 @@ def plot_test_risk(
     nameplot: str = "heldout_mse",
     show: bool = False,
     method: str = "mse",
-    legend_pos: None | str = "lower left",
     out_dir: str | None = None,
 ) -> None:
-    QUADRANTS = ["SW", "SE", "NW", "NE"]
     models = ["RF", f"{NAME_RF}(posthoc-{method})"]
 
     # Colors and offsets
@@ -119,13 +119,78 @@ def plot_test_risk(
         # lab = "Regret"
         lab = "MSPE"
     ax.set_ylabel(lab)
-    ax.legend(loc=legend_pos, frameon=True)
+    ax.legend(loc="best", frameon=True)
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
 
     plt.tight_layout()
     if saveplot:
         outpath = os.path.join(out_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
+    if show:
+        plt.show()
+
+
+def plot_test_risk_all_methods(
+    df: pd.DataFrame,
+    saveplot: bool = False,
+    nameplot: str = "heldout_mse_all_methods",
+    show: bool = False,
+    out_dir: str | None = None,
+) -> None:
+    models = [
+        "RF",
+        f"{NAME_RF}(posthoc-mse)",
+        f"{NAME_RF}(posthoc-nrw)",
+        f"{NAME_RF}(posthoc-reg)",
+    ]
+
+    colors = {
+        "RF": "lightskyblue",
+        f"{NAME_RF}(posthoc-mse)": "orange",
+        f"{NAME_RF}(posthoc-nrw)": "mediumpurple",
+        f"{NAME_RF}(posthoc-reg)": "yellowgreen",
+    }
+    delta = 0.1
+    offsets = np.linspace(-delta, delta, len(models))
+
+    # Compute group stats
+    grp = df.groupby(["HeldOutQuadrant", "Model"])["Test_risk"]
+    means = grp.mean().unstack().reindex(QUADRANTS)
+    stds = grp.std().unstack().reindex(QUADRANTS)
+    counts = grp.count().unstack().reindex(QUADRANTS)
+    ci95 = 1.96 * stds / np.sqrt(counts)
+
+    x0 = np.arange(len(QUADRANTS))
+
+    fig, ax = plt.subplots(figsize=(10, 5))
+
+    for idx, (off, model) in enumerate(zip(offsets, models)):
+        xm = x0 + off
+        ax.errorbar(
+            xm,
+            means[model],
+            yerr=ci95[model],
+            fmt="o",
+            color=colors[model],
+            markersize=8,
+            markeredgewidth=0,
+            elinewidth=2.5,
+            capsize=0,
+            label=model,
+        )
+
+    ax.set_xticks(x0)
+    ax.set_xticklabels(QUADRANTS)
+    ax.set_xlabel("Held-Out Quadrant")
+    ax.set_ylabel(r"$\mathsf{MSPE}$")
+    ax.legend(loc="best", frameon=True)
+    ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
+    plt.tight_layout()
+
+    if saveplot and out_dir:
+        outpath = os.path.join(out_dir, f"{nameplot}.png")
+        plt.savefig(outpath, dpi=300, bbox_inches="tight")
+
     if show:
         plt.show()
 
@@ -139,8 +204,6 @@ def plot_envs_risk(
     method: str = "mse",
     out_dir: str | None = None,
 ):
-    QUADRANTS = ["SW", "SE", "NW", "NE"]
-
     # Dynamically get model list
     models = ["RF", f"{NAME_RF}(posthoc-{method})"]
     num_models = len(models)
