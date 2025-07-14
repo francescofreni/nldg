@@ -443,8 +443,8 @@ def mtry_exp(
             # This is used for the regret
             sols_erm = np.zeros(env_tr.shape[0])
             sols_erm_trees = np.zeros((N_ESTIMATORS, env_tr.shape[0]))
-            for env in np.unique(env_tr):
-                mask = env_tr == env
+            for e in np.unique(env_tr):
+                mask = env_tr == e
                 X_e = X_tr[mask]
                 Y_e = y_tr[mask]
                 rf_e = RandomForest(

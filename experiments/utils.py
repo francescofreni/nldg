@@ -271,7 +271,7 @@ def plot_envs_risk(
         ax.text(
             x,
             y0 - 0.02 * (y1 - y0),
-            rf"$\mathsf{{{env}}}$",
+            env,
             ha="center",
             va="top",
             fontsize=10,
@@ -283,7 +283,7 @@ def plot_envs_risk(
         ax.text(
             mid,
             y0 - 0.08 * (y1 - y0),
-            rf"$\mathsf{{{ho}}}$",
+            ho,
             ha="center",
             va="top",
             fontsize=12,
