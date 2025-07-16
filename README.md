@@ -56,6 +56,7 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 │   ├── parallel_test_runtime        # Experiment to check the effect of parallelization
 │   ├── sim_diff_methods             # Comparing different variants of WORME Forest
 │   ├── sim_gen_gap                  # Verifying generalization guarantees
+│   ├── sim_mse_degeneration         # Guarantee for MSE fails with heteroskedastic noise
 │   └── utils                        # Helper functions
 |
 ├── nldg           
@@ -89,7 +90,17 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 python experiments/sim_diff_methods.py
 ```
 
-#### 2) Runtime parallelization experiment (only if $50$+ cores are available!)
+#### 2) Generalization Guarantees
+```bash
+python experiments/sim_gen_gap.py
+```
+
+#### 3) Generalization Guarantee fails with MSE objective and heteroskedastic noise
+```bash
+python experiments/sim_mse_degeneration.py
+```
+
+#### 4) Runtime parallelization experiment (only if $50$+ cores are available!)
 ```bash
 python experiments/parallel_test_runtime.py
 ```
