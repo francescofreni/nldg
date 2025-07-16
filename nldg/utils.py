@@ -430,11 +430,16 @@ def plot_dtr(
         "mediumpurple",
         "yellowgreen",
         "firebrick",
+        "royalblue",
+        "forestgreen",
     ]
     data_colors = ["black", "grey", "silver"]
     environments = sorted(dtr["E"].unique())
 
-    fig, ax = plt.subplots(figsize=(8, 5))
+    if "y_clean" in dtr:
+        fig, ax = plt.subplots(figsize=(10, 7))
+    else:
+        fig, ax = plt.subplots(figsize=(8, 5))
     for idx, env in enumerate(environments):
         marker_style = "o"
         ax.scatter(
@@ -482,6 +487,7 @@ def plot_dtr(
                     color=line_colors[2],
                     linewidth=2,
                     label="$f^{e_1}$",
+                    linestyle="--",
                 )
                 ax.plot(
                     X_sorted,
@@ -489,6 +495,7 @@ def plot_dtr(
                     color=line_colors[3],
                     linewidth=2,
                     label="$f^{e_2}$",
+                    linestyle="--",
                 )
                 ax.plot(
                     X_sorted,
@@ -496,6 +503,7 @@ def plot_dtr(
                     color=line_colors[4],
                     linewidth=2,
                     label="$f^{e_3}$",
+                    linestyle="--",
                 )
             if "fitted_minmax_xtrgrd" in dtr:
                 ax.plot(
@@ -564,6 +572,36 @@ def plot_dtr(
                 color=line_colors[4],
                 linewidth=2,
                 label="RF(magging)",
+            )
+        if "y_clean" in dtr:
+            y_clean = np.array(dtr["y_clean"]).ravel()
+            X = np.array(dtr["X"][dtr["E"] == 0]).ravel()
+            env_label = np.array(dtr["E"]).ravel()
+            sorted_idx = np.argsort(X)
+            X_sorted = X[sorted_idx]
+            ax.plot(
+                X_sorted,
+                y_clean[env_label == 0][sorted_idx],
+                color=line_colors[4],
+                linewidth=2,
+                label="$f^{e_1}$",
+                linestyle="--",
+            )
+            ax.plot(
+                X_sorted,
+                y_clean[env_label == 1][sorted_idx],
+                color=line_colors[5],
+                linewidth=2,
+                label="$f^{e_2}$",
+                linestyle="--",
+            )
+            ax.plot(
+                X_sorted,
+                y_clean[env_label == 2][sorted_idx],
+                color=line_colors[6],
+                linewidth=2,
+                label="$f^{e_3}$",
+                linestyle="--",
             )
 
     if optfun is not None:
