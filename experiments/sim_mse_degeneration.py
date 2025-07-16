@@ -106,12 +106,11 @@ if __name__ == "__main__":
     # Let the third environment be the noisiest one
     # Compute, for each environment e != 2, E[(f^e(X)-f^{2}(X))^2]
     k = 2
-    mask_k = env_label == k
     max_delta = 0
     for e in range(E):
         if e != k:
             mask = env_label == e
-            delta = np.mean((y_tr_clean[mask] - y_tr_clean[mask_k]) ** 2)
+            delta = np.mean((y_tr_clean[mask] - f_env[k](X_tr[mask])) ** 2)
             max_delta = max(max_delta, delta)
 
     # Therefore, we need to choose sigma_2^2 >= max_delta + sigma^2
