@@ -188,50 +188,52 @@ if __name__ == "__main__":
         mse_envs_dict[f"{NAME_RF}(global)"].append(mse_envs_minmax_m4)
         maxmse_dict[f"{NAME_RF}(global)"].append(maxmse_minmax_m4)
 
-        # Results
-        mse_df = pd.DataFrame(mse_dict)
-        mse_envs_df = get_df(mse_envs_dict)
-        maxmse_df = pd.DataFrame(maxmse_dict)
-        runtime_df = pd.DataFrame(runtime_dict)
+    # Results
+    mse_df = pd.DataFrame(mse_dict)
+    mse_envs_df = get_df(mse_envs_dict)
+    maxmse_df = pd.DataFrame(maxmse_dict)
+    runtime_df = pd.DataFrame(runtime_dict)
 
-        output_path = os.path.join(OUT_DIR, "summary_all.txt")
-        with open(output_path, "w") as f:
-            # MSE
-            means = mse_df.mean(axis=0)
-            n = mse_df.shape[0]
-            stderr = mse_df.std(axis=0, ddof=1) / np.sqrt(n)
-            ci_lower = means - 1.96 * stderr
-            ci_upper = means + 1.96 * stderr
-            f.write("MSE\n")
-            for col in mse_df.columns:
-                f.write(
-                    f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
-                )
-            f.write("\n")
+    output_path = os.path.join(OUT_DIR, "summary_all.txt")
+    with open(output_path, "w") as f:
+        # MSE
+        means = mse_df.mean(axis=0)
+        n = mse_df.shape[0]
+        stderr = mse_df.std(axis=0, ddof=1) / np.sqrt(n)
+        ci_lower = means - 1.96 * stderr
+        ci_upper = means + 1.96 * stderr
+        f.write("MSE\n")
+        for col in mse_df.columns:
+            f.write(
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+            )
+        f.write("\n")
 
-            # Max MSE
-            means = maxmse_df.mean(axis=0)
-            n = maxmse_df.shape[0]
-            stderr = maxmse_df.std(axis=0, ddof=1) / np.sqrt(n)
-            ci_lower = means - 1.96 * stderr
-            ci_upper = means + 1.96 * stderr
-            f.write("Max MSE\n")
-            for col in maxmse_df.columns:
-                f.write(
-                    f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
-                )
-            f.write("\n")
+        # Max MSE
+        means = maxmse_df.mean(axis=0)
+        n = maxmse_df.shape[0]
+        stderr = maxmse_df.std(axis=0, ddof=1) / np.sqrt(n)
+        ci_lower = means - 1.96 * stderr
+        ci_upper = means + 1.96 * stderr
+        f.write("Max MSE\n")
+        for col in maxmse_df.columns:
+            f.write(
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+            )
+        f.write("\n")
 
-            # Runtime
-            means = runtime_df.mean(axis=0)
-            n = runtime_df.shape[0]
-            stderr = runtime_df.std(axis=0, ddof=1) / np.sqrt(n)
-            ci_lower = means - 1.96 * stderr
-            ci_upper = means + 1.96 * stderr
-            f.write("Runtime (seconds)\n")
-            for col in runtime_df.columns:
-                f.write(
-                    f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
-                )
+        # Runtime
+        means = runtime_df.mean(axis=0)
+        n = runtime_df.shape[0]
+        stderr = runtime_df.std(axis=0, ddof=1) / np.sqrt(n)
+        ci_lower = means - 1.96 * stderr
+        ci_upper = means + 1.96 * stderr
+        f.write("Runtime (seconds)\n")
+        for col in runtime_df.columns:
+            f.write(
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+            )
 
-        plot_max_mse_boxplot(maxmse_df, saveplot=True, out_dir=OUT_DIR)
+    plot_max_mse_boxplot(maxmse_df, saveplot=True, out_dir=OUT_DIR)
+
+    print(f"Saved results to {OUT_DIR}")

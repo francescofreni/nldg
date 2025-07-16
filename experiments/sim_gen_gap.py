@@ -302,3 +302,5 @@ if __name__ == "__main__":
     plot_tricontour(mse_diff_map, "mse")
     plot_tricontour(negrew_diff_map, "negrew")
     plot_tricontour(regret_diff_map, "regret")
+
+    print(f"Saved results to {OUT_DIR}")

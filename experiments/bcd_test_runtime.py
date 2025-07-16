@@ -212,3 +212,5 @@ if __name__ == "__main__":
     plot_max_mse_vs_blocksize(
         maxmse_rf, maxmse_minimax, max_mse_bcd, block_sizes, plots_dir
     )
+
+    print(f"Saved results to {plots_dir}")

@@ -54,6 +54,8 @@ def plot_runtime(
     outpath = os.path.join(plots_dir, "runtime_vs_cores.png")
     plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
+    print(f"Saved results to {plots_dir}")
+
 
 if __name__ == "__main__":
     dtr = gen_data_v6(n=1000, noise_std=0.5)
