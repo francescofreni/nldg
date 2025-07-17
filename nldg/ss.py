@@ -22,7 +22,7 @@ class MinMaxSmoothSpline:
     env : array-like, optional (required if method is different from "erm")
         Environment labels corresponding to each (x, y) point. Used only for
         the minimax method to define groups over which to minimize the
-        maximum mean squared error.
+        maximum risk.
     w : array-like, optional
         Observation weights. Must be non-negative. If None, uniform weights are used.
     degree : int, optional (default=3)
@@ -186,6 +186,12 @@ class MinMaxSmoothSpline:
 
         if nx <= 3:
             raise ValueError("need at least four unique x values")
+
+        self.x = x
+        self.nx = nx
+        self.n = n
+        self.uxx = uxx
+        self.xx = xx
 
         if nx == n:
             ox = np.argsort(x)
@@ -684,6 +690,179 @@ class MinMaxSmoothSpline:
         # x_scaled = (x_new - self.ux[0]) / self.r_ux
         # return self.spline(x_scaled)
         return self.spline(x_new)
+
+    # # BCD for smoothing splines: modifies ERM solution.
+    # # More complicated than one would think: the lambda found with ERM
+    # # is different from the lambda that I need. Optimization fails.
+    # def refit_bcd(
+    #     self,
+    #     env: np.ndarray,
+    #     method: str = "mse",
+    #     sols_erm: np.ndarray | None = None,
+    #     block_size: int = 10,
+    #     max_iter: int = 100,
+    #     solver: Optional[str] = None,
+    #     verbose: bool = False,
+    #     patience: int = 5,
+    #     min_delta: float = 1e-3,
+    # ) -> None:
+    #     """
+    #     Modifies, using block-coordinate descent (BCD), the coefficients found after a first fit,
+    #     which may have been done using ERM. The resulting coefficients minimize the maximum risk
+    #     over training environments.
+    #
+    #     Parameters
+    #     ----------
+    #     env : array-like
+    #         Environment labels corresponding to each (x, y) point. Used only for
+    #         the minimax method to define groups over which to minimize the
+    #         maximum risk. It must be given because, if the first fit was done wit ERM,
+    #         the environment labels may not be available.
+    #     method : {"mse", "regret", "reward"}, optional (default="mse")
+    #         Estimation method:
+    #             - "mse": Minimizes the worst-case environment-specific MSE
+    #             - "regret": Minimizes the maximum regret across environments
+    #             - "reward": Maximizes the minimal reward across environments
+    #     sols_erm : np.ndarray, optional (default=None)
+    #         Environment specific predictions used to compute the regret
+    #     block_size : int, default=10
+    #         Number of leaf values to update per block in BCD.
+    #         Determines the size of each coordinate block.
+    #     max_iter : int, default=100
+    #         Maximum number of BCD iterations. Only used when opt_method='cp' and bcd=True.
+    #     solver : str, optional (default = None)
+    #         Solver used by cvxpy. Examples are 'ECOS', 'SCS', 'CLARABEL'
+    #     verbose : bool, default=False
+    #         Whether to print optimization progress and diagnostics.
+    #     patience : int, default=5
+    #         Number of consecutive epochs without sufficient improvement in loss
+    #         before stopping the optimization early.
+    #     min_delta : float, default=1e-4
+    #         Minimum change in the maximum loss between iterations to qualify as an
+    #         improvement. Changes smaller than `min_delta` are considered as no improvement.
+    #     """
+    #     if method not in ["mse", "regret", "reward"]:
+    #         raise ValueError(
+    #             "method must be one of 'mse', 'regret', 'reward'"
+    #         )
+    #
+    #     if method == "regret" and sols_erm is None:
+    #         raise ValueError("sols_erm must be provided if method is 'regret'")
+    #
+    #     if self.nx == self.n:
+    #         ox = np.argsort(self.x)
+    #         envbar = env[ox]
+    #     else:
+    #         ox = np.searchsorted(self.uxx, self.xx)
+    #         envbar = np.empty(self.nx, dtype=env.dtype)
+    #         for i in range(self.nx):
+    #             mask = ox == i
+    #             vals, counts = np.unique(env[mask], return_counts=True)
+    #             envbar[i] = vals[np.argmax(counts)]
+    #     unique_envs = np.unique(envbar)
+    #
+    #     beta = self.coef
+    #     beta_blocks = [beta[i:i + block_size] for i in range(0, len(beta), block_size)]
+    #     n_blocks = len(beta_blocks)
+    #
+    #     best_t = np.inf
+    #     iters_no_improvement = 0
+    #
+    #     if verbose:
+    #         print(f"Starting BCD optimization with {n_blocks} blocks of size {block_size}")
+    #         print(f"Total variables: {len(beta)}, Max iterations: {max_iter}")
+    #         print("-" * 60)
+    #
+    #     for iter_idx in range(max_iter):
+    #         i = iter_idx % n_blocks
+    #         block_start = i * block_size
+    #         block_end = min((i + 1) * block_size, len(self.coef))
+    #         block_indices = np.arange(block_start, block_end)
+    #         beta = cp.Variable(len(self.coef))
+    #
+    #         if method == "mse":
+    #             t = cp.Variable(nonneg=True)
+    #         else:
+    #             t = cp.Variable()
+    #
+    #         # Fix all coefficients except the current block
+    #         fixed_indices = np.setdiff1d(np.arange(len(self.coef)), block_indices)
+    #         constraints = [beta[fixed_indices] == self.coef[fixed_indices]]
+    #
+    #         if verbose and iter_idx % n_blocks == 0:
+    #             cycle = iter_idx // n_blocks + 1
+    #             print(f"Cycle {cycle}: best_t = {best_t:.6f}, no_improvement = {iters_no_improvement}")
+    #
+    #         for e in unique_envs:
+    #             mask = envbar == e
+    #             count_env = cp.sum(self.wbar[mask])
+    #             x_env = self.ux[mask]
+    #             y_env = self.ybar[mask]
+    #             N_e = self._bspline_dm(x_env)
+    #             W_e = np.diag(self.wbar[mask])
+    #             residual = y_env - N_e @ beta
+    #
+    #             if method == "mse":
+    #                 constraints.append(cp.quad_form(residual, W_e) / count_env <= t)
+    #             elif method == "reward":
+    #                 constraints.append(
+    #                     (cp.quad_form(residual, W_e) - cp.sum_squares(y_env)) / count_env <= t
+    #                 )
+    #             else:  # regret
+    #                 constraints.append(
+    #                     (cp.quad_form(residual, W_e) - cp.sum_squares(y_env - self.sols_erm[mask])) / count_env <= t
+    #                 )
+    #
+    #         objective = cp.Minimize(t + self.lam * cp.quad_form(beta, cp.psd_wrap(self.Omega)))
+    #         problem = cp.Problem(objective, constraints)
+    #
+    #         with warnings.catch_warnings():
+    #             warnings.simplefilter("ignore", UserWarning)
+    #             if self.solver is None:
+    #                 problem.solve(warm_start=True)
+    #             else:
+    #                 problem.solve(warm_start=True, solver=solver)
+    #
+    #         if problem.status not in ["optimal", "optimal_inaccurate"]:
+    #             if verbose:
+    #                 print(f"  Block {i:2d}: SOLVER FAILED - status={problem.status}")
+    #             iters_no_improvement += 1
+    #             if iters_no_improvement >= patience:
+    #                 if verbose:
+    #                     print(f"Stopping after {iter_idx + 1} iterations (too many solver failures)")
+    #                 break
+    #             continue
+    #
+    #         # Extract new block values
+    #         new_block = beta.value[block_indices]
+    #         self.coef[block_indices] = new_block
+    #
+    #         curr_t = t.value
+    #         improvement = best_t - curr_t if curr_t < best_t else 0
+    #
+    #         if verbose:
+    #             print(f"Block {i:2d}: t={curr_t:.6f}, improvement={improvement:.2e}")
+    #
+    #         if curr_t < best_t:
+    #             if best_t - curr_t < min_delta:
+    #                 iters_no_improvement += 1
+    #             else:
+    #                 iters_no_improvement = 0
+    #             best_t = curr_t
+    #         else:
+    #             iters_no_improvement += 1
+    #
+    #         if iters_no_improvement >= patience:
+    #             if verbose:
+    #                 print(f"Converged after {iter_idx + 1} iterations (patience reached)")
+    #             break
+    #
+    #     if verbose:
+    #         print("-" * 60)
+    #         print(f"BCD completed: {iter_idx + 1} iterations, final_t = {best_t:.6f}")
+    #         print("-" * 60)
+    #
+    #     self.spline = BSpline(self.knots, self.coef, self.degree, extrapolate=False)
 
 
 class MaggingSmoothSpline:
