@@ -174,6 +174,7 @@ def eval_one_quadrant(
         if method == "reg":
             # Compute the ERM solution in each environment
             sols_erm_tr = np.zeros(env_tr.shape[0])
+            sols_erm_val = np.zeros(env_val.shape[0])
             sols_erm_tr_trees = np.zeros((N_ESTIMATORS, env_tr.shape[0]))
             for e in np.unique(env_tr):
                 mask_e = env_tr == e
@@ -193,6 +194,9 @@ def eval_one_quadrant(
                         np.ascontiguousarray(X_e.to_numpy())
                     )
                     sols_erm_tr_trees[i, mask_e] = fitted_e_tree
+                mask_e_val = env_val == e
+                fitted_e_val = rf_e.predict(X_val[mask_e_val])
+                sols_erm_val[mask_e_val] = fitted_e_val
 
         # if method == "nrw":
         #     y_tr_demean = np.zeros_like(y_tr)
@@ -210,7 +214,7 @@ def eval_one_quadrant(
             seed=SEED,
         )
         rf.fit(X_tr, y_tr)
-        preds_tr = rf.predict(X_tr)
+        preds_val = rf.predict(X_val)
         preds_test = rf.predict(X_test)
 
         if method == "mse":
@@ -224,58 +228,58 @@ def eval_one_quadrant(
                 sols_erm=sols_erm_tr,
                 sols_erm_trees=sols_erm_tr_trees,
             )
-        preds_tr_posthoc = rf.predict(X_tr)
+        preds_val_posthoc = rf.predict(X_val)
         preds_test_posthoc = rf.predict(X_test)
 
         # Compute metrics
         if method == "mse":
-            risk_envs_tr, max_risk_tr = max_mse(
-                y_tr, preds_tr, env_tr, ret_ind=True
+            risk_envs_val, max_risk_val = max_mse(
+                y_val, preds_val, env_val, ret_ind=True
             )
-            risk_tr = mean_squared_error(y_tr, preds_tr)
+            risk_val = mean_squared_error(y_val, preds_val)
             risk_test = mean_squared_error(y_test, preds_test)
 
-            risk_envs_tr_posthoc, max_risk_tr_posthoc = max_mse(
-                y_tr, preds_tr_posthoc, env_tr, ret_ind=True
+            risk_envs_val_posthoc, max_risk_val_posthoc = max_mse(
+                y_val, preds_val_posthoc, env_val, ret_ind=True
             )
-            risk_tr_posthoc = mean_squared_error(y_tr, preds_tr_posthoc)
+            risk_val_posthoc = mean_squared_error(y_val, preds_val_posthoc)
             risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
         elif method == "nrw":
-            risk_envs_tr, max_risk_tr = min_reward(
-                y_tr, preds_tr, env_tr, ret_ind=True
+            risk_envs_val, max_risk_val = min_reward(
+                y_val, preds_val, env_val, ret_ind=True
             )
-            risk_envs_tr = -np.array(risk_envs_tr)
-            max_risk_tr = -max_risk_tr
-            risk_tr = np.nan
+            risk_envs_val = -np.array(risk_envs_val)
+            max_risk_val = -max_risk_val
+            risk_val = np.nan
             # risk_test = mean_squared_error(y_test, preds_test) - np.mean(
             #     y_test**2
             # )
             risk_test = mean_squared_error(y_test, preds_test)
 
-            risk_envs_tr_posthoc, max_risk_tr_posthoc = min_reward(
-                y_tr, preds_tr_posthoc, env_tr, ret_ind=True
+            risk_envs_val_posthoc, max_risk_val_posthoc = min_reward(
+                y_val, preds_val_posthoc, env_val, ret_ind=True
             )
-            risk_envs_tr_posthoc = -np.array(risk_envs_tr_posthoc)
-            max_risk_tr_posthoc = -max_risk_tr_posthoc
-            risk_tr_posthoc = np.nan
+            risk_envs_val_posthoc = -np.array(risk_envs_val_posthoc)
+            max_risk_val_posthoc = -max_risk_val_posthoc
+            risk_val_posthoc = np.nan
             # risk_test_posthoc = mean_squared_error(
             #     y_test, preds_test_posthoc
             # ) - np.mean(y_test**2)
             risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
         else:
-            risk_envs_tr, max_risk_tr = max_regret(
-                y_tr, preds_tr, sols_erm_tr, env_tr, ret_ind=True
+            risk_envs_val, max_risk_val = max_regret(
+                y_val, preds_val, sols_erm_val, env_val, ret_ind=True
             )
-            risk_tr = np.nan
+            risk_val = np.nan
             # risk_test = mean_squared_error(
             #     y_test, preds_test
             # ) - mean_squared_error(y_test, sols_erm_te)
             risk_test = mean_squared_error(y_test, preds_test)
 
-            risk_envs_tr_posthoc, max_risk_tr_posthoc = max_regret(
-                y_tr, preds_tr_posthoc, sols_erm_tr, env_tr, ret_ind=True
+            risk_envs_val_posthoc, max_risk_val_posthoc = max_regret(
+                y_val, preds_val_posthoc, sols_erm_val, env_val, ret_ind=True
             )
-            risk_tr_posthoc = np.nan
+            risk_val_posthoc = np.nan
             # risk_test_posthoc = mean_squared_error(
             #     y_test, preds_test_posthoc
             # ) - mean_squared_error(y_test, sols_erm_te)
@@ -290,17 +294,17 @@ def eval_one_quadrant(
         ) in [
             (
                 "RF",
-                max_risk_tr,
+                max_risk_val,
                 risk_test,
-                risk_envs_tr,
-                risk_tr,
+                risk_envs_val,
+                risk_val,
             ),
             (
                 f"{NAME_RF}(posthoc-{method})",
-                max_risk_tr_posthoc,
+                max_risk_val_posthoc,
                 risk_test_posthoc,
-                risk_envs_tr_posthoc,
-                risk_tr_posthoc,
+                risk_envs_val_posthoc,
+                risk_val_posthoc,
             ),
         ]:
             # Main performance metrics
@@ -442,6 +446,7 @@ def mtry_exp(
             # Fit standard RF for each environment separately
             # This is used for the regret
             sols_erm = np.zeros(env_tr.shape[0])
+            sols_erm_val = np.zeros(env_val.shape[0])
             sols_erm_trees = np.zeros((N_ESTIMATORS, env_tr.shape[0]))
             for e in np.unique(env_tr):
                 mask = env_tr == e
@@ -462,6 +467,9 @@ def mtry_exp(
                         np.ascontiguousarray(X_e.to_numpy())
                     )
                     sols_erm_trees[k, mask] = fitted_e_tree
+                mask_e_val = env_val == e
+                fitted_e_val = rf_e.predict(X_val[mask_e_val])
+                sols_erm_val[mask_e_val] = fitted_e_val
 
             # RF
             rf = RandomForest(
@@ -472,26 +480,26 @@ def mtry_exp(
                 max_features=int(m),
             )
             rf.fit(X_tr, y_tr)
-            fitted_rf = rf.predict(X_tr)
-            results_rf_mse[i, j] = max_mse(y_tr, fitted_rf, env_tr)
-            results_rf_nrw[i, j] = -min_reward(y_tr, fitted_rf, env_tr)
+            fitted_rf = rf.predict(X_val)
+            results_rf_mse[i, j] = max_mse(y_val, fitted_rf, env_val)
+            results_rf_nrw[i, j] = -min_reward(y_val, fitted_rf, env_val)
             results_rf_reg[i, j] = max_regret(
-                y_tr, fitted_rf, sols_erm, env_tr
+                y_val, fitted_rf, sols_erm_val, env_val
             )
 
             # min max MSE
             rf_mse = copy.deepcopy(rf)
             rf_mse.modify_predictions_trees(env_tr, solver="ECOS")
-            fitted_mse = rf_mse.predict(X_tr)
-            results_mse[i, j] = max_mse(y_tr, fitted_mse, env_tr)
+            fitted_mse = rf_mse.predict(X_val)
+            results_mse[i, j] = max_mse(y_val, fitted_mse, env_val)
 
             # min max Negative Reward
             rf_nrw = copy.deepcopy(rf)
             rf_nrw.modify_predictions_trees(
                 env_tr, method="reward", solver="ECOS"
             )
-            fitted_nrw = rf_nrw.predict(X_tr)
-            results_nrw[i, j] = -min_reward(y_tr, fitted_nrw, env_tr)
+            fitted_nrw = rf_nrw.predict(X_val)
+            results_nrw[i, j] = -min_reward(y_val, fitted_nrw, env_val)
 
             # min max Regret
             rf_reg = copy.deepcopy(rf)
@@ -502,8 +510,10 @@ def mtry_exp(
                 sols_erm_trees=sols_erm_trees,
                 solver="ECOS",
             )
-            fitted_reg = rf_reg.predict(X_tr)
-            results_reg[i, j] = max_regret(y_tr, fitted_reg, sols_erm, env_tr)
+            fitted_reg = rf_reg.predict(X_val)
+            results_reg[i, j] = max_regret(
+                y_val, fitted_reg, sols_erm_val, env_val
+            )
 
     def plot_df(df_base, df_posthoc, nameplot, suffix):
         df_base["method"] = "RF"
