@@ -85,9 +85,8 @@ if __name__ == "__main__":
             random_state=i,
             backend="adaXT",
         )
-        fitted_magging, preds_magging = rf_magging.fit_predict_magging(
-            Xtr, Ytr, Etr, Xte
-        )
+        fitted_magging = rf_magging.fit(Xtr, Ytr, Etr)
+        preds_magging = rf_magging.predict(Xte)
         end = time.process_time()
         runtime_dict["RF(magging)"].append(end - start)
         mse_dict["RF(magging)"].append(mean_squared_error(Yte, preds_magging))

@@ -41,16 +41,16 @@ class MaggingRF:
         self.min_samples_leaf = min_samples_leaf
         self.weights_magging = None
         self.backend = backend
+        self.model_list = []
 
     def get_weights(self) -> np.ndarray | None:
         return self.weights_magging
 
-    def fit_predict_magging(
+    def fit(
         self,
         X_train: np.ndarray,
         Y_train: np.ndarray,
         E_train: np.ndarray,
-        X_test: np.ndarray,
     ) -> tuple[np.ndarray, np.ndarray]:
         """
         Computes the predictions for a given test dataset
@@ -61,7 +61,6 @@ class MaggingRF:
             X_train: Feature matrix of the training data.
             Y_train: Response vector of the training data.
             E_train: Environment label of the training data.
-            X_test: Feature matrix of the test data.
 
         Returns:
             A tuple of 2 numpy arrays:
@@ -77,7 +76,6 @@ class MaggingRF:
         constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
         bounds = [[0, 1] for _ in range(n_envs)]
 
-        preds_envs = []
         fitted_envs = []
         for env in np.unique(E_train):
             Xtr_e = X_train[E_train == env]
@@ -105,9 +103,8 @@ class MaggingRF:
                     seed=self.random_state,
                 )
                 rfm.fit(Xtr_e, Ytr_e)
-            preds_envs.append(rfm.predict(X_test))
+            self.model_list.append(rfm)
             fitted_envs.append(rfm.predict(X_train))
-        preds_envs = np.column_stack(preds_envs)
         fitted_envs = np.column_stack(fitted_envs)
 
         wmag = minimize(
@@ -118,7 +115,27 @@ class MaggingRF:
             constraints=constraints,
         ).x
         self.weights_magging = wmag
-        wpreds = np.dot(wmag, preds_envs.T)
         wfitted = np.dot(wmag, fitted_envs.T)
 
-        return wfitted, wpreds
+        return wfitted
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        Predicts using the optimal weights found with magging
+
+        Parameters
+        ----------
+        X : np.ndarray
+            Feature matrix of the test data.
+
+        Returns
+        -------
+        preds : np.ndarray
+            Predicted values.
+        """
+        preds_envs = []
+        for model in self.model_list:
+            preds_envs.append(model.predict(X))
+        preds_envs = np.column_stack(preds_envs)
+        preds = np.dot(self.weights_magging, preds_envs.T)
+        return preds

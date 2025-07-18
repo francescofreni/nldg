@@ -286,7 +286,7 @@ class MinMaxSmoothSpline:
         X = np.zeros((len(x_vals), self.M))
         coeffs = np.eye(self.M)
         for i in range(self.M):
-            b = BSpline(self.knots, coeffs[i], self.degree, extrapolate=False)
+            b = BSpline(self.knots, coeffs[i], self.degree, extrapolate=True)
             X[:, i] = b(x_vals)
         return X
 
@@ -299,7 +299,7 @@ class MinMaxSmoothSpline:
             coeff = np.zeros(M)
             coeff[i] = 1
             b = BSpline(
-                self.knots, coeff, self.degree, extrapolate=False
+                self.knots, coeff, self.degree, extrapolate=True
             ).derivative(2)
             second_derivs[i] = b(grid)
 
@@ -682,7 +682,7 @@ class MinMaxSmoothSpline:
                 self.coef = beta
 
         self.spline = BSpline(
-            self.knots, self.coef, self.degree, extrapolate=False
+            self.knots, self.coef, self.degree, extrapolate=True
         )
 
     def predict(self, x_new: np.ndarray) -> np.ndarray:
@@ -862,7 +862,7 @@ class MinMaxSmoothSpline:
     #         print(f"BCD completed: {iter_idx + 1} iterations, final_t = {best_t:.6f}")
     #         print("-" * 60)
     #
-    #     self.spline = BSpline(self.knots, self.coef, self.degree, extrapolate=False)
+    #     self.spline = BSpline(self.knots, self.coef, self.degree, extrapolate=True)
 
 
 class MaggingSmoothSpline:
