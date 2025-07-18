@@ -49,6 +49,16 @@ if __name__ == "__main__":
         Ytr = np.array(dtr["Y"])
         Etr = np.array(dtr["E"])
 
+        dte = gen_data_v6(
+            n=SAMPLE_SIZE,
+            noise_std=NOISE_STD,
+            random_state=1000 + i,
+            setting=2,
+        )
+        Xte = np.array(dte.drop(columns=["E", "Y"]))
+        Yte = np.array(dte["Y"])
+        Ete = np.array(dte["E"])
+
         # Default RF
         start = time.process_time()
         rf = RandomForest(
@@ -61,9 +71,9 @@ if __name__ == "__main__":
         end = time.process_time()
         time_rf = end - start
         runtime_dict["RF"].append(time_rf)
-        fitted_rf = rf.predict(Xtr)
-        mse_dict["RF"].append(mean_squared_error(Ytr, fitted_rf))
-        mse_envs_rf, maxmse_rf = max_mse(Ytr, fitted_rf, Etr, ret_ind=True)
+        preds_rf = rf.predict(Xte)
+        mse_dict["RF"].append(mean_squared_error(Yte, preds_rf))
+        mse_envs_rf, maxmse_rf = max_mse(Yte, preds_rf, Ete, ret_ind=True)
         mse_envs_dict["RF"].append(mse_envs_rf)
         maxmse_dict["RF"].append(maxmse_rf)
 
@@ -76,13 +86,13 @@ if __name__ == "__main__":
             backend="adaXT",
         )
         fitted_magging, preds_magging = rf_magging.fit_predict_magging(
-            Xtr, Ytr, Etr, Xtr
+            Xtr, Ytr, Etr, Xte
         )
         end = time.process_time()
         runtime_dict["RF(magging)"].append(end - start)
-        mse_dict["RF(magging)"].append(mean_squared_error(Ytr, fitted_magging))
+        mse_dict["RF(magging)"].append(mean_squared_error(Yte, preds_magging))
         mse_envs_magging, maxmse_magging = max_mse(
-            Ytr, fitted_magging, Etr, ret_ind=True
+            Yte, preds_magging, Ete, ret_ind=True
         )
         mse_envs_dict["RF(magging)"].append(mse_envs_magging)
         maxmse_dict["RF(magging)"].append(maxmse_magging)
@@ -100,12 +110,12 @@ if __name__ == "__main__":
         end = time.process_time()
         time_minmax_m0 = end - start
         runtime_dict[f"{NAME_RF}(local)"].append(time_minmax_m0)
-        fitted_minmax_m0 = rf_minmax_m0.predict(Xtr)
+        preds_minmax_m0 = rf_minmax_m0.predict(Xte)
         mse_dict[f"{NAME_RF}(local)"].append(
-            mean_squared_error(Ytr, fitted_minmax_m0)
+            mean_squared_error(Yte, preds_minmax_m0)
         )
         mse_envs_minmax_m0, maxmse_minmax_m0 = max_mse(
-            Ytr, fitted_minmax_m0, Etr, ret_ind=True
+            Yte, preds_minmax_m0, Ete, ret_ind=True
         )
         mse_envs_dict[f"{NAME_RF}(local)"].append(mse_envs_minmax_m0)
         maxmse_dict[f"{NAME_RF}(local)"].append(maxmse_minmax_m0)
@@ -117,12 +127,12 @@ if __name__ == "__main__":
         time_minmax_m1 = end - start
         time_minmax_m1 += time_rf
         runtime_dict[f"{NAME_RF}(posthoc)"].append(time_minmax_m1)
-        fitted_minmax_m1 = rf.predict(Xtr)
+        preds_minmax_m1 = rf.predict(Xte)
         mse_dict[f"{NAME_RF}(posthoc)"].append(
-            mean_squared_error(Ytr, fitted_minmax_m1)
+            mean_squared_error(Yte, preds_minmax_m1)
         )
         mse_envs_minmax_m1, maxmse_minmax_m1 = max_mse(
-            Ytr, fitted_minmax_m1, Etr, ret_ind=True
+            Yte, preds_minmax_m1, Etr, ret_ind=True
         )
         mse_envs_dict[f"{NAME_RF}(posthoc)"].append(mse_envs_minmax_m1)
         maxmse_dict[f"{NAME_RF}(posthoc)"].append(maxmse_minmax_m1)
@@ -134,12 +144,12 @@ if __name__ == "__main__":
         time_minmax_m2 = end - start
         time_minmax_m2 += time_minmax_m0
         runtime_dict[f"{NAME_RF}(posthoc-local)"].append(time_minmax_m2)
-        fitted_minmax_m2 = rf_minmax_m0.predict(Xtr)
+        preds_minmax_m2 = rf_minmax_m0.predict(Xte)
         mse_dict[f"{NAME_RF}(posthoc-local)"].append(
-            mean_squared_error(Ytr, fitted_minmax_m2)
+            mean_squared_error(Yte, preds_minmax_m2)
         )
         mse_envs_minmax_m2, maxmse_minmax_m2 = max_mse(
-            Ytr, fitted_minmax_m2, Etr, ret_ind=True
+            Yte, preds_minmax_m2, Ete, ret_ind=True
         )
         mse_envs_dict[f"{NAME_RF}(posthoc-local)"].append(mse_envs_minmax_m2)
         maxmse_dict[f"{NAME_RF}(posthoc-local)"].append(maxmse_minmax_m2)
@@ -156,12 +166,12 @@ if __name__ == "__main__":
         rf_minmax_m3.fit(Xtr, Ytr, Etr)
         end = time.process_time()
         runtime_dict[f"{NAME_RF}(global-dfs)"].append(end - start)
-        fitted_minmax_m3 = rf_minmax_m3.predict(Xtr)
+        preds_minmax_m3 = rf_minmax_m3.predict(Xte)
         mse_dict[f"{NAME_RF}(global-dfs)"].append(
-            mean_squared_error(Ytr, fitted_minmax_m3)
+            mean_squared_error(Yte, preds_minmax_m3)
         )
         mse_envs_minmax_m3, maxmse_minmax_m3 = max_mse(
-            Ytr, fitted_minmax_m3, Etr, ret_ind=True
+            Yte, preds_minmax_m3, Ete, ret_ind=True
         )
         mse_envs_dict[f"{NAME_RF}(global-dfs)"].append(mse_envs_minmax_m3)
         maxmse_dict[f"{NAME_RF}(global-dfs)"].append(maxmse_minmax_m3)
@@ -178,12 +188,12 @@ if __name__ == "__main__":
         rf_minmax_m4.fit(Xtr, Ytr, Etr)
         end = time.process_time()
         runtime_dict[f"{NAME_RF}(global)"].append(end - start)
-        fitted_minmax_m4 = rf_minmax_m4.predict(Xtr)
+        preds_minmax_m4 = rf_minmax_m4.predict(Xte)
         mse_dict[f"{NAME_RF}(global)"].append(
-            mean_squared_error(Ytr, fitted_minmax_m4)
+            mean_squared_error(Yte, preds_minmax_m4)
         )
         mse_envs_minmax_m4, maxmse_minmax_m4 = max_mse(
-            Ytr, fitted_minmax_m4, Etr, ret_ind=True
+            Yte, preds_minmax_m4, Ete, ret_ind=True
         )
         mse_envs_dict[f"{NAME_RF}(global)"].append(mse_envs_minmax_m4)
         maxmse_dict[f"{NAME_RF}(global)"].append(maxmse_minmax_m4)

@@ -1,4 +1,5 @@
 import os
+import copy
 import time
 import numpy as np
 import pandas as pd
@@ -6,11 +7,15 @@ import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_california_housing
 from nldg.utils import max_mse
 from adaXT.random_forest import RandomForest
+from sklearn.model_selection import train_test_split
 
 N_ESTIMATORS = 25
 MIN_SAMPLES_LEAF = 30
 SEED = 42
 NAME_RF = "WORME-RF"
+B = 20
+VAL_PERCENTAGE = 0.3
+BLOCK_SIZES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
 
 def assign_quadrant(
@@ -30,21 +35,50 @@ def assign_quadrant(
     return env
 
 
-def plot_bcd_runtime(block_sizes, bcd_times, baseline_time, out_dir):
-    plt.figure(figsize=(6, 4))
+def plot_bcd_runtime(runtime_dict, out_dir):
+    def get_ci(vals):
+        mean = np.mean(vals)
+        stderr = np.std(vals, ddof=1) / np.sqrt(B)
+        return mean, mean - 1.96 * stderr, mean + 1.96 * stderr
+
+    baseline_key = f"{NAME_RF}(posthoc-mse)"
+    base_vals = runtime_dict[baseline_key]
+    base_mean, base_lo, base_hi = get_ci(base_vals)
+
+    bcd_means, bcd_lowers, bcd_uppers = [], [], []
+    for bs in BLOCK_SIZES:
+        vals = runtime_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"]
+        mean, lo, hi = get_ci(vals)
+        bcd_means.append(mean)
+        bcd_lowers.append(lo)
+        bcd_uppers.append(hi)
+
+    plt.figure(figsize=(8, 5))
+    plt.hlines(
+        y=base_mean,
+        xmin=5,
+        xmax=50,
+        linestyle="--",
+        color="orange",
+        label="Non-BCD",
+    )
+    plt.fill_between(
+        BLOCK_SIZES,
+        [base_lo] * len(BLOCK_SIZES),
+        [base_hi] * len(BLOCK_SIZES),
+        color="orange",
+        alpha=0.2,
+    )
+
     plt.plot(
-        block_sizes,
-        bcd_times,
-        marker="o",
-        color="lightskyblue",
-        markeredgecolor="white",
-        label="BCD",
+        BLOCK_SIZES, bcd_means, color="lightskyblue", marker="o", label="BCD"
     )
-    plt.axhline(
-        y=baseline_time, color="orange", linestyle="--", label="Non-BCD"
+    plt.fill_between(
+        BLOCK_SIZES, bcd_lowers, bcd_uppers, color="lightskyblue", alpha=0.3
     )
-    plt.xlabel("Block Size $b$")
-    plt.ylabel("Runtime ($s$)")
+
+    plt.xlabel("Block size $b$")
+    plt.ylabel("Runtime (seconds)")
     plt.grid(True, linewidth=0.2)
     plt.legend()
     plt.tight_layout()
@@ -52,34 +86,35 @@ def plot_bcd_runtime(block_sizes, bcd_times, baseline_time, out_dir):
     plt.close()
 
 
-def plot_mse_by_method(
-    mse_rf, mse_non_bcd, mse_bcd_dict, block_sizes, out_dir
-):
+def plot_mse_by_method(mse_envs_dict, out_dir):
     env_labels = ["Env 1", "Env 2", "Env 3", "Env 4"]
-    methods = ["RF", "Non-BCD"] + [f"BCD ($b$={b})" for b in block_sizes]
-    num_methods = len(methods)
     env_colors = ["lightskyblue", "orange", "mediumpurple", "yellowgreen"]
 
-    # Stack MSEs per method (rows) × envs (columns)
-    mse_matrix = [mse_rf, mse_non_bcd, *[mse_bcd_dict[b] for b in block_sizes]]
+    methods = list(mse_envs_dict.keys())
+    methods_labels = ["RF", "Non-BCD"] + [
+        f"BCD ($b$={b})" for b in BLOCK_SIZES
+    ]
+    num_methods = len(methods)
+
+    # For each method, per-environment mean MSE over B repetitions
+    mse_matrix = np.array([np.mean(mse_envs_dict[m], axis=0) for m in methods])
 
     x = np.arange(num_methods)
     width = 0.2
 
     plt.figure(figsize=(15, 6))
     for env_idx in range(4):
-        mse_vals = [m[env_idx] for m in mse_matrix]
+        mse_vals = mse_matrix[:, env_idx]
         plt.bar(
-            x
-            + width * (env_idx - 1),  # center the bars around the method index
+            x + width * (env_idx - 1.5),
             mse_vals,
             width,
             label=env_labels[env_idx],
             color=env_colors[env_idx],
         )
 
-    plt.xticks(x, methods)
-    plt.ylabel("MSE")
+    plt.xticks(x, methods_labels)
+    plt.ylabel("Mean MSE per Environment")
     plt.xlabel("Method")
     plt.grid(True, axis="y", linewidth=0.3)
     plt.legend()
@@ -89,46 +124,69 @@ def plot_mse_by_method(
     plt.close()
 
 
-def plot_max_mse_vs_blocksize(
-    max_mse_rf,
-    max_mse_non_bcd,
-    max_mse_bcd_dict,
-    block_sizes,
-    out_dir,
-):
-    bcd_vals = [max_mse_bcd_dict[bs] for bs in block_sizes]
-    plt.figure(figsize=(8, 4))
+def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
+    def get_ci(vals):
+        mean = np.mean(vals)
+        stderr = np.std(vals, ddof=1) / np.sqrt(B)
+        return mean, mean - 1.96 * stderr, mean + 1.96 * stderr
 
-    plt.axhline(
-        y=max_mse_rf,
-        linestyle="--",
-        linewidth=2,
+    rf_mean, rf_lo, rf_hi = get_ci(maxmse_dict["RF"])
+    posthoc_key = f"{NAME_RF}(posthoc-mse)"
+    posthoc_mean, posthoc_lo, posthoc_hi = get_ci(maxmse_dict[posthoc_key])
+
+    bcd_means = []
+    bcd_lowers = []
+    bcd_uppers = []
+    for bs in BLOCK_SIZES:
+        vals = maxmse_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"]
+        mean, lo, hi = get_ci(vals)
+        bcd_means.append(mean)
+        bcd_lowers.append(lo)
+        bcd_uppers.append(hi)
+
+    plt.figure(figsize=(8, 5))
+    plt.axhline(rf_mean, linestyle="--", color="lightskyblue", label="RF")
+    plt.fill_between(
+        BLOCK_SIZES,
+        [rf_lo] * len(BLOCK_SIZES),
+        [rf_hi] * len(BLOCK_SIZES),
         color="lightskyblue",
-        label="RF",
+        alpha=0.2,
     )
-    plt.axhline(
-        y=max_mse_non_bcd,
+
+    plt.hlines(
+        y=posthoc_mean,
+        xmin=5,
+        xmax=50,
         linestyle="--",
-        linewidth=2,
         color="orange",
         label=f"{NAME_RF}(posthoc-mse)",
     )
+    plt.fill_between(
+        BLOCK_SIZES,
+        [posthoc_lo] * len(BLOCK_SIZES),
+        [posthoc_hi] * len(BLOCK_SIZES),
+        color="orange",
+        alpha=0.2,
+    )
 
     plt.plot(
-        block_sizes,
-        bcd_vals,
-        marker="o",
+        BLOCK_SIZES,
+        bcd_means,
         color="mediumpurple",
-        markeredgecolor="white",
+        marker="o",
         label=f"{NAME_RF}(posthoc-mse-BCD)",
+        markeredgecolor="white",
+    )
+    plt.fill_between(
+        BLOCK_SIZES, bcd_lowers, bcd_uppers, color="mediumpurple", alpha=0.3
     )
 
     plt.xlabel("Block size $b$")
-    plt.ylabel("Maximum MSE across environments")
+    plt.ylabel("Max MSE across environments")
     plt.grid(True, linewidth=0.2)
     plt.legend()
     plt.tight_layout()
-
     plt.savefig(os.path.join(out_dir, "bcd_max_mse.png"), dpi=300)
     plt.close()
 
@@ -140,64 +198,88 @@ if __name__ == "__main__":
 
     env = assign_quadrant(Z)
 
-    print("Fitting standard Random Forest...", end=" ", flush=True)
-    rf = RandomForest(
-        "Regression",
-        n_estimators=N_ESTIMATORS,
-        min_samples_leaf=MIN_SAMPLES_LEAF,
-        seed=SEED,
-    )
-    rf.fit(X, y)
-    print("Done!", flush=True)
-    fitted_rf = rf.predict(X)
-    mse_envs_rf, maxmse_rf = max_mse(y, fitted_rf, env, ret_ind=True)
+    methods = ["RF", f"{NAME_RF}(posthoc-mse)"] + [
+        f"{NAME_RF}(posthoc-mse-BCD-{bs})" for bs in range(5, 55, 5)
+    ]
+    mse_envs_dict = {m: [] for m in methods}
+    maxmse_dict = {m: [] for m in methods}
+    runtime_dict = {m: [] for m in methods if m != "RF"}
 
-    # Non-BCD Minimax
-    rf = RandomForest(
-        "Regression",
-        n_estimators=N_ESTIMATORS,
-        min_samples_leaf=MIN_SAMPLES_LEAF,
-        seed=SEED,
-    )
-    rf.fit(X, y)
-    print("Modifying predictions with non-BCD...", end=" ", flush=True)
-    start = time.time()
-    rf.modify_predictions_trees(env)
-    end = time.time()
-    print("Done!", flush=True)
-    non_bcd_time = end - start
-    fitted_minimax = rf.predict(X)
-    mse_envs_minimax, maxmse_minimax = max_mse(
-        y, fitted_minimax, env, ret_ind=True
-    )
+    for b in range(B):
+        print(f"\n### Repetition: {b+1}/{B} ###")
+        # Stratified split (preserve env proportions among the 3 training envs)
+        (
+            X_tr,
+            X_val,
+            y_tr,
+            y_val,
+            env_tr,
+            env_val,
+        ) = train_test_split(
+            X,
+            y,
+            env,
+            test_size=VAL_PERCENTAGE,
+            random_state=b,
+            stratify=env,
+        )
 
-    # BCD Variants
-    block_sizes = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
-    bcd_times = []
-    mse_envs_bcd = {}
-    max_mse_bcd = {}
-
-    for b in block_sizes:
+        print("Fitting standard Random Forest...", end=" ", flush=True)
         rf = RandomForest(
             "Regression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
             seed=SEED,
         )
-        rf.fit(X, y)
-        print(
-            f"Modifying predictions with BCD (bs {b})...", end=" ", flush=True
+        rf.fit(X_tr, y_tr)
+        print("Done!", flush=True)
+        preds_rf = rf.predict(X_val)
+        mse_envs_rf, maxmse_rf = max_mse(
+            y_val, preds_rf, env_val, ret_ind=True
         )
+        mse_envs_dict["RF"].append(mse_envs_rf)
+        maxmse_dict["RF"].append(maxmse_rf)
+
+        # Non-BCD
+        rf_nonbcd = copy.deepcopy(rf)
+        print("Modifying predictions with non-BCD...", end=" ", flush=True)
         start = time.time()
-        rf.modify_predictions_trees(env, bcd=True, patience=1, block_size=b)
+        rf_nonbcd.modify_predictions_trees(env_tr)
         end = time.time()
         print("Done!", flush=True)
-        bcd_times.append(end - start)
+        non_bcd_time = end - start
+        preds_nonbcd = rf_nonbcd.predict(X_val)
+        mse_envs_nonbcd, maxmse_nonbcd = max_mse(
+            y_val, preds_nonbcd, env_val, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_RF}(posthoc-mse)"].append(mse_envs_nonbcd)
+        maxmse_dict[f"{NAME_RF}(posthoc-mse)"].append(maxmse_nonbcd)
+        runtime_dict[f"{NAME_RF}(posthoc-mse)"].append(non_bcd_time)
 
-        fitted_bcd = rf.predict(X)
-        mse_envs, maxmse_bcd = max_mse(y, fitted_bcd, env, ret_ind=True)
-        mse_envs_bcd[b] = mse_envs
-        max_mse_bcd[b] = maxmse_bcd
+        # BCD Variants
+        for bs in BLOCK_SIZES:
+            rf_bcd = copy.deepcopy(rf)
+            print(
+                f"Modifying predictions with BCD (bs {bs})...",
+                end=" ",
+                flush=True,
+            )
+            start = time.time()
+            rf_bcd.modify_predictions_trees(
+                env_tr, bcd=True, patience=1, block_size=bs
+            )
+            end = time.time()
+            print("Done!", flush=True)
+            bcd_time = end - start
+            preds_bcd = rf_bcd.predict(X_val)
+            mse_envs_bcd, maxmse_bcd = max_mse(
+                y_val, preds_bcd, env_val, ret_ind=True
+            )
+            mse_envs_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"].append(
+                mse_envs_bcd
+            )
+            maxmse_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"].append(maxmse_bcd)
+            runtime_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"].append(bcd_time)
 
     script_dir = os.path.dirname(__file__)
     parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
@@ -205,12 +287,8 @@ if __name__ == "__main__":
     plots_dir = os.path.join(results_dir, "figures")
     os.makedirs(plots_dir, exist_ok=True)
 
-    plot_bcd_runtime(block_sizes, bcd_times, non_bcd_time, plots_dir)
-    plot_mse_by_method(
-        mse_envs_rf, mse_envs_minimax, mse_envs_bcd, block_sizes, plots_dir
-    )
-    plot_max_mse_vs_blocksize(
-        maxmse_rf, maxmse_minimax, max_mse_bcd, block_sizes, plots_dir
-    )
+    plot_bcd_runtime(runtime_dict, plots_dir)
+    plot_mse_by_method(mse_envs_dict, plots_dir)
+    plot_max_mse_vs_blocksize(maxmse_dict, plots_dir)
 
-    print(f"Saved results to {plots_dir}")
+    print(f"\nSaved plots to {plots_dir}")
