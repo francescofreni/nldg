@@ -14,7 +14,7 @@ MIN_SAMPLES_LEAF = 30
 SEED = 42
 NAME_RF = "WORME-RF"
 B = 2
-VAL_PERCENTAGE = 0.2
+VAL_PERCENTAGE = 0.3
 BLOCK_SIZES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
 
@@ -22,16 +22,32 @@ def assign_quadrant(
     Z: pd.DataFrame,
 ) -> np.ndarray:
     lat, lon = Z["Latitude"], Z["Longitude"]
-    north = lat >= 35
-    south = ~north
-    east = lon >= -120
-    west = ~east
+
+    # north = lat >= 35
+    # south = ~north
+    # east = lon >= -120
+    # west = ~east
+    #
+    # env = np.zeros(len(Z), dtype=int)
+    # env[south & west] = 0  # SW
+    # env[south & east] = 1  # SE
+    # env[north & west] = 2  # NW
+    # env[north & east] = 3  # NE
+
+    west = lon < -121.5
+    east = ~west
+    sw = (lat < 38) & west
+    nw = (lat >= 38) & west
+    lat_thr = 34.5
+    se = (lat < lat_thr) & east
+    ne = (lat >= lat_thr) & east
 
     env = np.zeros(len(Z), dtype=int)
-    env[south & west] = 0  # SW
-    env[south & east] = 1  # SE
-    env[north & west] = 2  # NW
-    env[north & east] = 3  # NE
+    env[sw] = 0  # SW
+    env[se] = 1  # SE
+    env[nw] = 2  # NW
+    env[ne] = 3  # NE
+
     return env
 
 
@@ -128,8 +144,6 @@ def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
     def get_ci(vals):
         mean = np.mean(vals)
         stderr = np.std(vals, ddof=1) / np.sqrt(B)
-        print(len(vals))
-        print(vals)
         return mean, mean - 1.96 * stderr, mean + 1.96 * stderr
 
     rf_mean, rf_lo, rf_hi = get_ci(maxmse_dict["RF"])
