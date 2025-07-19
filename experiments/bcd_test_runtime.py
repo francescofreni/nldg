@@ -13,7 +13,7 @@ N_ESTIMATORS = 25
 MIN_SAMPLES_LEAF = 30
 SEED = 42
 NAME_RF = "WORME-RF"
-B = 10
+B = 2
 VAL_PERCENTAGE = 0.3
 BLOCK_SIZES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
@@ -118,7 +118,7 @@ def plot_mse_by_method(mse_envs_dict, out_dir):
     plt.xlabel("Method")
     plt.grid(True, axis="y", linewidth=0.3)
     plt.legend()
-    plt.ylim(0.3, 0.55)
+    plt.ylim(0.3, 0.7)
     plt.tight_layout()
     plt.savefig(os.path.join(out_dir, "bcd_mse_per_environment.png"), dpi=300)
     plt.close()
@@ -145,7 +145,14 @@ def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
         bcd_uppers.append(hi)
 
     plt.figure(figsize=(8, 5))
-    plt.axhline(rf_mean, linestyle="--", color="lightskyblue", label="RF")
+    plt.hlines(
+        y=rf_mean,
+        xmin=5,
+        xmax=50,
+        linestyle="--",
+        color="lightskyblue",
+        label="RF",
+    )
     plt.fill_between(
         BLOCK_SIZES,
         [rf_lo] * len(BLOCK_SIZES),
