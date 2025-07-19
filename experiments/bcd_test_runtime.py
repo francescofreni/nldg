@@ -267,7 +267,7 @@ if __name__ == "__main__":
         rf_nonbcd = copy.deepcopy(rf)
         print("Modifying predictions with non-BCD...", end=" ", flush=True)
         start = time.time()
-        rf_nonbcd.modify_predictions_trees(env_tr)
+        rf_nonbcd.modify_predictions_trees(env_tr, solver="ECOS")
         end = time.time()
         print("Done!", flush=True)
         non_bcd_time = end - start
@@ -289,7 +289,7 @@ if __name__ == "__main__":
             )
             start = time.time()
             rf_bcd.modify_predictions_trees(
-                env_tr, bcd=True, patience=1, block_size=bs
+                env_tr, bcd=True, patience=1, block_size=bs, solver="ECOS"
             )
             end = time.time()
             print("Done!", flush=True)
