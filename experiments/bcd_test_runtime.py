@@ -14,7 +14,7 @@ MIN_SAMPLES_LEAF = 30
 SEED = 42
 NAME_RF = "WORME-RF"
 B = 2
-VAL_PERCENTAGE = 0.3
+VAL_PERCENTAGE = 0.2
 BLOCK_SIZES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
 
 
@@ -128,6 +128,8 @@ def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
     def get_ci(vals):
         mean = np.mean(vals)
         stderr = np.std(vals, ddof=1) / np.sqrt(B)
+        print(len(vals))
+        print(vals)
         return mean, mean - 1.96 * stderr, mean + 1.96 * stderr
 
     rf_mean, rf_lo, rf_hi = get_ci(maxmse_dict["RF"])
