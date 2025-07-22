@@ -75,7 +75,7 @@ def plot_tricontour(diff_map, metric):
         lab = "NRW"
     else:
         lab = "Reg"
-    cbar.set_label(rf"$\Bar{{D}}_{{e^\prime}}^{{{lab}}}$", fontsize=14)
+    cbar.set_label(rf"$\overline{{D}}_{{e^\prime}}^{{{lab}}}$", fontsize=14)
     # if metric == "mse":
     #     lab = "MSE"
     # elif metric == "negrew":
