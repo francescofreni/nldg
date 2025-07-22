@@ -69,17 +69,20 @@ def plot_tricontour(diff_map, metric):
     sc = plt.tricontourf(q1_grid, q2_grid, diff_grid, levels=30, cmap="Blues")
 
     cbar = plt.colorbar(sc, pad=0.02, aspect=30)
-    # cbar.set_label(
-    #     r"$\max_{e^\prime\in\mathcal{E}_{\text{te}}^\prime}\hat{R}_{e^\prime}^{\text{MSE}}(\bm{c}^*) - \hat{R}^{\text{MSE}}(\bm{c}^*)$",
-    #     fontsize=12
-    # )
     if metric == "mse":
         lab = "MSE"
     elif metric == "negrew":
-        lab = "Negative reward"
+        lab = "NRW"
     else:
-        lab = "Regret"
-    cbar.set_label(f"Average Generalization Gap ({lab})", fontsize=12)
+        lab = "Reg"
+    cbar.set_label(rf"$\Bar{{D}}_{{e^\prime}}^{{{lab}}}$", fontsize=14)
+    # if metric == "mse":
+    #     lab = "MSE"
+    # elif metric == "negrew":
+    #     lab = "Negative reward"
+    # else:
+    #     lab = "Regret"
+    # cbar.set_label(f"Average Generalization Gap ({lab})", fontsize=12)
     cbar.ax.tick_params(labelsize=10)
     plt.xlabel("$q_1$", fontsize=12)
     plt.ylabel("$q_2$", fontsize=12)
