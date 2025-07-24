@@ -142,6 +142,8 @@ if __name__ == "__main__":
 
     # Generate training data
     if COVARIATE_SHIFT:
+        OUT_DIR = os.path.join(OUT_DIR, "covariate_shift")
+        os.makedirs(OUT_DIR, exist_ok=True)
         x_grid = np.linspace(0, 2, 1000).reshape(-1, 1)
     else:
         x_grid = np.linspace(-1, 1, 1000).reshape(-1, 1)
