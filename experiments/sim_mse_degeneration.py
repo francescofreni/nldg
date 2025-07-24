@@ -27,7 +27,7 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 SIM_DIR = os.path.join(RESULTS_DIR, "output_simulation")
 os.makedirs(SIM_DIR, exist_ok=True)
-OUT_DIR = os.path.join(SIM_DIR, "sim_gen_gap")
+OUT_DIR = os.path.join(SIM_DIR, "sim_mse_degeneration")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 

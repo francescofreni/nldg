@@ -77,6 +77,7 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
     ├── output_ca_housing            # Saved results real-world data experiment
     └── output_simulation
         ├── sim_diff_methods         # Saved results variants comparison
+        ├── sim_mse_degeneration     # Saved results MSE degeneration
         └── sim_gen_gap              # Saved results generalization guarantees
 ```
 
