@@ -219,17 +219,18 @@ if __name__ == "__main__":
         sols_erm_new = np.zeros(env_label.shape[0])
         for env in np.unique(env_label):
             mask = env_label == env
-            X_e = X_tr_new[mask]
-            Y_e = y_tr_new[mask]
-            rf_e = RandomForest(
-                "Regression",
-                n_estimators=N_ESTIMATORS,
-                min_samples_leaf=MIN_SAMPLES_LEAF,
-                seed=SEED,
-            )
-            rf_e.fit(X_e, Y_e)
-            fitted_e = rf_e.predict(X_e)
-            sols_erm_new[mask] = fitted_e
+            # X_e = X_tr_new[mask]
+            # Y_e = y_tr_new[mask]
+            # rf_e = RandomForest(
+            #     "Regression",
+            #     n_estimators=N_ESTIMATORS,
+            #     min_samples_leaf=MIN_SAMPLES_LEAF,
+            #     seed=SEED,
+            # )
+            # rf_e.fit(X_e, Y_e)
+            # fitted_e = rf_e.predict(X_e)
+            # sols_erm_new[mask] = fitted_e
+            sols_erm_new[mask] = y_tr_clean_new[mask]
         fitted_regret = rf_regret.predict(X_tr_new)
         max_regret_tr = max_regret(
             y_tr_new, fitted_regret, sols_erm_new, env_label
@@ -251,7 +252,8 @@ if __name__ == "__main__":
             q3 = 1 - q1 - q2
             q = [q1, q2, q3]
             f_te = lambda x: sum(q[e] * f_env[e](x) for e in range(E))
-            y_te = f_te(X_te) + eps_te
+            y_te_clean = f_te(X_te)
+            y_te = y_te_clean + eps_te
             # y_te = y_te - np.mean(y_te)
 
             # MSE
@@ -269,14 +271,15 @@ if __name__ == "__main__":
             negrew_diff_map[(q1, q2)].append(negrew_diff)
 
             # Regret
-            rf_regret_te = RandomForest(
-                "Regression",
-                n_estimators=N_ESTIMATORS,
-                min_samples_leaf=MIN_SAMPLES_LEAF,
-                seed=SEED,
-            )
-            rf_regret_te.fit(X_te, y_te)
-            sols_erm_te = rf_regret_te.predict(X_te)
+            # rf_regret_te = RandomForest(
+            #     "Regression",
+            #     n_estimators=N_ESTIMATORS,
+            #     min_samples_leaf=MIN_SAMPLES_LEAF,
+            #     seed=SEED,
+            # )
+            # rf_regret_te.fit(X_te, y_te)
+            # sols_erm_te = rf_regret_te.predict(X_te)
+            sols_erm_te = y_te_clean
             regret_te = mean_squared_error(
                 y_te, preds_regret
             ) - mean_squared_error(y_te, sols_erm_te)
