@@ -1,4 +1,5 @@
 import os
+import argparse
 from nldg.utils import *
 from adaXT.random_forest import RandomForest
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
@@ -6,6 +7,7 @@ from sklearn.metrics import mean_squared_error
 from itertools import product
 from tqdm import tqdm
 from scipy import stats
+from scipy.stats import truncnorm, truncexpon
 from collections import defaultdict
 import matplotlib as mpl
 
@@ -46,27 +48,42 @@ def sample_gp_function(x_grid):
     return lambda x: np.interp(x.ravel(), x_grid.ravel(), f_vals)
 
 
-def make_dataset(f, env_id, n_samples):
-    X = RNG.uniform(-1, 1, size=(n_samples, 1))
-    eps = RNG.normal(0, SIGMA_EPS, size=n_samples)
-    y = f(X) + eps
-    env_lab = np.full(n_samples, env_id)
+def make_dataset(f, env_id, n_obs):
+    if COVARIATE_SHIFT:
+        if env_id == 0:
+            X = RNG.uniform(0, 2, size=(n_obs, 1))
+        elif env_id == 1:
+            mu, sigma = 0, 1
+            a, b = 0, 2
+            a_trans, b_trans = (a - mu) / sigma, (b - mu) / sigma
+            rv = truncnorm(a_trans, b_trans, loc=mu, scale=sigma)
+            X = rv.rvs(size=(n_obs, 1), random_state=RNG)
+        else:
+            b = 2
+            X = truncexpon.rvs(b, size=(n_obs, 1), random_state=RNG)
+    else:
+        X = RNG.uniform(-1, 1, size=(n_obs, 1))
+    eps = RNG.normal(0, SIGMA_EPS, size=n_obs)
+    y_clean = f(X)
+    y = y_clean + eps
+    env_lab = np.full(n_obs, env_id)
     # y = y - np.mean(y)
-    return X, y, env_lab
+    return X, y_clean, y, env_lab
 
 
 def generate_data():
     global f_env
     train_sets = [
-        make_dataset(f_env[e], env_id=e, n_samples=N_TRAIN_PER_ENV[e])
+        make_dataset(f_env[e], env_id=e, n_obs=N_TRAIN_PER_ENV[e])
         for e in range(E)
     ]
 
     X_tr = np.vstack([ts[0] for ts in train_sets])
-    y_tr = np.hstack([ts[1] for ts in train_sets])
-    env_label = np.hstack([ts[2] for ts in train_sets])
+    y_tr_clean = np.hstack([ts[1] for ts in train_sets])
+    y_tr = np.hstack([ts[2] for ts in train_sets])
+    env_label = np.hstack([ts[3] for ts in train_sets])
 
-    return X_tr, y_tr, env_label
+    return X_tr, y_tr_clean, y_tr, env_label
 
 
 def plot_tricontour(diff_map, metric):
@@ -111,10 +128,25 @@ def plot_tricontour(diff_map, metric):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Run sanity-check experiment for generalization guarantee."
+    )
+    parser.add_argument(
+        "--covariate_shift",
+        type=bool,
+        default=False,
+        help="Whether to make the dataset balanced (default: False).",
+    )
+    args = parser.parse_args()
+    COVARIATE_SHIFT = args.covariate_shift
+
     # Generate training data
-    x_grid = np.linspace(-1, 1, 1000).reshape(-1, 1)
+    if COVARIATE_SHIFT:
+        x_grid = np.linspace(0, 2, 1000).reshape(-1, 1)
+    else:
+        x_grid = np.linspace(-1, 1, 1000).reshape(-1, 1)
     f_env = [sample_gp_function(x_grid) for _ in range(E)]
-    X_tr, y_tr, env_label = generate_data()
+    X_tr, y_tr_clean, y_tr, env_label = generate_data()
 
     # Model fitting
     # MSE
@@ -179,7 +211,7 @@ if __name__ == "__main__":
         defaultdict(list),
     )
     for i in tqdm(range(N_SIM)):
-        X_tr_new, y_tr_new, env_label = generate_data()
+        X_tr_new, y_tr_clean_new, y_tr_new, env_label = generate_data()
 
         # MSE
         fitted_mse = rf_mse.predict(X_tr_new)
@@ -195,17 +227,18 @@ if __name__ == "__main__":
         sols_erm_new = np.zeros(env_label.shape[0])
         for env in np.unique(env_label):
             mask = env_label == env
-            X_e = X_tr_new[mask]
-            Y_e = y_tr_new[mask]
-            rf_e = RandomForest(
-                "Regression",
-                n_estimators=N_ESTIMATORS,
-                min_samples_leaf=MIN_SAMPLES_LEAF,
-                seed=SEED,
-            )
-            rf_e.fit(X_e, Y_e)
-            fitted_e = rf_e.predict(X_e)
-            sols_erm_new[mask] = fitted_e
+            # X_e = X_tr_new[mask]
+            # Y_e = y_tr_new[mask]
+            # rf_e = RandomForest(
+            #     "Regression",
+            #     n_estimators=N_ESTIMATORS,
+            #     min_samples_leaf=MIN_SAMPLES_LEAF,
+            #     seed=SEED,
+            # )
+            # rf_e.fit(X_e, Y_e)
+            # fitted_e = rf_e.predict(X_e)
+            # sols_erm_new[mask] = fitted_e
+            sols_erm_new[mask] = y_tr_clean_new[mask]
         fitted_regret = rf_regret.predict(X_tr_new)
         max_regret_tr = max_regret(
             y_tr_new, fitted_regret, sols_erm_new, env_label
@@ -213,7 +246,14 @@ if __name__ == "__main__":
         max_regret_tr_list.append(max_regret_tr)
 
         # Test environment
-        X_te = RNG.uniform(-1, 1, size=(N_TEST, 1))
+        if COVARIATE_SHIFT:
+            mu, sigma = 1.5, 1
+            a, b = 0, 2
+            a_trans, b_trans = (a - mu) / sigma, (b - mu) / sigma
+            rv = truncnorm(a_trans, b_trans, loc=mu, scale=sigma)
+            X_te = rv.rvs(size=(N_TEST, 1), random_state=SEED)
+        else:
+            X_te = RNG.uniform(-1, 1, size=(N_TEST, 1))
         eps_te = RNG.normal(0, SIGMA_EPS, size=N_TEST)
 
         preds_mse = rf_mse.predict(X_te)
@@ -227,7 +267,8 @@ if __name__ == "__main__":
             q3 = 1 - q1 - q2
             q = [q1, q2, q3]
             f_te = lambda x: sum(q[e] * f_env[e](x) for e in range(E))
-            y_te = f_te(X_te) + eps_te
+            y_te_clean = f_te(X_te)
+            y_te = y_te_clean + eps_te
             # y_te = y_te - np.mean(y_te)
 
             # MSE
@@ -245,14 +286,15 @@ if __name__ == "__main__":
             negrew_diff_map[(q1, q2)].append(negrew_diff)
 
             # Regret
-            rf_regret_te = RandomForest(
-                "Regression",
-                n_estimators=N_ESTIMATORS,
-                min_samples_leaf=MIN_SAMPLES_LEAF,
-                seed=SEED,
-            )
-            rf_regret_te.fit(X_te, y_te)
-            sols_erm_te = rf_regret_te.predict(X_te)
+            # rf_regret_te = RandomForest(
+            #     "Regression",
+            #     n_estimators=N_ESTIMATORS,
+            #     min_samples_leaf=MIN_SAMPLES_LEAF,
+            #     seed=SEED,
+            # )
+            # rf_regret_te.fit(X_te, y_te)
+            # sols_erm_te = rf_regret_te.predict(X_te)
+            sols_erm_te = y_te_clean
             regret_te = mean_squared_error(
                 y_te, preds_regret
             ) - mean_squared_error(y_te, sols_erm_te)
