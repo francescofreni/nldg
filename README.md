@@ -54,7 +54,7 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 │   ├── ca_housing_analysis          # California housing experiments
 │   ├── ca_housing_data_import       # Script to import data
 │   ├── parallel_test_runtime        # Experiment to check the effect of parallelization
-│   ├── sim_diff_methods             # Comparing different variants of WORME Forest
+│   ├── sim_diff_methods             # Comparing different variants of MaxRM Random Forest
 │   ├── sim_gen_gap                  # Verifying generalization guarantees
 │   ├── sim_mse_degeneration         # Guarantee for MSE fails with heteroskedastic noise
 │   └── utils                        # Helper functions
@@ -62,14 +62,14 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 ├── nldg           
 │   ├── nn                           # Neural Network class
 │   ├── rf                           # Magging Random Forest class
-│   ├── ss                           # WORME Smoothing Spline class
+│   ├── ss                           # MaxRM Smoothing Spline class
 │   ├── train_nn                     # GDRO
 │   └── utils                        # Helper functions: data generation, plotting, metrics
 |
 ├── notebooks
-│   ├── all_methods                  # Different variants of WORME Forest        
-│   ├── demo_rf                      # Demo for WORME Forest
-│   ├── demo_ss                      # Demo for WORME Smoothing Splines
+│   ├── all_methods                  # Different variants of MaxRM Random Forest        
+│   ├── demo_rf                      # Demo for MaxRM Random Forest
+│   ├── demo_ss                      # Demo for MaxRM Smoothing Splines
 │   └── miscellanea                  # Additional plots and settings
 |
 └── results
@@ -86,7 +86,7 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 
 ### Simulated data
 
-#### 1) Comparing different WORME Forest implementations
+#### 1) Comparing different MaxRM Random Forest implementations
 ```bash
 python experiments/sim_diff_methods.py
 ```

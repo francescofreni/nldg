@@ -40,7 +40,7 @@ MIN_SAMPLES_LEAF = 30
 SEED = 42
 N = 20
 
-NAME_RF = "WORME-RF"
+NAME_RF = "MaxRM-RF"
 
 
 def load_data() -> Tuple[pd.DataFrame, pd.Series, pd.DataFrame]:

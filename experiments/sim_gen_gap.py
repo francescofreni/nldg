@@ -53,7 +53,7 @@ def make_dataset(f, env_id, n_obs):
         if env_id == 0:
             X = RNG.uniform(0, 2, size=(n_obs, 1))
         elif env_id == 1:
-            mu, sigma = 0, 1
+            mu, sigma = 1, 0.5
             a, b = 0, 2
             a_trans, b_trans = (a - mu) / sigma, (b - mu) / sigma
             rv = truncnorm(a_trans, b_trans, loc=mu, scale=sigma)
@@ -86,6 +86,47 @@ def generate_data():
     return X_tr, y_tr_clean, y_tr, env_label
 
 
+# def plot_tricontour(diff_map, metric):
+#     q1_grid, q2_grid, diff_grid = [], [], []
+#     for (q1, q2), diffs in diff_map.items():
+#         q1_grid.append(q1)
+#         q2_grid.append(q2)
+#         diff_grid.append(np.mean(diffs))
+#
+#     plt.figure(figsize=(8, 7))
+#     sc = plt.tricontourf(q1_grid, q2_grid, diff_grid, levels=30, cmap="Blues")
+#
+#     cbar = plt.colorbar(sc, pad=0.02, aspect=30)
+#     if metric == "mse":
+#         lab = "MSE"
+#     elif metric == "negrew":
+#         lab = "NRW"
+#     else:
+#         lab = "Reg"
+#     cbar.set_label(rf"$\overline{{D}}_{{e^\prime}}^{{{lab}}}$", fontsize=14)
+#     # if metric == "mse":
+#     #     lab = "MSE"
+#     # elif metric == "negrew":
+#     #     lab = "Negative reward"
+#     # else:
+#     #     lab = "Regret"
+#     # cbar.set_label(f"Average Generalization Gap ({lab})", fontsize=12)
+#     cbar.ax.tick_params(labelsize=10)
+#     plt.xlabel("$q_1$", fontsize=12)
+#     plt.ylabel("$q_2$", fontsize=12)
+#     plt.xticks(fontsize=10)
+#     plt.yticks(fontsize=10)
+#     plt.plot([0, 1, 0], [0, 0, 1], color="black", lw=1)
+#
+#     plt.tight_layout()
+#     plt.savefig(
+#         os.path.join(OUT_DIR, f"{metric}_diff_tricontour.png"),
+#         dpi=300,
+#         bbox_inches="tight",
+#     )
+#     plt.close()
+
+
 def plot_tricontour(diff_map, metric):
     q1_grid, q2_grid, diff_grid = [], [], []
     for (q1, q2), diffs in diff_map.items():
@@ -93,10 +134,39 @@ def plot_tricontour(diff_map, metric):
         q2_grid.append(q2)
         diff_grid.append(np.mean(diffs))
 
-    plt.figure(figsize=(8, 7))
-    sc = plt.tricontourf(q1_grid, q2_grid, diff_grid, levels=30, cmap="Blues")
+    q1_grid = np.array(q1_grid)
+    q2_grid = np.array(q2_grid)
+    diff_grid = np.array(diff_grid)
 
-    cbar = plt.colorbar(sc, pad=0.02, aspect=30)
+    # Convert to barycentric (equilateral triangle) coordinates
+    q3_grid = 1 - q1_grid - q2_grid
+    x = q2_grid + q3_grid / 2.0
+    y = (np.sqrt(3) / 2.0) * q3_grid
+
+    # Plot equilateral heatmap
+    fig, ax = plt.subplots(figsize=(8, 7))
+    sc = ax.tricontourf(x, y, diff_grid, levels=30, cmap="Blues")
+
+    # Triangle boundary
+    ax.plot([0, 1, 0.5, 0], [0, 0, np.sqrt(3) / 2, 0], color="black", lw=1.5)
+
+    # Add labels for vertices
+    ax.text(
+        0.0, -0.02, r"$q_1=1$", ha="center", va="top", fontsize=12
+    )  # Bottom-left vertex
+    ax.text(
+        1.0, -0.02, r"$q_2=1$", ha="center", va="top", fontsize=12
+    )  # Bottom-right vertex
+    ax.text(
+        0.5,
+        np.sqrt(3) / 2 + 0.02,
+        r"$q_3=1$",
+        ha="center",
+        va="bottom",
+        fontsize=12,
+    )  # Top vertex
+
+    cbar = fig.colorbar(sc, ax=ax, fraction=0.04, pad=0.05)
     if metric == "mse":
         lab = "MSE"
     elif metric == "negrew":
@@ -112,15 +182,24 @@ def plot_tricontour(diff_map, metric):
     #     lab = "Regret"
     # cbar.set_label(f"Average Generalization Gap ({lab})", fontsize=12)
     cbar.ax.tick_params(labelsize=10)
-    plt.xlabel("$q_1$", fontsize=12)
-    plt.ylabel("$q_2$", fontsize=12)
-    plt.xticks(fontsize=10)
-    plt.yticks(fontsize=10)
-    plt.plot([0, 1, 0], [0, 0, 1], color="black", lw=1)
+
+    ax.scatter(
+        [0, 1, 0.5],
+        [0, 0, np.sqrt(3) / 2],
+        color="black",
+        s=40,
+        linewidths=1.0,
+        zorder=100,
+        clip_on=False,
+    )
+
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_aspect("equal")
 
     plt.tight_layout()
     plt.savefig(
-        os.path.join(OUT_DIR, f"{metric}_diff_tricontour.png"),
+        os.path.join(OUT_DIR, f"{metric}_diff_tricontour_equilateral.png"),
         dpi=300,
         bbox_inches="tight",
     )
@@ -249,7 +328,7 @@ if __name__ == "__main__":
 
         # Test environment
         if COVARIATE_SHIFT:
-            mu, sigma = 1.5, 1
+            mu, sigma = 1.5, 0.5
             a, b = 0, 2
             a_trans, b_trans = (a - mu) / sigma, (b - mu) / sigma
             rv = truncnorm(a_trans, b_trans, loc=mu, scale=sigma)

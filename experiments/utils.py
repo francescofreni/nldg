@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 
-NAME_RF = "WORME-RF"
+NAME_RF = "MaxRM-RF"
 WIDTH, HEIGHT = 10, 6
 # QUADRANTS = ["SW", "SE", "NW", "NE"]
 QUADRANTS = ["Env 1", "Env 2", "Env 3", "Env 4"]

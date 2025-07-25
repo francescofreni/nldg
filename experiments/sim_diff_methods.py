@@ -22,7 +22,7 @@ os.makedirs(SIM_DIR, exist_ok=True)
 OUT_DIR = os.path.join(SIM_DIR, "sim_diff_methods")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-NAME_RF = "WORME-RF"
+NAME_RF = "MaxRM-RF"
 
 
 if __name__ == "__main__":

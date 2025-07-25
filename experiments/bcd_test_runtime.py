@@ -12,7 +12,7 @@ from sklearn.model_selection import train_test_split
 N_ESTIMATORS = 25
 MIN_SAMPLES_LEAF = 30
 SEED = 42
-NAME_RF = "WORME-RF"
+NAME_RF = "MaxRM-RF"
 B = 20
 VAL_PERCENTAGE = 0.3
 BLOCK_SIZES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50]
