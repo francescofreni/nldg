@@ -137,7 +137,7 @@ if __name__ == "__main__":
             mean_squared_error(Yte, preds_minmax_m1)
         )
         mse_envs_minmax_m1, maxmse_minmax_m1 = max_mse(
-            Yte, preds_minmax_m1, Etr, ret_ind=True
+            Yte, preds_minmax_m1, Ete, ret_ind=True
         )
         mse_envs_dict[f"{NAME_RF}(posthoc)"].append(mse_envs_minmax_m1)
         maxmse_dict[f"{NAME_RF}(posthoc)"].append(maxmse_minmax_m1)
@@ -243,6 +243,7 @@ if __name__ == "__main__":
             noise_std=NOISE_STD,
             random_state=1000 + i,
             setting=2,
+            new_x=True,
         )
         Xte = np.array(dte.drop(columns=["E", "Y"]))
         Yte = np.array(dte["Y"])
@@ -277,7 +278,7 @@ if __name__ == "__main__":
 
         # MaxRM SS
         start = time.process_time()
-        MaxRM_ss = MaxRMSmoothSpline(Xtr, Ytr, Etr, cv=True, solver="ECOS")
+        MaxRM_ss = MaxRMSmoothSpline(Xtr, Ytr, Etr, cv=True, solver="SCS")
         end = time.process_time()
         time_maxrmss = end - start
         runtime_dict[f"{NAME_SS}"].append(time_maxrmss)
