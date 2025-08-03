@@ -4,7 +4,6 @@ import time
 from sklearn.metrics import mean_squared_error
 from nldg.utils import *
 from nldg.rf import MaggingRF
-from nldg.ss import MaxRMSmoothSpline, MaggingSmoothSpline
 from adaXT.random_forest import RandomForest
 from tqdm import tqdm
 from utils import *
@@ -24,7 +23,6 @@ OUT_DIR = os.path.join(SIM_DIR, "sim_diff_methods")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 NAME_RF = "MaxRM-RF"
-NAME_SS = "MaxRM-SS"
 
 
 if __name__ == "__main__":
@@ -37,9 +35,6 @@ if __name__ == "__main__":
         f"{NAME_RF}(global-dfs)": [],
         f"{NAME_RF}(global)": [],
         f"{NAME_RF}(posthoc-xtrgrd)": [],
-        "SS": [],
-        "SS(magging)": [],
-        f"{NAME_SS}": [],
     }
 
     runtime_dict = copy.deepcopy(results_dict)
@@ -142,7 +137,7 @@ if __name__ == "__main__":
         mse_envs_dict[f"{NAME_RF}(posthoc)"].append(mse_envs_minmax_m1)
         maxmse_dict[f"{NAME_RF}(posthoc)"].append(maxmse_minmax_m1)
 
-        # RF - Posthoc to Local
+        # RF - Post-hoc to Local
         start = time.process_time()
         rf_minmax_m0.modify_predictions_trees(Etr)
         end = time.process_time()
@@ -225,70 +220,6 @@ if __name__ == "__main__":
         )
         mse_envs_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(mse_envs_xtrgrd)
         maxmse_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(maxmse_xtrgrd)
-
-        # ---- Smoothing Splines ----
-        dtr = gen_data_v6(
-            n=SAMPLE_SIZE,
-            noise_std=NOISE_STD,
-            random_state=i,
-            setting=2,
-            new_x=True,
-        )
-        Xtr = np.array(dtr.drop(columns=["E", "Y"]))
-        Ytr = np.array(dtr["Y"])
-        Etr = np.array(dtr["E"])
-
-        dte = gen_data_v6(
-            n=SAMPLE_SIZE,
-            noise_std=NOISE_STD,
-            random_state=1000 + i,
-            setting=2,
-            new_x=True,
-        )
-        Xte = np.array(dte.drop(columns=["E", "Y"]))
-        Yte = np.array(dte["Y"])
-        Ete = np.array(dte["E"])
-
-        # SS
-        start = time.process_time()
-        erm_ss = MaxRMSmoothSpline(Xtr, Ytr, cv=True, method="erm")
-        end = time.process_time()
-        time_ss = end - start
-        runtime_dict["SS"].append(time_ss)
-        preds_ss = erm_ss.predict(Xte)
-        mse_dict["SS"].append(mean_squared_error(Yte, preds_ss))
-        mse_envs_ss, maxmse_ss = max_mse(Yte, preds_ss, Ete, ret_ind=True)
-        mse_envs_dict["SS"].append(mse_envs_ss)
-        maxmse_dict["SS"].append(maxmse_ss)
-
-        # SS - magging
-        magging_ss = MaggingSmoothSpline()
-        start = time.process_time()
-        _ = magging_ss.fit(Xtr, Ytr, Etr)
-        end = time.process_time()
-        time_ss = end - start
-        runtime_dict["SS(magging)"].append(time_ss)
-        preds_magging = magging_ss.predict(Xte)
-        mse_dict["SS(magging)"].append(mean_squared_error(Yte, preds_magging))
-        mse_envs_magging, maxmse_magging = max_mse(
-            Yte, preds_magging, Ete, ret_ind=True
-        )
-        mse_envs_dict["SS(magging)"].append(mse_envs_magging)
-        maxmse_dict["SS(magging)"].append(maxmse_magging)
-
-        # MaxRM SS
-        start = time.process_time()
-        MaxRM_ss = MaxRMSmoothSpline(Xtr, Ytr, Etr, cv=True, solver="SCS")
-        end = time.process_time()
-        time_maxrmss = end - start
-        runtime_dict[f"{NAME_SS}"].append(time_maxrmss)
-        preds_maxrmss = MaxRM_ss.predict(Xte)
-        mse_dict[f"{NAME_SS}"].append(mean_squared_error(Yte, preds_maxrmss))
-        mse_envs_maxrmss, maxmse_maxrmss = max_mse(
-            Yte, preds_maxrmss, Ete, ret_ind=True
-        )
-        mse_envs_dict[f"{NAME_SS}"].append(mse_envs_maxrmss)
-        maxmse_dict[f"{NAME_SS}"].append(maxmse_maxrmss)
 
     # Results
     mse_df = pd.DataFrame(mse_dict)

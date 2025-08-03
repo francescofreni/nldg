@@ -50,27 +50,28 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 ├── data                             # Processed data
 |
 ├── experiments 
-│   ├── bcd_test_runtime             # Comparison between BCD and default variants
-│   ├── ca_housing_analysis          # California housing experiments
-│   ├── ca_housing_data_import       # Script to import data
-│   ├── parallel_test_runtime        # Experiment to check the effect of parallelization
-│   ├── sim_diff_methods             # Comparing different variants of MaxRM Random Forest
-│   ├── sim_gen_gap                  # Verifying generalization guarantees
-│   ├── sim_mse_degeneration         # Guarantee for MSE fails with heteroskedastic noise
-│   └── utils                        # Helper functions
+│   ├── bcd_test_runtime.py          # Comparison between BCD and default variants
+│   ├── ca_housing_analysis.py       # California housing experiments
+│   ├── ca_housing_data_import.py    # Script to import data
+│   ├── parallel_test_runtime.py     # Experiment to check the effect of parallelization
+│   ├── sim_diff_methods.py          # Comparing different variants of MaxRM Random Forest
+│   ├── sim_gen_gap.py               # Verifying generalization guarantees
+│   ├── sim_mse_degeneration.py      # Guarantee for MSE fails with heteroskedastic noise
+│   ├── sim_smoothsplines.py         # Comparing MaxRM Smoothing Splines with standard SS
+│   └── utils.py                     # Helper functions
 |
 ├── nldg           
-│   ├── nn                           # Neural Network class
-│   ├── rf                           # Magging Random Forest class
-│   ├── ss                           # MaxRM Smoothing Spline class
-│   ├── train_nn                     # GDRO
-│   └── utils                        # Helper functions: data generation, plotting, metrics
+│   ├── nn.py                        # Neural Network class
+│   ├── rf.py                        # Magging Random Forest class
+│   ├── ss.py                        # MaxRM Smoothing Spline class
+│   ├── train_nn.py                  # GDRO
+│   └── utils.py                     # Helper functions: data generation, plotting, metrics
 |
 ├── notebooks
-│   ├── all_methods                  # Different variants of MaxRM Random Forest        
-│   ├── demo_rf                      # Demo for MaxRM Random Forest
-│   ├── demo_ss                      # Demo for MaxRM Smoothing Splines
-│   └── miscellanea                  # Additional plots and settings
+│   ├── all_methods.ipynb            # Different variants of MaxRM Random Forest        
+│   ├── demo_rf.ipynb                # Demo for MaxRM Random Forest
+│   ├── demo_ss.ipynb                # Demo for MaxRM Smoothing Splines
+│   └── miscellanea.ipynb            # Additional plots and settings
 |
 └── results
     ├── figures                      # Saved figures
@@ -78,7 +79,8 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
     └── output_simulation
         ├── sim_diff_methods         # Saved results variants comparison
         ├── sim_mse_degeneration     # Saved results MSE degeneration
-        └── sim_gen_gap              # Saved results generalization guarantees
+        ├── sim_gen_gap              # Saved results generalization guarantees
+        └── sim_smoothsplines        # Saved splines simulation
 ```
 
 
@@ -91,17 +93,26 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 python experiments/sim_diff_methods.py
 ```
 
-#### 2) Generalization Guarantees
+#### 2) Comparing MaxRM Smoothing Splines with standard version
+```bash
+python experiments/sim_smoothsplines.py
+```
+
+#### 3) Generalization Guarantees
 ```bash
 python experiments/sim_gen_gap.py
 ```
+With covariate shift:
+```bash
+python experiments/sim_gen_gap.py --covariate_shift True
+```
 
-#### 3) Generalization Guarantee fails with MSE objective and heteroskedastic noise
+#### 4) Generalization Guarantee fails with MSE objective and heteroskedastic noise
 ```bash
 python experiments/sim_mse_degeneration.py
 ```
 
-#### 4) Runtime parallelization experiment (only if $50$+ cores are available!)
+#### 5) Runtime parallelization experiment (only if $50$+ cores are available!)
 ```bash
 python experiments/parallel_test_runtime.py
 ```
