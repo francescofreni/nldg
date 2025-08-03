@@ -75,22 +75,20 @@ def plot_bcd_runtime(runtime_dict, out_dir):
         xmin=5,
         xmax=50,
         linestyle="--",
-        color="orange",
+        color="#F89C20",
         label="Non-BCD",
     )
     plt.fill_between(
         BLOCK_SIZES,
         [base_lo] * len(BLOCK_SIZES),
         [base_hi] * len(BLOCK_SIZES),
-        color="orange",
+        color="#F89C20",
         alpha=0.2,
     )
 
-    plt.plot(
-        BLOCK_SIZES, bcd_means, color="lightskyblue", marker="o", label="BCD"
-    )
+    plt.plot(BLOCK_SIZES, bcd_means, color="#5790FC", marker="o", label="BCD")
     plt.fill_between(
-        BLOCK_SIZES, bcd_lowers, bcd_uppers, color="lightskyblue", alpha=0.3
+        BLOCK_SIZES, bcd_lowers, bcd_uppers, color="#5790FC", alpha=0.3
     )
 
     plt.xlabel("Block size $b$")
@@ -104,7 +102,7 @@ def plot_bcd_runtime(runtime_dict, out_dir):
 
 def plot_mse_by_method(mse_envs_dict, out_dir):
     env_labels = ["Env 1", "Env 2", "Env 3", "Env 4"]
-    env_colors = ["lightskyblue", "orange", "mediumpurple", "yellowgreen"]
+    env_colors = ["#5790FC", "#F89C20", "#964A8B", "#E42536"]
 
     methods = list(mse_envs_dict.keys())
     methods_labels = ["RF", "Non-BCD"] + [
@@ -166,14 +164,14 @@ def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
         xmin=5,
         xmax=50,
         linestyle="--",
-        color="lightskyblue",
+        color="#5790FC",
         label="RF",
     )
     plt.fill_between(
         BLOCK_SIZES,
         [rf_lo] * len(BLOCK_SIZES),
         [rf_hi] * len(BLOCK_SIZES),
-        color="lightskyblue",
+        color="#5790FC",
         alpha=0.2,
     )
 
@@ -182,27 +180,27 @@ def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
         xmin=5,
         xmax=50,
         linestyle="--",
-        color="orange",
+        color="#F89C20",
         label=f"{NAME_RF}(posthoc-mse)",
     )
     plt.fill_between(
         BLOCK_SIZES,
         [posthoc_lo] * len(BLOCK_SIZES),
         [posthoc_hi] * len(BLOCK_SIZES),
-        color="orange",
+        color="#F89C20",
         alpha=0.2,
     )
 
     plt.plot(
         BLOCK_SIZES,
         bcd_means,
-        color="mediumpurple",
+        color="#964A8B",
         marker="o",
         label=f"{NAME_RF}(posthoc-mse-BCD)",
         markeredgecolor="white",
     )
     plt.fill_between(
-        BLOCK_SIZES, bcd_lowers, bcd_uppers, color="mediumpurple", alpha=0.3
+        BLOCK_SIZES, bcd_lowers, bcd_uppers, color="#964A8B", alpha=0.3
     )
 
     plt.xlabel("Block size $b$")

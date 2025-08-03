@@ -23,7 +23,7 @@ def plot_runtime(
     axs[0].plot(
         cores,
         cp_times,
-        color="lightskyblue",
+        color="#5790FC",
         marker="o",
         markeredgecolor="white",
     )
@@ -35,7 +35,7 @@ def plot_runtime(
     axs[1].plot(
         cores,
         extragradient_times,
-        color="lightskyblue",
+        color="#5790FC",
         marker="o",
         markeredgecolor="white",
     )

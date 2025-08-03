@@ -8,6 +8,17 @@ import random
 NAME_RF = "MaxRM-RF"
 NAME_SS = "MaxRM-SS"
 
+COLORS = {
+    "blue": "#5790FC",
+    "orange": "#F89C20",
+    "purple": "#964A8B",
+    "red": "#E42536",
+    "lightblue": "#86C8DD",
+    "purple2": "#7A21DD",
+    "tan": "#B9AC70",
+    "brown": "#A96B59",
+}
+
 
 # ===============
 # DATA GENERATION
@@ -424,15 +435,6 @@ def plot_dtr(
     """
     Plotting function for random forest results
     """
-    line_colors = [
-        "lightskyblue",
-        "orange",
-        "mediumpurple",
-        "yellowgreen",
-        "firebrick",
-        "royalblue",
-        "forestgreen",
-    ]
     data_colors = ["black", "grey", "silver"]
     environments = sorted(dtr["E"].unique())
 
@@ -456,7 +458,7 @@ def plot_dtr(
             ax.plot(
                 dtr["X_sorted"],
                 dtr["fitted_rf"],
-                color=line_colors[0],
+                color=COLORS["blue"],
                 linewidth=2,
                 label="RF",
             )
@@ -471,7 +473,7 @@ def plot_dtr(
             ax.plot(
                 dtr["X_sorted"],
                 dtr["fitted_minmax"],
-                color=line_colors[1],
+                color=COLORS["orange"],
                 linewidth=2,
                 label=lab,
             )
@@ -484,7 +486,7 @@ def plot_dtr(
                 ax.plot(
                     X_sorted,
                     y_clean[env_label == 0][sorted_idx],
-                    color=line_colors[2],
+                    color=COLORS["purple"],
                     linewidth=2,
                     label="$f^{e_1}$",
                     linestyle="--",
@@ -492,7 +494,7 @@ def plot_dtr(
                 ax.plot(
                     X_sorted,
                     y_clean[env_label == 1][sorted_idx],
-                    color=line_colors[3],
+                    color=COLORS["red"],
                     linewidth=2,
                     label="$f^{e_2}$",
                     linestyle="--",
@@ -500,7 +502,7 @@ def plot_dtr(
                 ax.plot(
                     X_sorted,
                     y_clean[env_label == 2][sorted_idx],
-                    color=line_colors[4],
+                    color=COLORS["lightblue"],
                     linewidth=2,
                     label="$f^{e_3}$",
                     linestyle="--",
@@ -509,7 +511,7 @@ def plot_dtr(
                 ax.plot(
                     dtr["X_sorted"],
                     dtr["fitted_minmax_xtrgrd"],
-                    color=line_colors[2],
+                    color=COLORS["purple"],
                     linewidth=2,
                     label=f"{NAME_RF}(posthoc-mse-xtrgrd)",
                 )
@@ -517,7 +519,7 @@ def plot_dtr(
                 ax.plot(
                     dtr["X_sorted"],
                     dtr["fitted_magging"],
-                    color=line_colors[2],
+                    color=COLORS["purple"],
                     linewidth=2,
                     label="RF(magging)",
                 )
@@ -525,14 +527,14 @@ def plot_dtr(
             ax.plot(
                 dtr["X_sorted"],
                 dtr["fitted_default"],
-                color=line_colors[0],
+                color=COLORS["blue"],
                 linewidth=2,
                 label="NN",
             )
             ax.plot(
                 dtr["X_sorted"],
                 dtr["fitted_gdro"],
-                color=line_colors[1],
+                color=COLORS["orange"],
                 linewidth=2,
                 label="NN-GDRO",
             )
@@ -540,28 +542,28 @@ def plot_dtr(
         ax.plot(
             dtr["X_sorted"],
             dtr["fitted_rf"],
-            color=line_colors[0],
+            color=COLORS["blue"],
             linewidth=2,
             label="RF",
         )
         ax.plot(
             dtr["X_sorted"],
             dtr["fitted_mse"],
-            color=line_colors[1],
+            color=COLORS["orange"],
             linewidth=2,
             label=f"{NAME_RF}(posthoc-mse)",
         )
         ax.plot(
             dtr["X_sorted"],
             dtr["fitted_nrw"],
-            color=line_colors[2],
+            color=COLORS["purple"],
             linewidth=2,
             label=f"{NAME_RF}(posthoc-nrw)",
         )
         ax.plot(
             dtr["X_sorted"],
             dtr["fitted_regret"],
-            color=line_colors[3],
+            color=COLORS["red"],
             linewidth=2,
             label=f"{NAME_RF}(posthoc-reg)",
         )
@@ -569,7 +571,7 @@ def plot_dtr(
             ax.plot(
                 dtr["X_sorted"],
                 dtr["fitted_magging"],
-                color=line_colors[4],
+                color=COLORS["lightblue"],
                 linewidth=2,
                 label="RF(magging)",
             )
@@ -582,7 +584,7 @@ def plot_dtr(
             ax.plot(
                 X_sorted,
                 y_clean[env_label == 0][sorted_idx],
-                color=line_colors[4],
+                color=COLORS["lightblue"],
                 linewidth=2,
                 label="$f^{e_1}$",
                 linestyle="--",
@@ -590,7 +592,7 @@ def plot_dtr(
             ax.plot(
                 X_sorted,
                 y_clean[env_label == 1][sorted_idx],
-                color=line_colors[5],
+                color=COLORS["purple2"],
                 linewidth=2,
                 label="$f^{e_2}$",
                 linestyle="--",
@@ -598,7 +600,7 @@ def plot_dtr(
             ax.plot(
                 X_sorted,
                 y_clean[env_label == 2][sorted_idx],
-                color=line_colors[6],
+                color=COLORS["tan"],
                 linewidth=2,
                 label="$f^{e_3}$",
                 linestyle="--",
@@ -624,7 +626,7 @@ def plot_dtr(
             ax.plot(
                 x_range,
                 y_opt,
-                color="orangered",
+                color=COLORS["red"],
                 linewidth=3,
                 label="Oracle",
                 linestyle="--",
@@ -664,13 +666,6 @@ def plot_dtr_ss(
     """
     Plotting function for smoothing splines results
     """
-    line_colors = [
-        "lightskyblue",
-        "orange",
-        "mediumpurple",
-        "yellowgreen",
-        "firebrick",
-    ]
     data_colors = ["black", "grey", "silver"]
     environments = sorted(dtr["E"].unique())
 
@@ -687,11 +682,11 @@ def plot_dtr_ss(
             label=f"Env {env + 1}",
         )
 
-    ax.plot(x_grid, preds_erm, color=line_colors[0], linewidth=2, label="SS")
+    ax.plot(x_grid, preds_erm, color=COLORS["blue"], linewidth=2, label="SS")
     ax.plot(
         x_grid,
         preds_mse,
-        color=line_colors[1],
+        color=COLORS["orange"],
         linewidth=2,
         label=f"{NAME_SS}(posthoc-mse)",
     )
@@ -699,7 +694,7 @@ def plot_dtr_ss(
         ax.plot(
             x_grid,
             preds_nrw,
-            color=line_colors[2],
+            color=COLORS["purple"],
             linewidth=2,
             label=f"{NAME_SS}(posthoc-nrw)",
         )
@@ -707,16 +702,16 @@ def plot_dtr_ss(
         ax.plot(
             x_grid,
             preds_regret,
-            color=line_colors[3],
+            color=COLORS["red"],
             linewidth=2,
             label=f"{NAME_SS}(posthoc-reg)",
         )
     if preds_magging is not None:
-        col_idx = 4 if obj_comparison else 2
+        col_idx = "lightblue" if obj_comparison else "purple"
         ax.plot(
             x_grid,
             preds_magging,
-            color=line_colors[col_idx],
+            color=COLORS[col_idx],
             linewidth=2,
             label="SS(magging)",
         )
@@ -737,7 +732,7 @@ def plot_dtr_ss(
             ax.plot(
                 x_grid,
                 y_opt,
-                color="orangered",
+                color=COLORS["red"],
                 linewidth=3,
                 label="Oracle",
                 linestyle="--",
@@ -768,13 +763,13 @@ def plot_dtr_all_methods(
     nameplot: str = "setting5_allmethods",
 ):
     line_colors = [
-        "lightskyblue",
-        "orange",
-        "plum",
-        "yellowgreen",
-        "royalblue",
-        "darkred",
-        "mediumpurple",
+        "#5790FC",
+        "#F89C20",
+        "#964A8B",
+        "#86C8DD",
+        "#7A21DD",
+        "#B9AC70",
+        "#A96B59",
     ]
     data_colors = ["black", "grey", "silver"]
     environments = sorted(dtr["E"].unique())
@@ -861,7 +856,7 @@ def plot_dtr_all_methods(
             ax.plot(
                 x_range,
                 y_opt,
-                color="orangered",
+                color="#E42536",
                 linewidth=3,
                 label="Oracle",
                 linestyle="--",

@@ -20,7 +20,7 @@ def plot_max_mse_boxplot(
     show: bool = False,
     out_dir: str | None = None,
 ) -> None:
-    color = "tab:blue"
+    color = "#5790FC"
     n = len(max_mse_df.columns)
     pos = np.arange(n)
 
@@ -35,7 +35,7 @@ def plot_max_mse_boxplot(
         capprops=dict(color=color),
         whiskerprops=dict(color=color),
         flierprops=dict(markerfacecolor=color, marker="o", alpha=0.4),
-        medianprops=dict(color="tab:blue", linewidth=2),
+        medianprops=dict(color="#5790FC", linewidth=2),
     )
 
     ax.set_ylabel("MSE")
@@ -76,7 +76,7 @@ def plot_test_risk(
     models = ["RF", f"{NAME_RF}(posthoc-{method})"]
 
     # Colors and offsets
-    colors = ["lightskyblue", "orange"]
+    colors = ["#5790FC", "#F89C20"]
     delta = 0.1
     offsets = [-delta, delta]
 
@@ -145,10 +145,10 @@ def plot_test_risk_all_methods(
     ]
 
     colors = {
-        "RF": "lightskyblue",
-        f"{NAME_RF}(posthoc-mse)": "orange",
-        f"{NAME_RF}(posthoc-nrw)": "mediumpurple",
-        f"{NAME_RF}(posthoc-reg)": "yellowgreen",
+        "RF": "#5790FC",
+        f"{NAME_RF}(posthoc-mse)": "#F89C20",
+        f"{NAME_RF}(posthoc-nrw)": "#964A8B",
+        f"{NAME_RF}(posthoc-reg)": "#E42536",
     }
     delta = 0.1
     offsets = np.linspace(-delta, delta, len(models))
@@ -209,7 +209,7 @@ def plot_envs_risk(
     num_models = len(models)
 
     # Colors and offsets
-    colors = ["lightskyblue", "orange"]
+    colors = ["#5790FC", "#F89C20"]
     delta = 0.12
     n_subenv = 3
     figsize = (12, 6)
@@ -372,7 +372,7 @@ def plot_max_mse_mtry(
     suffix: str = "mse",
 ) -> None:
     methods = ["RF", f"{NAME_RF}(posthoc-{suffix})"]
-    colors = ["lightskyblue", "orange"]
+    colors = ["#5790FC", "#F89C20"]
 
     nsim = res.groupby(["method", "mtry"]).size().iloc[0]
 
