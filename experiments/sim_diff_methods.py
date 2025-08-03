@@ -4,6 +4,7 @@ import time
 from sklearn.metrics import mean_squared_error
 from nldg.utils import *
 from nldg.rf import MaggingRF
+from nldg.ss import MaxRMSmoothSpline, MaggingSmoothSpline
 from adaXT.random_forest import RandomForest
 from tqdm import tqdm
 from utils import *
@@ -23,6 +24,7 @@ OUT_DIR = os.path.join(SIM_DIR, "sim_diff_methods")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 NAME_RF = "MaxRM-RF"
+NAME_SS = "MaxRM-SS"
 
 
 if __name__ == "__main__":
@@ -34,6 +36,10 @@ if __name__ == "__main__":
         f"{NAME_RF}(posthoc-local)": [],
         f"{NAME_RF}(global-dfs)": [],
         f"{NAME_RF}(global)": [],
+        f"{NAME_RF}(posthoc-xtrgrd)": [],
+        "SS": [],
+        "SS(magging)": [],
+        f"{NAME_SS}": [],
     }
 
     runtime_dict = copy.deepcopy(results_dict)
@@ -77,7 +83,7 @@ if __name__ == "__main__":
         mse_envs_dict["RF"].append(mse_envs_rf)
         maxmse_dict["RF"].append(maxmse_rf)
 
-        # Magging
+        # RF - Magging
         start = time.process_time()
         rf_magging = MaggingRF(
             n_estimators=N_ESTIMATORS,
@@ -96,7 +102,7 @@ if __name__ == "__main__":
         mse_envs_dict["RF(magging)"].append(mse_envs_magging)
         maxmse_dict["RF(magging)"].append(maxmse_magging)
 
-        # Local
+        # RF - Local
         start = time.process_time()
         rf_minmax_m0 = RandomForest(
             "MinMaxRegression",
@@ -119,7 +125,7 @@ if __name__ == "__main__":
         mse_envs_dict[f"{NAME_RF}(local)"].append(mse_envs_minmax_m0)
         maxmse_dict[f"{NAME_RF}(local)"].append(maxmse_minmax_m0)
 
-        # Post-hoc
+        # RF - Post-hoc
         start = time.process_time()
         rf.modify_predictions_trees(Etr)
         end = time.process_time()
@@ -136,7 +142,7 @@ if __name__ == "__main__":
         mse_envs_dict[f"{NAME_RF}(posthoc)"].append(mse_envs_minmax_m1)
         maxmse_dict[f"{NAME_RF}(posthoc)"].append(maxmse_minmax_m1)
 
-        # Posthoc to Local
+        # RF - Posthoc to Local
         start = time.process_time()
         rf_minmax_m0.modify_predictions_trees(Etr)
         end = time.process_time()
@@ -153,7 +159,7 @@ if __name__ == "__main__":
         mse_envs_dict[f"{NAME_RF}(posthoc-local)"].append(mse_envs_minmax_m2)
         maxmse_dict[f"{NAME_RF}(posthoc-local)"].append(maxmse_minmax_m2)
 
-        # Global - DFS
+        # RF - Global - DFS
         start = time.process_time()
         rf_minmax_m3 = RandomForest(
             "MinMaxRegression",
@@ -175,7 +181,7 @@ if __name__ == "__main__":
         mse_envs_dict[f"{NAME_RF}(global-dfs)"].append(mse_envs_minmax_m3)
         maxmse_dict[f"{NAME_RF}(global-dfs)"].append(maxmse_minmax_m3)
 
-        # Global
+        # RF - Global
         start = time.process_time()
         rf_minmax_m4 = RandomForest(
             "MinMaxRegression",
@@ -196,6 +202,92 @@ if __name__ == "__main__":
         )
         mse_envs_dict[f"{NAME_RF}(global)"].append(mse_envs_minmax_m4)
         maxmse_dict[f"{NAME_RF}(global)"].append(maxmse_minmax_m4)
+
+        # RF - Post-hoc - Extragradient
+        rf = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=i,
+        )
+        rf.fit(Xtr, Ytr)
+        start = time.process_time()
+        rf.modify_predictions_trees(Etr, opt_method="extragradient")
+        end = time.process_time()
+        time_xtrgrd = end - start
+        runtime_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(time_xtrgrd)
+        preds_xtrgrd = rf.predict(Xte)
+        mse_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(
+            mean_squared_error(Yte, preds_xtrgrd)
+        )
+        mse_envs_xtrgrd, maxmse_xtrgrd = max_mse(
+            Yte, preds_xtrgrd, Ete, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(mse_envs_xtrgrd)
+        maxmse_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(maxmse_xtrgrd)
+
+        # ---- Smoothing Splines ----
+        dtr = gen_data_v6(
+            n=SAMPLE_SIZE,
+            noise_std=NOISE_STD,
+            random_state=i,
+            setting=2,
+            new_x=True,
+        )
+        Xtr = np.array(dtr.drop(columns=["E", "Y"]))
+        Ytr = np.array(dtr["Y"])
+        Etr = np.array(dtr["E"])
+
+        dte = gen_data_v6(
+            n=SAMPLE_SIZE,
+            noise_std=NOISE_STD,
+            random_state=1000 + i,
+            setting=2,
+        )
+        Xte = np.array(dte.drop(columns=["E", "Y"]))
+        Yte = np.array(dte["Y"])
+        Ete = np.array(dte["E"])
+
+        # SS
+        start = time.process_time()
+        erm_ss = MaxRMSmoothSpline(Xtr, Ytr, cv=True, method="erm")
+        end = time.process_time()
+        time_ss = end - start
+        runtime_dict["SS"].append(time_ss)
+        preds_ss = erm_ss.predict(Xte)
+        mse_dict["SS"].append(mean_squared_error(Yte, preds_ss))
+        mse_envs_ss, maxmse_ss = max_mse(Yte, preds_ss, Ete, ret_ind=True)
+        mse_envs_dict["SS"].append(mse_envs_ss)
+        maxmse_dict["SS"].append(maxmse_ss)
+
+        # SS - magging
+        magging_ss = MaggingSmoothSpline()
+        start = time.process_time()
+        _ = magging_ss.fit(Xtr, Ytr, Etr)
+        end = time.process_time()
+        time_ss = end - start
+        runtime_dict["SS(magging)"].append(time_ss)
+        preds_magging = magging_ss.predict(Xte)
+        mse_dict["SS(magging)"].append(mean_squared_error(Yte, preds_magging))
+        mse_envs_magging, maxmse_magging = max_mse(
+            Yte, preds_magging, Ete, ret_ind=True
+        )
+        mse_envs_dict["SS(magging)"].append(mse_envs_magging)
+        maxmse_dict["SS(magging)"].append(maxmse_magging)
+
+        # MaxRM SS
+        start = time.process_time()
+        MaxRM_ss = MaxRMSmoothSpline(Xtr, Ytr, Etr, cv=True, solver="ECOS")
+        end = time.process_time()
+        time_maxrmss = end - start
+        runtime_dict[f"{NAME_SS}"].append(time_maxrmss)
+        preds_maxrmss = MaxRM_ss.predict(Xte)
+        mse_dict[f"{NAME_SS}"].append(mean_squared_error(Yte, preds_maxrmss))
+        mse_envs_maxrmss, maxmse_maxrmss = max_mse(
+            Yte, preds_maxrmss, Ete, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_SS}"].append(mse_envs_maxrmss)
+        maxmse_dict[f"{NAME_SS}"].append(maxmse_maxrmss)
 
     # Results
     mse_df = pd.DataFrame(mse_dict)
@@ -243,6 +335,6 @@ if __name__ == "__main__":
                 f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
             )
 
-    plot_max_mse_boxplot(maxmse_df, saveplot=True, out_dir=OUT_DIR)
+    # plot_max_mse_boxplot(maxmse_df, saveplot=True, out_dir=OUT_DIR)
 
     print(f"Saved results to {OUT_DIR}")
