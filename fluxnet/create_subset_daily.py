@@ -1,8 +1,9 @@
 import os
+import argparse
 import pandas as pd
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SITES = [
+SITES10 = [
     "AU-ASM",
     "BR-Npw",
     "CA-ARB",
@@ -14,11 +15,58 @@ SITES = [
     "US-NR1",
     "ZM-Mon",
 ]
+SITES30 = [
+    "AR-SLu",  # Argentina
+    "AT-Neu",  # Austria
+    "AU-ASM",  # Australia
+    "BE-Bra",  # Belgium
+    "BR-Npw",  # Brazil
+    "CA-ARB",  # Canada
+    "CH-Dav",  # Switzerland
+    "CN-Cha",  # China
+    "CZ-BK1",  # Czech Republic
+    "DE-Geb",  # Germany
+    "DK-Sor",  # Denmark
+    "ES-Abr",  # Spain
+    "FI-Hyy",  # Finland
+    "FR-LBr",  # France
+    "GF-Guy",  # French Guiana
+    "GH-Ank",  # Ghana
+    "GL-ZaF",  # Greenland
+    "IL-Yat",  # Israel
+    "IT-Ro1",  # Italy
+    "JP-SMF",  # Japan
+    "MX-Tes",  # Mexico
+    "MY-PSO",  # Malaysia
+    "NL-Loo",  # Netherlands
+    "PA-SPn",  # Panama
+    "RU-Fyo",  # Russia
+    "SD-Dem",  # Sudan
+    "SE-Nor",  # Sweden
+    "SJ-Adv",  # Svalbard
+    "US-NR1",  # United States
+    "ZM-Mon",  # Zambia
+]
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--nsites",
+        type=int,
+        choices=[10, 30],
+        default=10,
+        help="Number of sites in the subset.",
+    )
+    args = parser.parse_args()
+    nsites = args.nsites
+
     folder_path = os.path.join(BASE_DIR, "data_cleaned")
     data_path = os.path.join(folder_path, "daily.csv")
     data = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
-    data10 = data[data["site_id"].isin(SITES)]
-    data10.to_csv(os.path.join(folder_path, "daily10.csv"))
+
+    if nsites == 10:
+        subset = data[data["site_id"].isin(SITES10)]
+    else:
+        subset = data[data["site_id"].isin(SITES30)]
+    subset.to_csv(os.path.join(folder_path, f"daily{nsites}.csv"))
