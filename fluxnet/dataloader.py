@@ -103,8 +103,8 @@ def get_fold_df(
     ycol = train.columns == target
 
     # split into x,y
-    xtrain, ytrain = train[:, xcols], train[:, ycol].ravel()
-    xtest, ytest = test[:, xcols], test[:, ycol].ravel()
+    xtrain, ytrain = train.values[:, xcols], train.values[:, ycol].ravel()
+    xtest, ytest = test.values[:, xcols], test.values[:, ycol].ravel()
 
     # scale
     # scaler_X = MinMaxScaler()
