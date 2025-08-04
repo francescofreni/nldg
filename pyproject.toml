@@ -40,6 +40,8 @@ dependencies = [
     "geopandas",
     "contextily",
     "ecos",
+    "xarray",
+    "netCDF4",
 ]
 
 [project.optional-dependencies]
@@ -103,4 +105,4 @@ line-length = 79
 target-version = "py310"
 
 [tool.setuptools]
-packages = ["nldg", "experiments"]
+packages = ["nldg", "experiments", "fluxnet"]
