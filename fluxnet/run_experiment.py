@@ -68,7 +68,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agg",
         type=str,
-        choices=["seasonal", "daily", "raw", "daily10"],
+        choices=["seasonal", "daily", "raw", "daily10", "daily30"],
         default="daily10",
         help="Data aggregation level",
     )
