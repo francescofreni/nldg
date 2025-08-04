@@ -25,7 +25,13 @@ def generate_fold_info(df, setting, start, stop=None):
 
 
 def get_fold_df(
-    df, setting, group, target="GPP", remove_missing=False, astorch=False
+    df,
+    setting,
+    group,
+    target="GPP",
+    cv=False,
+    remove_missing=False,
+    astorch=False,
 ):
     # Get the correct data
     if setting == "insite" or setting == "insite-random":
