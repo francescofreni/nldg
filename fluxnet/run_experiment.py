@@ -141,9 +141,10 @@ if __name__ == "__main__":
     risk = args.risk
 
     if exp_name is None:
-        exp_name = (
-            f"{agg}_{setting}_{model_name}_start{start}_stop{stop}_cv{cv}"
-        )
+        if model_name == "rf":
+            exp_name = f"{agg}_{setting}_{model_name}_{method}_{risk}_start{start}_stop{stop}"
+        else:
+            exp_name = f"{agg}_{setting}_{model_name}_start{start}_stop{stop}"
 
     # Get model parameters
     if params is not None and os.path.exists(params):
