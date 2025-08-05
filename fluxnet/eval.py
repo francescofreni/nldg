@@ -142,6 +142,12 @@ if __name__ == "__main__":
 
     # Only select the first entry for each group (in case of multiple runs)
     all_results = pd.concat(all_results, ignore_index=True)
+
+    # Keep only the groups that have been analysed with all models
+    groups_per_model = all_results.groupby("model")["group"].apply(set)
+    common_groups = set.intersection(*groups_per_model)
+    all_results = all_results[all_results["group"].isin(common_groups)]
+
     all_results = all_results.groupby(
         ["model", "group"], as_index=False
     ).first()

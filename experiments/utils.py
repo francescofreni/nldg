@@ -76,7 +76,12 @@ def plot_test_risk(
     models = ["RF", f"{NAME_RF}(posthoc-{method})"]
 
     # Colors and offsets
-    colors = ["#5790FC", "#F89C20"]
+    if method == "mse":
+        colors = ["#5790FC", "#F89C20"]
+    elif method == "nrw":
+        colors = ["#5790FC", "#964A8B"]
+    else:
+        colors = ["#5790FC", "#E42536"]
     delta = 0.1
     offsets = [-delta, delta]
 
@@ -209,7 +214,12 @@ def plot_envs_risk(
     num_models = len(models)
 
     # Colors and offsets
-    colors = ["#5790FC", "#F89C20"]
+    if method == "mse":
+        colors = ["#5790FC", "#F89C20"]
+    elif method == "nrw":
+        colors = ["#5790FC", "#964A8B"]
+    else:
+        colors = ["#5790FC", "#E42536"]
     delta = 0.12
     n_subenv = 3
     figsize = (12, 6)
