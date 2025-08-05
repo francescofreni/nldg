@@ -200,6 +200,34 @@ def plot_test_risk_all_methods(
         plt.show()
 
 
+def table_test_risk_all_methods(df: pd.DataFrame) -> pd.DataFrame:
+    models = [
+        "RF",
+        f"{NAME_RF}(posthoc-mse)",
+        f"{NAME_RF}(posthoc-nrw)",
+        f"{NAME_RF}(posthoc-reg)",
+    ]
+
+    # Compute stats
+    grp = df.groupby(["HeldOutQuadrant", "Model"])["Test_risk"]
+    means = grp.mean().unstack().reindex(QUADRANTS)
+    stds = grp.std().unstack().reindex(QUADRANTS)
+    counts = grp.count().unstack().reindex(QUADRANTS)
+    ci95 = 1.96 * stds / np.sqrt(counts)
+
+    # Combine into "mean ± CI" strings
+    table_df = pd.DataFrame(index=QUADRANTS)
+    for model in models:
+        table_df[model] = [
+            f"${means.loc[q, model]:.3f} \pm {ci95.loc[q, model]:.3f}$"
+            for q in QUADRANTS
+        ]
+
+    # Reset index to have "Quadrant" as first column
+    table_df = table_df.reset_index().rename(columns={"index": "Quadrant"})
+    return table_df
+
+
 def plot_envs_risk(
     df_env_spec: pd.DataFrame,
     df_main: pd.DataFrame | None = None,

@@ -15,6 +15,7 @@ from utils import (
     plot_test_risk,
     plot_envs_risk,
     plot_test_risk_all_methods,
+    table_test_risk_all_methods,
 )
 
 # Setup logging
@@ -127,12 +128,12 @@ def eval_one_quadrant(
         Tuple (main_df, env_metrics_df): Two dataframes with performance metrics
     """
 
-    def center_per_env(y, env_labels):
-        y_centered = np.zeros_like(y)
-        for k in np.unique(env_labels):
-            mask = env_labels == k
-            y_centered[mask] = y[mask] - np.mean(y[mask])
-        return y_centered
+    # def center_per_env(y, env_labels):
+    #     y_centered = np.zeros_like(y)
+    #     for k in np.unique(env_labels):
+    #         mask = env_labels == k
+    #         y_centered[mask] = y[mask] - np.mean(y[mask])
+    #     return y_centered
 
     # Masks
     test_mask = env == quadrant_idx
@@ -155,7 +156,7 @@ def eval_one_quadrant(
         rf_regret_te.fit(X_test, y_test)
         sols_erm_te = rf_regret_te.predict(X_test)
 
-    y_test = center_per_env(y_test, env_test)
+    # y_test = center_per_env(y_test, env_test)
 
     main_records = []
     env_metrics_records = []
@@ -178,8 +179,8 @@ def eval_one_quadrant(
             stratify=env_pool,
         )
 
-        y_tr = center_per_env(y_tr, env_tr)
-        y_val = center_per_env(y_val, env_val)
+        # y_tr = center_per_env(y_tr, env_tr)
+        # y_val = center_per_env(y_val, env_val)
 
         if method == "reg":
             # Compute the ERM solution in each environment
@@ -578,6 +579,14 @@ if __name__ == "__main__":
 
     combined_df = pd.concat([mse_df, nrw_df, reg_df], ignore_index=True)
     plot_test_risk_all_methods(combined_df, saveplot=True, out_dir=OUT_DIR)
+    table_df = table_test_risk_all_methods(combined_df)
+    latex_str = table_df.to_latex(
+        index=False, escape=False, column_format="lcccc"
+    )
+    with open(
+        os.path.join(OUT_DIR, "heldout_mse_all_methods_table.txt"), "w"
+    ) as f:
+        f.write(latex_str)
 
     print("\nRunning mtry experiment:\n")
     mtry_exp(X, y, env)
