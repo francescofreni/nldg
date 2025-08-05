@@ -190,35 +190,45 @@ if __name__ == "__main__":
         model = get_model(model_name, params=params)
         model.fit(xtrain, ytrain)
         if model_name == "rf" and method == "maxrm":
-            if risk == "mse":
-                model.modify_predictions_trees(train_ids_int, solver=solver)
-            elif risk == "reward":
-                model.modify_predictions_trees(
-                    train_ids_int, method="reward", solver=solver
+            try:
+                if risk == "mse":
+                    model.modify_predictions_trees(
+                        train_ids_int, solver=solver
+                    )
+                elif risk == "reward":
+                    model.modify_predictions_trees(
+                        train_ids_int, method="reward", solver=solver
+                    )
+                else:
+                    sols_erm = np.zeros(len(train_ids_int))
+                    sols_erm_trees = np.zeros(
+                        (params["n_estimators"], len(train_ids_int))
+                    )
+                    for env in np.unique(train_ids_int):
+                        mask = train_ids_int == env
+                        xtrain_env = xtrain[mask]
+                        ytrain_env = ytrain[mask]
+                        rf_env = RandomForest(**params)
+                        rf_env.fit(xtrain_env, ytrain_env)
+                        fitted_env = rf_env.predict(xtrain_env)
+                        sols_erm[mask] = rf_env.predict(xtrain_env)
+                        for i in range(params["n_estimators"]):
+                            fitted_env_tree = rf_env.trees[i].predict(
+                                xtrain_env
+                            )
+                            sols_erm_trees[i, mask] = fitted_env_tree
+                    model.modify_predictions_trees(
+                        train_ids_int,
+                        method="regret",
+                        sols_erm=sols_erm,
+                        sols_erm_trees=sols_erm_trees,
+                        solver=solver,
+                    )
+            except Exception as e:
+                logging.error(
+                    f"* SKIPPING {group}: Error in modify_predictions_trees"
                 )
-            else:
-                sols_erm = np.zeros(len(train_ids_int))
-                sols_erm_trees = np.zeros(
-                    (params["n_estimators"], len(train_ids_int))
-                )
-                for env in np.unique(train_ids_int):
-                    mask = train_ids_int == env
-                    xtrain_env = xtrain[mask]
-                    ytrain_env = ytrain[mask]
-                    rf_env = RandomForest(**params)
-                    rf_env.fit(xtrain_env, ytrain_env)
-                    fitted_env = rf_env.predict(xtrain_env)
-                    sols_erm[mask] = rf_env.predict(xtrain_env)
-                    for i in range(params["n_estimators"]):
-                        fitted_env_tree = rf_env.trees[i].predict(xtrain_env)
-                        sols_erm_trees[i, mask] = fitted_env_tree
-                model.modify_predictions_trees(
-                    train_ids_int,
-                    method="regret",
-                    sols_erm=sols_erm,
-                    sols_erm_trees=sols_erm_trees,
-                    solver=solver,
-                )
+                continue
 
         # Evaluate model
         ypred = model.predict(xtest)
