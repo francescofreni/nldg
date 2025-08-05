@@ -37,7 +37,7 @@ B = 20
 VAL_PERCENTAGE = 0.3
 N_ESTIMATORS = 25
 MIN_SAMPLES_LEAF = 30
-SEED = 42
+SEED = 0
 N = 20
 
 NAME_RF = "MaxRM-RF"
@@ -147,8 +147,8 @@ def eval_one_quadrant(
         rf_regret_te.fit(X_test, y_test)
         sols_erm_te = rf_regret_te.predict(X_test)
 
-    # if method == "nrw":
-    #     y_test = y_test - np.mean(y_test)
+    if method == "nrw":
+        y_test = y_test - np.mean(y_test)
 
     main_records = []
     env_metrics_records = []
@@ -198,13 +198,13 @@ def eval_one_quadrant(
                 fitted_e_val = rf_e.predict(X_val[mask_e_val])
                 sols_erm_val[mask_e_val] = fitted_e_val
 
-        # if method == "nrw":
-        #     y_tr_demean = np.zeros_like(y_tr)
-        #     for env in np.unique(env_tr):
-        #         mask = env_tr == env
-        #         y_tr_e = y_tr[mask]
-        #         y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
-        #     y_tr = y_tr_demean
+        if method == "nrw":
+            y_tr_demean = np.zeros_like(y_tr)
+            for env in np.unique(env_tr):
+                mask = env_tr == env
+                y_tr_e = y_tr[mask]
+                y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
+            y_tr = y_tr_demean
 
         # Fit and predict
         rf = RandomForest(
