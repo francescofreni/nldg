@@ -410,7 +410,12 @@ def plot_max_mse_mtry(
     suffix: str = "mse",
 ) -> None:
     methods = ["RF", f"{NAME_RF}(posthoc-{suffix})"]
-    colors = ["#5790FC", "#F89C20"]
+    if suffix == "mse":
+        colors = ["#5790FC", "#F89C20"]
+    elif suffix == "nrw":
+        colors = ["#5790FC", "#964A8B"]
+    else:
+        colors = ["#5790FC", "#E42536"]
 
     nsim = res.groupby(["method", "mtry"]).size().iloc[0]
 
