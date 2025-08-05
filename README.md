@@ -41,7 +41,7 @@ pip install -e ".[dev]"
 
 
 ## 🚀 Usage
-The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstrates the core functionalities of the main functions provided in this repository.
+The code in `notebooks/demo_rf.ipynb` and `notebooks/demo_ss.ipynb` demonstrates the core functionalities of the main functions provided in this repository.
 
 
 ## 📁 Directory Structure
@@ -59,6 +59,16 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 │   ├── sim_mse_degeneration.py      # Guarantee for MSE fails with heteroskedastic noise
 │   ├── sim_smoothsplines.py         # Comparing MaxRM Smoothing Splines with standard SS
 │   └── utils.py                     # Helper functions
+|
+├── fluxnet
+│   ├── data                         # Raw data
+│   ├── data_cleaned                 # Aggregated datasets after preprocessing 
+│   ├── results                      # Experimental results
+│   ├── create_subset_daily.py       # Script to create a subset of the aggregated daily data
+│   ├── dataloader.py                # Creates train and test splits
+│   ├── eval.py                      # Evaluation metrics
+│   ├── preprocessing.py             # Preprocessing raw data
+│   └── run_experiment.py            # Run the fluxnet experiment
 |
 ├── nldg           
 │   ├── nn.py                        # Neural Network class
@@ -93,7 +103,7 @@ The code in **notebooks/demo_rf.ipynb** and **notebooks/demo_ss.ipynb** demonstr
 python experiments/sim_diff_methods.py
 ```
 
-#### 2) Comparing MaxRM Smoothing Splines with standard version
+#### 2) Comparing MaxRM Smoothing Splines against standard Smoothing Splines
 ```bash
 python experiments/sim_smoothsplines.py
 ```
@@ -129,6 +139,34 @@ python experiments/bcd_test_runtime.py
 python experiments/ca_housing_data_import.py
 python experiments/ca_housing_analysis.py
 ```
+
+### FLUXNET
+See https://github.com/anyafries/fluxnet_bench for more details.
+
+The data needs to be copied in the folder `fluxnet/data`. To obtain the cleaned raw, daily and seasonal datasets, run the following:
+```bash
+python fluxnet/preprocessing.py
+```
+The aggregated datasets will be available in `fluxnet/data_cleaned`. To create a subset of the daily data with $10$ sites, run the following:
+```bash
+python fluxnet/create_subset_daily.py --nsites 10
+```
+Alternatively, you can also create a subset with $30$ sites. The resulting dataset will show up in `fluxnet/data_cleaned`.
+
+To run the experiment with $10$ sites:
+```bash
+python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf"
+python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "mse"
+python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "reward"
+python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "regret"
+```
+To run the experiment with $30$ sites, replace `"daily10"` with `"daily30"`. The results will be available at `fluxnet/results`. 
+
+To get a LaTeX table summarizing the results, run:
+```bash
+python fluxnet/eval.py --agg "daily10" --setting "loso" --metric "rmse"
+```
+If, instead of the RMSE, you would like to report the $R^2$, replace `"rmse"` with `"r2_score"`.
 
 [//]: # (## 📚 Documentation)
 
