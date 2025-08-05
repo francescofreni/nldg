@@ -125,6 +125,14 @@ if __name__ == "__main__":
         help="Risk definition (default: 'mse')."
         "Must be one of 'mse', 'reward', 'regret'.",
     )
+    parser.add_argument(
+        "--solver",
+        type=str,
+        default=None,
+        choices=["CLARABEL", "SCS", "ECOS"],
+        help="Interior-point solver to use for MaxRM Random Forest (default: None)."
+        "Must be one of None, 'CLARABEL', 'SCS', 'ECOS'.",
+    )
 
     args = parser.parse_args()
     path = args.path
@@ -139,6 +147,7 @@ if __name__ == "__main__":
     cv = args.cv
     method = args.method
     risk = args.risk
+    solver = args.solver
 
     if exp_name is None:
         if model_name == "rf":
@@ -182,9 +191,11 @@ if __name__ == "__main__":
         model.fit(xtrain, ytrain)
         if model_name == "rf" and method == "maxrm":
             if risk == "mse":
-                model.modify_predictions_trees(train_ids_int)
+                model.modify_predictions_trees(train_ids_int, solver=solver)
             elif risk == "reward":
-                model.modify_predictions_trees(train_ids_int, method="reward")
+                model.modify_predictions_trees(
+                    train_ids_int, method="reward", solver=solver
+                )
             else:
                 sols_erm = np.zeros(len(train_ids_int))
                 sols_erm_trees = np.zeros(
@@ -206,6 +217,7 @@ if __name__ == "__main__":
                     method="regret",
                     sols_erm=sols_erm,
                     sols_erm_trees=sols_erm_trees,
+                    solver=solver,
                 )
 
         # Evaluate model
