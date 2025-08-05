@@ -151,7 +151,15 @@ if __name__ == "__main__":
 
     if exp_name is None:
         if model_name == "rf":
-            exp_name = f"{agg}_{setting}_{model_name}_{method}_{risk}_start{start}_stop{stop}"
+            if method == "erm":
+                exp_name = f"{agg}_{setting}_RF_start{start}_stop{stop}"
+            else:
+                if risk == "mse":
+                    exp_name = f"{agg}_{setting}_MaxRM-RF(posthoc-mse)_start{start}_stop{stop}"
+                elif risk == "reward":
+                    exp_name = f"{agg}_{setting}_MaxRM-RF(posthoc-nrw)_start{start}_stop{stop}"
+                else:
+                    exp_name = f"{agg}_{setting}_MaxRM-RF(posthoc-reg)_start{start}_stop{stop}"
         else:
             exp_name = f"{agg}_{setting}_{model_name}_start{start}_stop{stop}"
 
