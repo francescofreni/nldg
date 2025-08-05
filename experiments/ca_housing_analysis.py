@@ -126,6 +126,14 @@ def eval_one_quadrant(
     Returns:
         Tuple (main_df, env_metrics_df): Two dataframes with performance metrics
     """
+
+    def center_per_env(y, env_labels):
+        y_centered = np.zeros_like(y)
+        for k in np.unique(env_labels):
+            mask = env_labels == k
+            y_centered[mask] = y[mask] - np.mean(y[mask])
+        return y_centered
+
     # Masks
     test_mask = env == quadrant_idx
     train_mask = ~test_mask
@@ -147,7 +155,7 @@ def eval_one_quadrant(
         rf_regret_te.fit(X_test, y_test)
         sols_erm_te = rf_regret_te.predict(X_test)
 
-    y_test = y_test - np.mean(y_test)
+    y_test = center_per_env(y_test, env_test)
 
     main_records = []
     env_metrics_records = []
@@ -169,6 +177,9 @@ def eval_one_quadrant(
             random_state=b,
             stratify=env_pool,
         )
+
+        y_tr = center_per_env(y_tr, env_tr)
+        y_val = center_per_env(y_val, env_val)
 
         if method == "reg":
             # Compute the ERM solution in each environment
@@ -196,13 +207,6 @@ def eval_one_quadrant(
                 mask_e_val = env_val == e
                 fitted_e_val = rf_e.predict(X_val[mask_e_val])
                 sols_erm_val[mask_e_val] = fitted_e_val
-
-        y_tr_demean = np.zeros_like(y_tr)
-        for env in np.unique(env_tr):
-            mask = env_tr == env
-            y_tr_e = y_tr[mask]
-            y_tr_demean[mask] = y_tr_e - np.mean(y_tr_e)
-        y_tr = y_tr_demean
 
         # Fit and predict
         rf = RandomForest(
