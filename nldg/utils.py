@@ -688,7 +688,7 @@ def plot_dtr_ss(
         preds_mse,
         color=COLORS["orange"],
         linewidth=2,
-        label=f"{NAME_SS}(posthoc-mse)",
+        label=f"{NAME_SS}(mse)",
     )
     if preds_nrw is not None:
         ax.plot(
@@ -696,7 +696,7 @@ def plot_dtr_ss(
             preds_nrw,
             color=COLORS["purple"],
             linewidth=2,
-            label=f"{NAME_SS}(posthoc-nrw)",
+            label=f"{NAME_SS}(nrw)",
         )
     if preds_regret is not None:
         ax.plot(
@@ -704,7 +704,7 @@ def plot_dtr_ss(
             preds_regret,
             color=COLORS["red"],
             linewidth=2,
-            label=f"{NAME_SS}(posthoc-reg)",
+            label=f"{NAME_SS}(reg)",
         )
     if preds_magging is not None:
         col_idx = "lightblue" if obj_comparison else "purple"
