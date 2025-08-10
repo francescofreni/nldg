@@ -401,6 +401,124 @@ def plot_envs_risk(
         plt.show()
 
 
+def plot_envs_mse_all_methods(
+    df_env_all,
+    saveplot=False,
+    nameplot="env_specific_mse_all_methods",
+    show=False,
+    out_dir=None,
+):
+    df = (
+        df_env_all.sort_values("Model")
+        .drop_duplicates(
+            subset=["HeldOutQuadrant", "EnvIndex", "Rep", "Model"]
+        )
+        .copy()
+    )
+
+    models = [
+        "RF",
+        f"{NAME_RF}(posthoc-mse)",
+        f"{NAME_RF}(posthoc-nrw)",
+        f"{NAME_RF}(posthoc-reg)",
+    ]
+    colors = {
+        "RF": "#5790FC",
+        "MaxRM-RF(posthoc-mse)": "#F89C20",
+        "MaxRM-RF(posthoc-nrw)": "#964A8B",
+        "MaxRM-RF(posthoc-reg)": "#E42536",
+    }
+    num_models = len(models)
+    delta = 0.18
+    n_subenv = 3
+    figsize = (15, 6)
+
+    fig, ax = plt.subplots(figsize=figsize)
+    seen = {m: False for m in models}
+    label_positions = []
+
+    for i, ho in enumerate(QUADRANTS):
+        subenvs = [q for q in QUADRANTS if q != ho]
+        for j, env_name in enumerate(subenvs):
+            x_base = i * n_subenv + j
+            label_positions.append((ho, env_name, x_base))
+
+            for m_idx, model in enumerate(models):
+                ser = df[
+                    (df["HeldOutQuadrant"] == ho)
+                    & (df["Model"] == model)
+                    & (df["EnvIndex"] == QUADRANTS.index(env_name))
+                ]["MSE"]
+
+                if ser.empty:
+                    continue
+
+                mean = ser.mean()
+                std = ser.std(ddof=1)
+                ci95 = 1.96 * std / np.sqrt(ser.count())
+
+                x = x_base + (m_idx - (num_models - 1) / 2) * delta
+                label = model if not seen[model] else "_nolegend_"
+                seen[model] = True
+
+                ax.errorbar(
+                    x,
+                    mean,
+                    yerr=ci95,
+                    fmt="o",
+                    color=colors[model],
+                    markersize=8,
+                    elinewidth=2.5,
+                    capsize=0,
+                    label=label,
+                )
+
+    # vertical separators
+    for k in range(1, len(QUADRANTS)):
+        sep_x = k * n_subenv - 0.5
+        ax.axvline(sep_x, linewidth=0.5, color="black")
+
+    ax.set_xticks([])
+    ax.set_xlim(-0.5, len(QUADRANTS) * n_subenv - 0.5)
+
+    # label rows
+    fig.canvas.draw()
+    y0, y1 = ax.get_ylim()
+    for _, env, x in label_positions:
+        ax.text(
+            x, y0 - 0.02 * (y1 - y0), env, ha="center", va="top", fontsize=10
+        )
+
+    # big labels per held-out env
+    for i, ho in enumerate(QUADRANTS):
+        mid = i * n_subenv + (n_subenv - 1) / 2
+        ax.text(
+            mid,
+            y0 - 0.08 * (y1 - y0),
+            ho,
+            ha="center",
+            va="top",
+            fontsize=12,
+            fontweight="bold",
+        )
+
+    ax.set_ylabel(r"$\mathsf{MSE}$")
+    ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
+    ax.legend(loc="best", frameon=True)
+
+    plt.subplots_adjust(top=0.9, bottom=0.2)
+    plt.tight_layout()
+
+    if saveplot and out_dir is not None:
+        plt.savefig(
+            os.path.join(out_dir, f"{nameplot}.png"),
+            dpi=300,
+            bbox_inches="tight",
+        )
+    if show:
+        plt.show()
+
+
 def plot_max_mse_mtry(
     res: pd.DataFrame,
     saveplot: bool = False,

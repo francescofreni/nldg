@@ -16,6 +16,7 @@ from utils import (
     plot_envs_risk,
     plot_test_risk_all_methods,
     table_test_risk_all_methods,
+    plot_envs_mse_all_methods,
 )
 
 # Setup logging
@@ -247,6 +248,9 @@ def eval_one_quadrant(
             )
             risk_val_posthoc = mean_squared_error(y_val, preds_val_posthoc)
             risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
+
+            mse_envs_val = risk_envs_val
+            mse_envs_val_posthoc = risk_envs_val_posthoc
         elif method == "nrw":
             risk_envs_val, max_risk_val = min_reward(
                 y_val, preds_val, env_val, ret_ind=True
@@ -269,6 +273,11 @@ def eval_one_quadrant(
             #     y_test, preds_test_posthoc
             # ) - np.mean(y_test**2)
             risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
+
+            mse_envs_val, _ = max_mse(y_val, preds_val, env_val, ret_ind=True)
+            mse_envs_val_posthoc, _ = max_mse(
+                y_val, preds_val_posthoc, env_val, ret_ind=True
+            )
         else:
             risk_envs_val, max_risk_val = max_regret(
                 y_val, preds_val, sols_erm_val, env_val, ret_ind=True
@@ -288,12 +297,18 @@ def eval_one_quadrant(
             # ) - mean_squared_error(y_test, sols_erm_te)
             risk_test_posthoc = mean_squared_error(y_test, preds_test_posthoc)
 
+            mse_envs_val, _ = max_mse(y_val, preds_val, env_val, ret_ind=True)
+            mse_envs_val_posthoc, _ = max_mse(
+                y_val, preds_val_posthoc, env_val, ret_ind=True
+            )
+
         for (
             model_name,
             tr,
             te,
             tr_envs,
             tr_pool,
+            tr_mse_envs,
         ) in [
             (
                 "RF",
@@ -301,6 +316,7 @@ def eval_one_quadrant(
                 risk_test,
                 risk_envs_val,
                 risk_val,
+                mse_envs_val,
             ),
             (
                 f"{NAME_RF}(posthoc-{method})",
@@ -308,6 +324,7 @@ def eval_one_quadrant(
                 risk_test_posthoc,
                 risk_envs_val_posthoc,
                 risk_val_posthoc,
+                mse_envs_val_posthoc,
             ),
         ]:
             # Main performance metrics
@@ -333,6 +350,7 @@ def eval_one_quadrant(
                         "Model": model_name,
                         "EnvIndex": int(env_idx),
                         "Risk": float(env_value),
+                        "MSE": float(tr_mse_envs[i]),
                     }
                 )
 
@@ -346,7 +364,7 @@ def gen_exp(
     y: pd.Series,
     env: np.ndarray,
     method: str,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Leave-one-quadrant-out with train/val/test split
 
@@ -400,7 +418,7 @@ def gen_exp(
         out_dir=OUT_DIR,
     )
 
-    return main_result_df
+    return main_result_df, env_metrics_result_df
 
 
 def mtry_exp(
@@ -565,19 +583,21 @@ if __name__ == "__main__":
     env = assign_quadrant(Z)
 
     print("\nRunning experiment: Minimize maximum MSE across environments\n")
-    mse_df = gen_exp(X, y, env, "mse")
+    mse_main_df, mse_envs_df = gen_exp(X, y, env, "mse")
 
     print(
         "\nRunning experiment: Minimize maximum negative reward across environments\n"
     )
-    nrw_df = gen_exp(X, y, env, "nrw")
+    nrw_main_df, nrw_envs_df = gen_exp(X, y, env, "nrw")
 
     print(
         "\nRunning experiment: Minimize maximum regret across environments\n"
     )
-    reg_df = gen_exp(X, y, env, "reg")
+    reg_main_df, reg_envs_df = gen_exp(X, y, env, "reg")
 
-    combined_df = pd.concat([mse_df, nrw_df, reg_df], ignore_index=True)
+    combined_df = pd.concat(
+        [mse_main_df, nrw_main_df, reg_main_df], ignore_index=True
+    )
     plot_test_risk_all_methods(combined_df, saveplot=True, out_dir=OUT_DIR)
     table_df = table_test_risk_all_methods(combined_df)
     latex_str = table_df.to_latex(
@@ -587,6 +607,11 @@ if __name__ == "__main__":
         os.path.join(OUT_DIR, "heldout_mse_all_methods_table.txt"), "w"
     ) as f:
         f.write(latex_str)
+
+    env_all = pd.concat(
+        [mse_envs_df, nrw_envs_df, reg_envs_df], ignore_index=True
+    )
+    plot_envs_mse_all_methods(env_all, saveplot=True, out_dir=OUT_DIR)
 
     print("\nRunning mtry experiment:\n")
     mtry_exp(X, y, env)
