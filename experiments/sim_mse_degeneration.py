@@ -13,10 +13,10 @@ KERNEL = ConstantKernel(1.0) * RBF(length_scale=0.5)
 SEED = 0
 RNG = np.random.default_rng(SEED)
 N_ESTIMATORS = 50
-MIN_SAMPLES_LEAF = 50
+MIN_SAMPLES_LEAF = 20
 E = 3  # number of training environments
-N_TRAIN_PER_ENV = [1500, 1500, 1500]
-N_TEST = 1500
+N_TRAIN_PER_ENV = [500, 500, 500]
+N_TEST = 500
 N_SIM = 100
 GRID_SIZE = 15
 Q1_VALS = np.linspace(0, 1, GRID_SIZE)
@@ -318,7 +318,7 @@ if __name__ == "__main__":
 
         # Test environment
         X_te = RNG.uniform(-1, 1, size=(N_TEST, 1))
-        eps_te = RNG.normal(0, SIGMA_EPS_BASE, size=N_TEST)
+        eps_te = RNG.normal(0, sigma_max + 0.2, size=N_TEST)
 
         preds_mse = rf_mse.predict(X_te)
         preds_negrew = rf_negrew.predict(X_te)

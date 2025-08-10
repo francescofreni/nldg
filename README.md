@@ -114,8 +114,9 @@ python experiments/sim_gen_gap.py
 ```
 With covariate shift:
 ```bash
-python experiments/sim_gen_gap.py --covariate_shift True
+python experiments/sim_gen_gap.py --covariate_shift "different"
 ```
+Or replace `"different"` with `"mixture"`.
 
 #### 4) Generalization Guarantee fails with MSE objective and heteroskedastic noise
 ```bash

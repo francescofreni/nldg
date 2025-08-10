@@ -86,47 +86,6 @@ def generate_data():
     return X_tr, y_tr_clean, y_tr, env_label
 
 
-# def plot_tricontour(diff_map, metric):
-#     q1_grid, q2_grid, diff_grid = [], [], []
-#     for (q1, q2), diffs in diff_map.items():
-#         q1_grid.append(q1)
-#         q2_grid.append(q2)
-#         diff_grid.append(np.mean(diffs))
-#
-#     plt.figure(figsize=(8, 7))
-#     sc = plt.tricontourf(q1_grid, q2_grid, diff_grid, levels=30, cmap="Blues")
-#
-#     cbar = plt.colorbar(sc, pad=0.02, aspect=30)
-#     if metric == "mse":
-#         lab = "MSE"
-#     elif metric == "negrew":
-#         lab = "NRW"
-#     else:
-#         lab = "Reg"
-#     cbar.set_label(rf"$\overline{{D}}_{{e^\prime}}^{{{lab}}}$", fontsize=14)
-#     # if metric == "mse":
-#     #     lab = "MSE"
-#     # elif metric == "negrew":
-#     #     lab = "Negative reward"
-#     # else:
-#     #     lab = "Regret"
-#     # cbar.set_label(f"Average Generalization Gap ({lab})", fontsize=12)
-#     cbar.ax.tick_params(labelsize=10)
-#     plt.xlabel("$q_1$", fontsize=12)
-#     plt.ylabel("$q_2$", fontsize=12)
-#     plt.xticks(fontsize=10)
-#     plt.yticks(fontsize=10)
-#     plt.plot([0, 1, 0], [0, 0, 1], color="black", lw=1)
-#
-#     plt.tight_layout()
-#     plt.savefig(
-#         os.path.join(OUT_DIR, f"{metric}_diff_tricontour.png"),
-#         dpi=300,
-#         bbox_inches="tight",
-#     )
-#     plt.close()
-
-
 def plot_tricontour(diff_map, metric):
     q1_grid, q2_grid, diff_grid = [], [], []
     for (q1, q2), diffs in diff_map.items():
@@ -206,23 +165,57 @@ def plot_tricontour(diff_map, metric):
     plt.close()
 
 
+def sample_X_from_env(env_id, n_obs, rng):
+    if COVARIATE_SHIFT:
+        if env_id == 0:
+            X = rng.uniform(0, 2, size=(n_obs, 1))
+        elif env_id == 1:
+            mu, sigma = 1, 0.5
+            a, b = 0, 2
+            a_t, b_t = (a - mu) / sigma, (b - mu) / sigma
+            rv = truncnorm(a_t, b_t, loc=mu, scale=sigma)
+            X = rv.rvs(size=(n_obs, 1), random_state=rng)
+        else:
+            b = 2
+            X = truncexpon.rvs(b, size=(n_obs, 1), random_state=rng)
+    else:
+        X = rng.uniform(-1, 1, size=(n_obs, 1))
+    return X
+
+
+def sample_X_from_mixture(q, n_obs, rng):
+    env_ids = rng.choice(E, size=n_obs, p=q)
+    X = np.empty((n_obs, 1))
+    for e in range(E):
+        idx = np.where(env_ids == e)[0]
+        if idx.size == 0:
+            continue
+        X[idx] = sample_X_from_env(e, idx.size, rng)
+    return X
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Run sanity-check experiment for generalization guarantee."
     )
     parser.add_argument(
         "--covariate_shift",
-        type=bool,
-        default=False,
-        help="Whether to make the dataset balanced (default: False).",
+        type=str,
+        default="no",
+        choices=["no", "different", "mixture"],
+        help="Different setting for covariate shift (default: 'no').",
     )
     args = parser.parse_args()
     COVARIATE_SHIFT = args.covariate_shift
 
     # Generate training data
-    if COVARIATE_SHIFT:
+    if COVARIATE_SHIFT != "no":
         OUT_DIR = os.path.join(OUT_DIR, "covariate_shift")
-        os.makedirs(OUT_DIR, exist_ok=True)
+        if COVARIATE_SHIFT == "different":
+            OUT_DIR = os.path.join(OUT_DIR, "different")
+            os.makedirs(OUT_DIR, exist_ok=True)
+        else:
+            OUT_DIR = os.path.join(OUT_DIR, "mixture")
         x_grid = np.linspace(0, 2, 1000).reshape(-1, 1)
     else:
         x_grid = np.linspace(-1, 1, 1000).reshape(-1, 1)
@@ -327,19 +320,20 @@ if __name__ == "__main__":
         max_regret_tr_list.append(max_regret_tr)
 
         # Test environment
-        if COVARIATE_SHIFT:
-            mu, sigma = 1.5, 0.5
+        if COVARIATE_SHIFT == "different":
+            mu, sigma = 0.25, 0.5
             a, b = 0, 2
             a_trans, b_trans = (a - mu) / sigma, (b - mu) / sigma
             rv = truncnorm(a_trans, b_trans, loc=mu, scale=sigma)
             X_te = rv.rvs(size=(N_TEST, 1), random_state=SEED)
-        else:
+        elif COVARIATE_SHIFT == "no":
             X_te = RNG.uniform(-1, 1, size=(N_TEST, 1))
-        eps_te = RNG.normal(0, SIGMA_EPS, size=N_TEST)
 
-        preds_mse = rf_mse.predict(X_te)
-        preds_negrew = rf_negrew.predict(X_te)
-        preds_regret = rf_regret.predict(X_te)
+        if COVARIATE_SHIFT != "mixture":
+            eps_te = RNG.normal(0, SIGMA_EPS, size=N_TEST)
+            preds_mse = rf_mse.predict(X_te)
+            preds_negrew = rf_negrew.predict(X_te)
+            preds_regret = rf_regret.predict(X_te)
 
         max_mse_te, max_negrew_te, max_regret_te = -np.inf, -np.inf, -np.inf
         for q1, q2 in product(Q1_VALS, Q2_VALS):
@@ -347,6 +341,14 @@ if __name__ == "__main__":
                 continue
             q3 = 1 - q1 - q2
             q = [q1, q2, q3]
+
+            if COVARIATE_SHIFT == "mixture":
+                X_te = sample_X_from_mixture(q, N_TEST, RNG)
+                eps_te = RNG.normal(0, SIGMA_EPS, size=N_TEST)
+                preds_mse = rf_mse.predict(X_te)
+                preds_negrew = rf_negrew.predict(X_te)
+                preds_regret = rf_regret.predict(X_te)
+
             f_te = lambda x: sum(q[e] * f_env[e](x) for e in range(E))
             y_te_clean = f_te(X_te)
             y_te = y_te_clean + eps_te
