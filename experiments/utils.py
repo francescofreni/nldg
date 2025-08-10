@@ -473,6 +473,14 @@ def plot_envs_mse_all_methods(
                     label=label,
                 )
 
+    # dashed separators between sub-environments
+    for i in range(len(QUADRANTS)):  # for each held-out env block
+        for j in range(1, n_subenv):  # between its sub-environments
+            sep_x = i * n_subenv + j - 0.5
+            ax.axvline(
+                sep_x, linewidth=0.5, color="black", linestyle="--", alpha=0.5
+            )
+
     # vertical separators
     for k in range(1, len(QUADRANTS)):
         sep_x = k * n_subenv - 0.5
