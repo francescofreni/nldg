@@ -40,9 +40,7 @@ def get_fold_df(
         df_out = df.copy()
 
     # drop columns
-    df_out.drop(
-        columns=["time", "longitude", "latitude", "year"], inplace=True
-    )
+    df_out.drop(columns=["time", "longitude", "latitude"], inplace=True)
     if "date" in df.columns:
         df_out.drop(columns="date", inplace=True)
 
