@@ -512,7 +512,7 @@ def plot_envs_mse_all_methods(
 
     ax.set_ylabel(r"$\mathsf{MSE}$")
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
-    ax.legend(loc="best", frameon=True, fontsize=14)
+    ax.legend(loc="upper right", frameon=True, fontsize=14)
 
     plt.subplots_adjust(top=0.9, bottom=0.2)
     plt.tight_layout()
