@@ -512,9 +512,9 @@ def plot_envs_mse_all_methods(
 
     ax.set_ylabel(r"$\mathsf{MSE}$")
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
-    ax.legend(loc="best", frameon=True)
+    ax.legend(loc="best", frameon=True, fontsize=14)
 
-    plt.subplots_adjust(top=0.9, bottom=0.2, fontsize=14)
+    plt.subplots_adjust(top=0.9, bottom=0.2)
     plt.tight_layout()
 
     if saveplot and out_dir is not None:
@@ -527,8 +527,9 @@ def plot_envs_mse_all_methods(
         plt.show()
 
 
-def plot_max_mse_mtry(
+def plot_max_risk_vs_hyperparam(
     res: pd.DataFrame,
+    hyperparam: str,
     saveplot: bool = False,
     nameplot: str = "max_mse_mtry",
     show: bool = False,
@@ -543,20 +544,21 @@ def plot_max_mse_mtry(
     else:
         colors = ["#5790FC", "#E42536"]
 
-    nsim = res.groupby(["method", "mtry"]).size().iloc[0]
-
     stats = []
     for method in methods:
         df_m = res[res["method"] == method]
-        for m in sorted(df_m["mtry"].unique()):
-            vals = df_m[df_m["mtry"] == m]["risk"]
+        for v in sorted(df_m[hyperparam].unique()):
+            vals = df_m[df_m[hyperparam] == v]["risk"].to_numpy()
+            n = vals.size
+            if n == 0:
+                continue
             mean = vals.mean()
-            stderr = vals.std(ddof=1) / np.sqrt(nsim)
+            stderr = vals.std(ddof=1) / np.sqrt(n)
             width = 1.96 * stderr
             stats.append(
                 {
                     "method": method,
-                    "mtry": m,
+                    hyperparam: v,
                     "mean": mean,
                     "lower": mean - width,
                     "upper": mean + width,
@@ -569,7 +571,7 @@ def plot_max_mse_mtry(
     for method, color in zip(methods, colors):
         df_m = df_stats[df_stats["method"] == method]
         plt.plot(
-            df_m["mtry"],
+            df_m[hyperparam],
             df_m["mean"],
             label=method,
             color=color,
@@ -578,14 +580,19 @@ def plot_max_mse_mtry(
             markeredgecolor="white",
         )
         plt.fill_between(
-            df_m["mtry"],
+            df_m[hyperparam],
             df_m["lower"],
             df_m["upper"],
             color=color,
             alpha=0.3,
         )
 
-    plt.xlabel(r"$m_{\mathrm{try}}$")
+    if hyperparam == "mtry":
+        plt.xlabel(r"$m_{\mathrm{try}}$")
+    elif hyperparam == "min_samples_leaf":
+        plt.xlabel("Minimum number of observations per leaf")
+    else:
+        plt.xlabel("Maximum depth")
     if suffix == "mse":
         lab = "MSE"
     elif suffix == "nrw":
@@ -594,15 +601,93 @@ def plot_max_mse_mtry(
         lab = "Regret"
     plt.ylabel(f"Maximum {lab} over environments")
     plt.grid(True, linewidth=0.2)
-    plt.legend(frameon=True, fontsize=14)
+    plt.legend(frameon=True, fontsize=18)
     plt.tight_layout()
 
-    if saveplot:
+    if saveplot and out_dir is not None:
         outpath = os.path.join(out_dir, f"{nameplot}.png")
         plt.savefig(outpath, dpi=300, bbox_inches="tight")
 
     if show:
         plt.show()
+
+
+# def plot_max_mse_mtry(
+#     res: pd.DataFrame,
+#     saveplot: bool = False,
+#     nameplot: str = "max_mse_mtry",
+#     show: bool = False,
+#     out_dir: str | None = None,
+#     suffix: str = "mse",
+# ) -> None:
+#     methods = ["RF", f"{NAME_RF}({suffix})"]
+#     if suffix == "mse":
+#         colors = ["#5790FC", "#F89C20"]
+#     elif suffix == "nrw":
+#         colors = ["#5790FC", "#964A8B"]
+#     else:
+#         colors = ["#5790FC", "#E42536"]
+#
+#     nsim = res.groupby(["method", "mtry"]).size().iloc[0]
+#
+#     stats = []
+#     for method in methods:
+#         df_m = res[res["method"] == method]
+#         for m in sorted(df_m["mtry"].unique()):
+#             vals = df_m[df_m["mtry"] == m]["risk"]
+#             mean = vals.mean()
+#             stderr = vals.std(ddof=1) / np.sqrt(nsim)
+#             width = 1.96 * stderr
+#             stats.append(
+#                 {
+#                     "method": method,
+#                     "mtry": m,
+#                     "mean": mean,
+#                     "lower": mean - width,
+#                     "upper": mean + width,
+#                 }
+#             )
+#
+#     df_stats = pd.DataFrame(stats)
+#
+#     plt.figure(figsize=(8, 5))
+#     for method, color in zip(methods, colors):
+#         df_m = df_stats[df_stats["method"] == method]
+#         plt.plot(
+#             df_m["mtry"],
+#             df_m["mean"],
+#             label=method,
+#             color=color,
+#             marker="o",
+#             linestyle="-",
+#             markeredgecolor="white",
+#         )
+#         plt.fill_between(
+#             df_m["mtry"],
+#             df_m["lower"],
+#             df_m["upper"],
+#             color=color,
+#             alpha=0.3,
+#         )
+#
+#     plt.xlabel(r"$m_{\mathrm{try}}$")
+#     if suffix == "mse":
+#         lab = "MSE"
+#     elif suffix == "nrw":
+#         lab = "Negative Reward"
+#     else:
+#         lab = "Regret"
+#     plt.ylabel(f"Maximum {lab} over environments")
+#     plt.grid(True, linewidth=0.2)
+#     plt.legend(frameon=True, fontsize=14)
+#     plt.tight_layout()
+#
+#     if saveplot:
+#         outpath = os.path.join(out_dir, f"{nameplot}.png")
+#         plt.savefig(outpath, dpi=300, bbox_inches="tight")
+#
+#     if show:
+#         plt.show()
 
 
 # ==========

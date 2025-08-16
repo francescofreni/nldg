@@ -11,7 +11,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
 from tqdm import tqdm
 from utils import (
-    plot_max_mse_mtry,
     plot_test_risk,
     plot_envs_risk,
     plot_test_risk_all_methods,
