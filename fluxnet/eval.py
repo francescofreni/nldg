@@ -71,7 +71,7 @@ def latex_table_best_per_group(
     for group in table_df.index:
         for model in table_df.columns:
             val = table_df.loc[group, model]
-            formatted_val = f"{val:.3g}"  # 3 significant digits
+            formatted_val = f"{val:.3g}"
             if val == best_values[group]:
                 formatted_val = f"\\bm{{{formatted_val}}}"
             formatted_df.loc[group, model] = f"${formatted_val}$"

@@ -1,4 +1,4 @@
-<h1>Nonlinear Distribution Generalization</h1>
+<h1>MaxRM Random Forest: Minimizing the Maximum Risk Across Heterogeneous Environments</h1>
 <p>
 <img src="https://img.shields.io/badge/python-≥3.10-blue" alt="Python >= 3.10">
 <a href="https://github.com/python/mypy"><img src="https://img.shields.io/badge/mypy-checked-2b507e" alt="Checked with mypy"></a>
@@ -7,7 +7,7 @@
 </p>
 
 
-This repository contains the code for the Master's Thesis written by Francesco Freni under the supervision of Prof. Dr. Jonas Peters at ETH Zurich during Spring 2025.
+This repository contains the code for the Master's Thesis written by Francesco Freni under the supervision of Prof. Dr. Jonas Peters and Anya Fries at ETH Zurich during Spring 2025.
 
 
 ## ⚙️ Installation
@@ -19,7 +19,6 @@ source venv_nldg/bin/activate  # On Windows use `venv_nldg\Scripts\activate`
 ```
 
 This project depends on a **modified version** of the library [adaXT](https://github.com/NiklasPfister/adaXT) by [NiklasPfister](https://github.com/NiklasPfister), which is licensed under the BSD 3-Clause License.
-
 We maintain a fork with necessary changes [here](https://github.com/francescofreni/adaXT). This version must be installed for this project to work as intended.
 
 The code is organized as a Python package, and can be installed using `pip`:
@@ -47,50 +46,51 @@ The code in `notebooks/demo_rf.ipynb` and `notebooks/demo_ss.ipynb` demonstrates
 ## 📁 Directory Structure
 ```plaintext
 .
-├── data                             # Processed data
+├── data                                # Processed data
 |
 ├── experiments 
-│   ├── bcd_test_runtime.py          # Comparison between BCD and default variants
-│   ├── ca_housing_analysis.py       # California housing experiments
-│   ├── ca_housing_data_import.py    # Script to import data
-│   ├── parallel_test_runtime.py     # Experiment to check the effect of parallelization
-│   ├── sim_diff_methods.py          # Comparing different variants of MaxRM Random Forest
-│   ├── sim_gen_gap.py               # Verifying generalization guarantees
-│   ├── sim_mse_degeneration.py      # Guarantee for MSE fails with heteroskedastic noise
-│   ├── sim_smoothsplines.py         # Comparing MaxRM Smoothing Splines with standard SS
-│   └── utils.py                     # Helper functions
+│   ├── bcd_test_runtime.py             # Comparison between BCD and default variants
+│   ├── ca_housing_analysis.py          # California housing experiment
+│   ├── ca_housing_data_import.py       # Script to import data
+│   ├── ca_housing_hyperparameters.py   # California housing - varying hyperparameters
+│   ├── parallel_test_runtime.py        # Experiment to check the effect of parallelization
+│   ├── sim_diff_methods.py             # Comparing different variants of MaxRM Random Forest
+│   ├── sim_gen_gap.py                  # Verifying generalization guarantees
+│   ├── sim_mse_degeneration.py         # Guarantee for MSE fails with heteroskedastic noise
+│   ├── sim_smoothsplines.py            # Comparing MaxRM Smoothing Splines with standard SS
+│   └── utils.py                        # Helper functions
 |
 ├── fluxnet
-│   ├── data                         # Raw data
-│   ├── data_cleaned                 # Aggregated datasets after preprocessing 
-│   ├── results                      # Experimental results
-│   ├── create_subset_daily.py       # Script to create a subset of the aggregated daily data
-│   ├── dataloader.py                # Creates train and test splits
-│   ├── eval.py                      # Evaluation metrics
-│   ├── preprocessing.py             # Preprocessing raw data
-│   └── run_experiment.py            # Run the fluxnet experiment
+│   ├── data                            # Raw data
+│   ├── data_cleaned                    # Aggregated datasets after preprocessing 
+│   ├── results                         # Experimental results
+│   ├── create_subset_daily.py          # Script to create a subset of the aggregated daily data
+│   ├── dataloader.py                   # Creates train and test splits
+│   ├── eval.py                         # Evaluation metrics
+│   ├── preprocessing.py                # Preprocessing raw data
+│   └── run_experiment.py               # Run the fluxnet experiment
 |
 ├── nldg           
-│   ├── nn.py                        # Neural Network class
-│   ├── rf.py                        # Magging Random Forest class
-│   ├── ss.py                        # MaxRM Smoothing Spline class
-│   ├── train_nn.py                  # GDRO
-│   └── utils.py                     # Helper functions: data generation, plotting, metrics
+│   ├── nn.py                           # Neural Network class
+│   ├── rf.py                           # Magging Random Forest class
+│   ├── ss.py                           # MaxRM Smoothing Spline class
+│   ├── train_nn.py                     # GDRO
+│   └── utils.py                        # Helper functions: data generation, plotting, metrics
 |
 ├── notebooks
-│   ├── all_methods.ipynb            # Different variants of MaxRM Random Forest        
-│   ├── demo_rf.ipynb                # Demo for MaxRM Random Forest
-│   ├── demo_ss.ipynb                # Demo for MaxRM Smoothing Splines
-│   └── miscellanea.ipynb            # Additional plots and settings
+│   ├── all_methods.ipynb               # Different variants of MaxRM Random Forest        
+│   ├── demo_rf.ipynb                   # Demo for MaxRM Random Forest
+│   ├── demo_ss.ipynb                   # Demo for MaxRM Smoothing Splines
+│   └── miscellanea.ipynb               # Additional plots and settings
 |
 └── results
-    ├── figures                      # Saved figures
-    ├── output_ca_housing            # Saved results real-world data experiment
+    ├── figures                         # Saved figures
+    ├── output_ca_housing               # Saved results California Housing experiment
     └── output_simulation
-        ├── sim_diff_methods         # Saved results variants comparison
-        ├── sim_mse_degeneration     # Saved results MSE degeneration
-        ├── sim_gen_gap              # Saved results generalization guarantees
-        └── sim_smoothsplines        # Saved splines simulation
+        ├── sim_diff_methods            # Saved results variants comparison
+        ├── sim_mse_degeneration        # Saved results MSE degeneration
+        ├── sim_gen_gap                 # Saved results generalization guarantees
+        └── sim_smoothsplines           # Saved splines simulation
 ```
 
 
@@ -116,7 +116,7 @@ With covariate shift:
 ```bash
 python experiments/sim_gen_gap.py --covariate_shift "different"
 ```
-Or replace `"different"` with `"mixture"`.
+You can also replace `"different"` with `"mixture"`.
 
 #### 4) Generalization Guarantee fails with MSE objective and heteroskedastic noise
 ```bash
@@ -141,6 +141,12 @@ python experiments/ca_housing_data_import.py
 python experiments/ca_housing_analysis.py
 ```
 
+#### 3) Varying hyperparameters
+```bash
+python experiments/ca_housing_data_import.py
+python experiments/ca_housing_hyperparameters.py
+```
+
 ### FLUXNET
 See https://github.com/anyafries/fluxnet_bench for more details.
 
@@ -152,16 +158,16 @@ The aggregated datasets will be available in `fluxnet/data_cleaned`. To create a
 ```bash
 python fluxnet/create_subset_daily.py --nsites 10
 ```
-Alternatively, you can also create a subset with $30$ sites. The resulting dataset will show up in `fluxnet/data_cleaned`.
+Alternatively, you can also create a subset with a different number of sites. The resulting dataset will show up in `fluxnet/data_cleaned`.
 
-To run the experiment with $10$ sites:
+To run the experiment with $10$ sites (only if $20$+ cores are available!):
 ```bash
 python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf"
 python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "mse"
 python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "reward"
 python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "regret"
 ```
-To run the experiment with $30$ sites, replace `"daily10"` with `"daily30"`. The results will be available at `fluxnet/results`. 
+To run the experiment with, say, $30$ sites, replace `"daily10"` with `"daily30"`. The results will be available at `fluxnet/results`. 
 
 To get a LaTeX table summarizing the results, run:
 ```bash

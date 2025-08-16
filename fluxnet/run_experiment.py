@@ -35,21 +35,22 @@ def get_model(model_name, params={}):
         raise NotImplementedError(f"Model `{model_name}` not implemented.")
 
 
-def get_default_params(model_name, cv=False):
+def get_default_params(model_name):
     """
     Returns default parameters for the specified model.
 
     Args:
         model_name (str): The name of the model.
-        cv (bool): Whether to use cross-validation.
     """
     params = {}
     if model_name == "rf":
         params = {
             "forest_type": "Regression",
-            "n_estimators": 25,
-            "min_samples_leaf": 30,
+            "n_estimators": 20,
+            "min_samples_leaf": 50,
+            "max_depth": 8,
             "seed": 42,
+            "n_jobs": 20,
         }
     return params
 
@@ -68,7 +69,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agg",
         type=str,
-        choices=["seasonal", "daily", "raw", "daily10", "daily30"],
+        choices=["seasonal", "daily", "raw", "daily10", "daily30", "daily50"],
         default="daily10",
         help="Data aggregation level",
     )
@@ -168,7 +169,7 @@ if __name__ == "__main__":
         params = pd.read_csv(params)
         params = params.to_dict(orient="records")[0]
     else:
-        params = get_default_params(model_name, cv=cv)
+        params = get_default_params(model_name)
 
     # Load data
     data_path = os.path.join(path, agg + ".csv")
@@ -201,11 +202,16 @@ if __name__ == "__main__":
             try:
                 if risk == "mse":
                     model.modify_predictions_trees(
-                        train_ids_int, solver=solver
+                        train_ids_int,
+                        solver=solver,
+                        n_jobs=params["n_jobs"],
                     )
                 elif risk == "reward":
                     model.modify_predictions_trees(
-                        train_ids_int, method="reward", solver=solver
+                        train_ids_int,
+                        method="reward",
+                        solver=solver,
+                        n_jobs=params["n_jobs"],
                     )
                 else:
                     sols_erm = np.zeros(len(train_ids_int))
@@ -231,6 +237,7 @@ if __name__ == "__main__":
                         sols_erm=sols_erm,
                         sols_erm_trees=sols_erm_trees,
                         solver=solver,
+                        n_jobs=params["n_jobs"],
                     )
             except Exception as e:
                 logging.error(

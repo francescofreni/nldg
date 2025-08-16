@@ -1,8 +1,10 @@
 import os
 import argparse
 import pandas as pd
+import numpy as np
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SEED = 0
 SITES10 = [
     "AU-ASM",
     "BR-Npw",
@@ -54,7 +56,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--nsites",
         type=int,
-        choices=[10, 30],
         default=10,
         help="Number of sites in the subset.",
     )
@@ -67,6 +68,16 @@ if __name__ == "__main__":
 
     if nsites == 10:
         subset = data[data["site_id"].isin(SITES10)]
-    else:
+    elif nsites == 30:
         subset = data[data["site_id"].isin(SITES30)]
+    else:
+        unique_sites = data["site_id"].unique()
+        if nsites > len(unique_sites):
+            raise ValueError(
+                f"Requested nsites={args.nsites} but only {len(unique_sites)} unique sites available."
+            )
+        rng = np.random.default_rng(SEED)
+        sampled_sites = rng.choice(unique_sites, size=nsites, replace=False)
+        subset = data[data["site_id"].isin(sampled_sites)]
+
     subset.to_csv(os.path.join(folder_path, f"daily{nsites}.csv"))
