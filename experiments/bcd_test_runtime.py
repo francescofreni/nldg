@@ -57,13 +57,13 @@ def plot_bcd_runtime(runtime_dict, out_dir):
         stderr = np.std(vals, ddof=1) / np.sqrt(B)
         return mean, mean - 1.96 * stderr, mean + 1.96 * stderr
 
-    baseline_key = f"{NAME_RF}(posthoc-mse)"
+    baseline_key = f"{NAME_RF}(mse)"
     base_vals = runtime_dict[baseline_key]
     base_mean, base_lo, base_hi = get_ci(base_vals)
 
     bcd_means, bcd_lowers, bcd_uppers = [], [], []
     for bs in BLOCK_SIZES:
-        vals = runtime_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"]
+        vals = runtime_dict[f"{NAME_RF}(mse-BCD-{bs})"]
         mean, lo, hi = get_ci(vals)
         bcd_means.append(mean)
         bcd_lowers.append(lo)
@@ -145,14 +145,14 @@ def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
         return mean, mean - 1.96 * stderr, mean + 1.96 * stderr
 
     rf_mean, rf_lo, rf_hi = get_ci(maxmse_dict["RF"])
-    posthoc_key = f"{NAME_RF}(posthoc-mse)"
+    posthoc_key = f"{NAME_RF}(mse)"
     posthoc_mean, posthoc_lo, posthoc_hi = get_ci(maxmse_dict[posthoc_key])
 
     bcd_means = []
     bcd_lowers = []
     bcd_uppers = []
     for bs in BLOCK_SIZES:
-        vals = maxmse_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"]
+        vals = maxmse_dict[f"{NAME_RF}(mse-BCD-{bs})"]
         mean, lo, hi = get_ci(vals)
         bcd_means.append(mean)
         bcd_lowers.append(lo)
@@ -181,7 +181,7 @@ def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
         xmax=50,
         linestyle="--",
         color="#F89C20",
-        label=f"{NAME_RF}(posthoc-mse)",
+        label=f"{NAME_RF}(mse)",
     )
     plt.fill_between(
         BLOCK_SIZES,
@@ -196,7 +196,7 @@ def plot_max_mse_vs_blocksize(maxmse_dict, out_dir):
         bcd_means,
         color="#964A8B",
         marker="o",
-        label=f"{NAME_RF}(posthoc-mse-BCD)",
+        label=f"{NAME_RF}(mse-BCD)",
         markeredgecolor="white",
     )
     plt.fill_between(
@@ -219,8 +219,8 @@ if __name__ == "__main__":
 
     env = assign_quadrant(Z)
 
-    methods = ["RF", f"{NAME_RF}(posthoc-mse)"] + [
-        f"{NAME_RF}(posthoc-mse-BCD-{bs})" for bs in range(5, 55, 5)
+    methods = ["RF", f"{NAME_RF}(mse)"] + [
+        f"{NAME_RF}(mse-BCD-{bs})" for bs in range(5, 55, 5)
     ]
     mse_envs_dict = {m: [] for m in methods}
     maxmse_dict = {m: [] for m in methods}
@@ -273,9 +273,9 @@ if __name__ == "__main__":
         mse_envs_nonbcd, maxmse_nonbcd = max_mse(
             y_val, preds_nonbcd, env_val, ret_ind=True
         )
-        mse_envs_dict[f"{NAME_RF}(posthoc-mse)"].append(mse_envs_nonbcd)
-        maxmse_dict[f"{NAME_RF}(posthoc-mse)"].append(maxmse_nonbcd)
-        runtime_dict[f"{NAME_RF}(posthoc-mse)"].append(non_bcd_time)
+        mse_envs_dict[f"{NAME_RF}(mse)"].append(mse_envs_nonbcd)
+        maxmse_dict[f"{NAME_RF}(mse)"].append(maxmse_nonbcd)
+        runtime_dict[f"{NAME_RF}(mse)"].append(non_bcd_time)
 
         # BCD Variants
         for bs in BLOCK_SIZES:
@@ -296,11 +296,9 @@ if __name__ == "__main__":
             mse_envs_bcd, maxmse_bcd = max_mse(
                 y_val, preds_bcd, env_val, ret_ind=True
             )
-            mse_envs_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"].append(
-                mse_envs_bcd
-            )
-            maxmse_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"].append(maxmse_bcd)
-            runtime_dict[f"{NAME_RF}(posthoc-mse-BCD-{bs})"].append(bcd_time)
+            mse_envs_dict[f"{NAME_RF}(mse-BCD-{bs})"].append(mse_envs_bcd)
+            maxmse_dict[f"{NAME_RF}(mse-BCD-{bs})"].append(maxmse_bcd)
+            runtime_dict[f"{NAME_RF}(mse-BCD-{bs})"].append(bcd_time)
 
     script_dir = os.path.dirname(__file__)
     parent_dir = os.path.abspath(os.path.join(script_dir, ".."))

@@ -124,10 +124,10 @@ def plot_tricontour(diff_map, metric):
 
     # Add labels for vertices
     ax.text(
-        0.0, -0.02, r"$q_1=1$", ha="center", va="top", fontsize=12
+        0.0, -0.02, r"$q_1=1$", ha="center", va="top", fontsize=18
     )  # Bottom-left vertex
     ax.text(
-        1.0, -0.02, r"$q_2=1$", ha="center", va="top", fontsize=12
+        1.0, -0.02, r"$q_2=1$", ha="center", va="top", fontsize=18
     )  # Bottom-right vertex
     ax.text(
         0.5,
@@ -135,7 +135,7 @@ def plot_tricontour(diff_map, metric):
         r"$q_3=1$",
         ha="center",
         va="bottom",
-        fontsize=12,
+        fontsize=18,
     )  # Top vertex
 
     cbar = fig.colorbar(sc, ax=ax, fraction=0.04, pad=0.05)
@@ -145,7 +145,7 @@ def plot_tricontour(diff_map, metric):
         lab = "NRW"
     else:
         lab = "Reg"
-    cbar.set_label(rf"$\overline{{D}}_{{e^\prime}}^{{{lab}}}$", fontsize=14)
+    cbar.set_label(rf"$\overline{{D}}_{{e^\prime}}^{{{lab}}}$", fontsize=22)
     # if metric == "mse":
     #     lab = "MSE"
     # elif metric == "negrew":
@@ -153,7 +153,7 @@ def plot_tricontour(diff_map, metric):
     # else:
     #     lab = "Regret"
     # cbar.set_label(f"Average Generalization Gap ({lab})", fontsize=12)
-    cbar.ax.tick_params(labelsize=10)
+    cbar.ax.tick_params(labelsize=18)
 
     ax.scatter(
         [0, 1, 0.5],

@@ -319,7 +319,7 @@ def eval_one_quadrant(
                 mse_envs_val,
             ),
             (
-                f"{NAME_RF}(posthoc-{method})",
+                f"{NAME_RF}({method})",
                 max_risk_val_posthoc,
                 risk_test_posthoc,
                 risk_envs_val_posthoc,
@@ -421,162 +421,6 @@ def gen_exp(
     return main_result_df, env_metrics_result_df
 
 
-def mtry_exp(
-    X: pd.DataFrame,
-    y: pd.Series,
-    env: np.ndarray,
-) -> None:
-    """
-    Compares RF with the variants that minimize the maximum risk
-    across environments when mtry varies.
-    Confidence intervals are constructed using resampling.
-
-    Args:
-        X (pd.DataFrame): Feature matrix (n, p)
-        y (pd.Series):   Target vector (n,)
-        env (np.ndarray): Environment labels (n,)
-    """
-    # grid of mtry values
-    mtry_values = np.arange(1, X.shape[1] + 1)
-    p = len(mtry_values)
-
-    results_rf_mse, results_rf_nrw, results_rf_reg = (
-        np.zeros((N, p)),
-        np.zeros((N, p)),
-        np.zeros((N, p)),
-    )
-    results_mse, results_nrw, results_reg = (
-        np.zeros((N, p)),
-        np.zeros((N, p)),
-        np.zeros((N, p)),
-    )
-
-    for i in tqdm(range(N)):
-        X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
-            X,
-            y,
-            env,
-            test_size=VAL_PERCENTAGE,
-            random_state=i,
-            stratify=env,
-        )
-        y_tr = np.array(y_tr)
-        env_tr = np.array(env_tr)
-
-        for j, m in enumerate(mtry_values):
-            # Fit standard RF for each environment separately
-            # This is used for the regret
-            sols_erm = np.zeros(env_tr.shape[0])
-            sols_erm_val = np.zeros(env_val.shape[0])
-            sols_erm_trees = np.zeros((N_ESTIMATORS, env_tr.shape[0]))
-            for e in np.unique(env_tr):
-                mask = env_tr == e
-                X_e = X_tr[mask]
-                Y_e = y_tr[mask]
-                rf_e = RandomForest(
-                    "Regression",
-                    n_estimators=N_ESTIMATORS,
-                    min_samples_leaf=MIN_SAMPLES_LEAF,
-                    seed=SEED,
-                    max_features=int(m),
-                )
-                rf_e.fit(X_e, Y_e)
-                fitted_e = rf_e.predict(X_e)
-                sols_erm[mask] = fitted_e
-                for k in range(N_ESTIMATORS):
-                    fitted_e_tree = rf_e.trees[k].predict(
-                        np.ascontiguousarray(X_e.to_numpy())
-                    )
-                    sols_erm_trees[k, mask] = fitted_e_tree
-                mask_e_val = env_val == e
-                fitted_e_val = rf_e.predict(X_val[mask_e_val])
-                sols_erm_val[mask_e_val] = fitted_e_val
-
-            # RF
-            rf = RandomForest(
-                "Regression",
-                n_estimators=N_ESTIMATORS,
-                min_samples_leaf=MIN_SAMPLES_LEAF,
-                seed=SEED,
-                max_features=int(m),
-            )
-            rf.fit(X_tr, y_tr)
-            fitted_rf = rf.predict(X_val)
-            results_rf_mse[i, j] = max_mse(y_val, fitted_rf, env_val)
-            results_rf_nrw[i, j] = -min_reward(y_val, fitted_rf, env_val)
-            results_rf_reg[i, j] = max_regret(
-                y_val, fitted_rf, sols_erm_val, env_val
-            )
-
-            # min max MSE
-            rf_mse = copy.deepcopy(rf)
-            rf_mse.modify_predictions_trees(env_tr, solver="ECOS")
-            fitted_mse = rf_mse.predict(X_val)
-            results_mse[i, j] = max_mse(y_val, fitted_mse, env_val)
-
-            # min max Negative Reward
-            rf_nrw = copy.deepcopy(rf)
-            rf_nrw.modify_predictions_trees(
-                env_tr, method="reward", solver="ECOS"
-            )
-            fitted_nrw = rf_nrw.predict(X_val)
-            results_nrw[i, j] = -min_reward(y_val, fitted_nrw, env_val)
-
-            # min max Regret
-            rf_reg = copy.deepcopy(rf)
-            rf_reg.modify_predictions_trees(
-                env_tr,
-                method="regret",
-                sols_erm=sols_erm,
-                sols_erm_trees=sols_erm_trees,
-                solver="ECOS",
-            )
-            fitted_reg = rf_reg.predict(X_val)
-            results_reg[i, j] = max_regret(
-                y_val, fitted_reg, sols_erm_val, env_val
-            )
-
-    def plot_df(df_base, df_posthoc, nameplot, suffix):
-        df_base["method"] = "RF"
-        df_posthoc["method"] = f"{NAME_RF}(posthoc-{suffix})"
-        df_long = pd.concat(
-            [
-                df_base.melt(
-                    id_vars="method", var_name="mtry", value_name="risk"
-                ),
-                df_posthoc.melt(
-                    id_vars="method", var_name="mtry", value_name="risk"
-                ),
-            ],
-            ignore_index=True,
-        )
-        df_long["mtry"] = df_long["mtry"].astype(int)
-        plot_max_mse_mtry(
-            df_long,
-            saveplot=True,
-            nameplot=nameplot,
-            out_dir=OUT_DIR,
-            suffix=suffix,
-        )
-
-    # MSE
-    df_rf_mse = pd.DataFrame(results_rf_mse, columns=mtry_values)
-    df_mse = pd.DataFrame(results_mse, columns=mtry_values)
-    plot_df(df_rf_mse, df_mse, "max_mse_mtry", "mse")
-
-    # Negative Reward
-    df_rf_nrw = pd.DataFrame(results_rf_nrw, columns=mtry_values)
-    df_nrw = pd.DataFrame(results_nrw, columns=mtry_values)
-    plot_df(df_rf_nrw, df_nrw, "max_nrw_mtry", "nrw")
-
-    # Regret
-    df_rf_reg = pd.DataFrame(results_rf_reg, columns=mtry_values)
-    df_reg = pd.DataFrame(results_reg, columns=mtry_values)
-    plot_df(df_rf_reg, df_reg, "max_reg_mtry", "reg")
-
-    logger.info(f"Saved metrics to {OUT_DIR}")
-
-
 if __name__ == "__main__":
     logger.info("Loading data and assigning environments")
     X, y, Z = load_data()
@@ -612,6 +456,3 @@ if __name__ == "__main__":
         [mse_envs_df, nrw_envs_df, reg_envs_df], ignore_index=True
     )
     plot_envs_mse_all_methods(env_all, saveplot=True, out_dir=OUT_DIR)
-
-    print("\nRunning mtry experiment:\n")
-    mtry_exp(X, y, env)

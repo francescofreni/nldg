@@ -73,7 +73,7 @@ def plot_test_risk(
     method: str = "mse",
     out_dir: str | None = None,
 ) -> None:
-    models = ["RF", f"{NAME_RF}(posthoc-{method})"]
+    models = ["RF", f"{NAME_RF}({method})"]
 
     # Colors and offsets
     if method == "mse":
@@ -144,16 +144,16 @@ def plot_test_risk_all_methods(
 ) -> None:
     models = [
         "RF",
-        f"{NAME_RF}(posthoc-mse)",
-        f"{NAME_RF}(posthoc-nrw)",
-        f"{NAME_RF}(posthoc-reg)",
+        f"{NAME_RF}(mse)",
+        f"{NAME_RF}(nrw)",
+        f"{NAME_RF}(reg)",
     ]
 
     colors = {
         "RF": "#5790FC",
-        f"{NAME_RF}(posthoc-mse)": "#F89C20",
-        f"{NAME_RF}(posthoc-nrw)": "#964A8B",
-        f"{NAME_RF}(posthoc-reg)": "#E42536",
+        f"{NAME_RF}(mse)": "#F89C20",
+        f"{NAME_RF}(nrw)": "#964A8B",
+        f"{NAME_RF}(reg)": "#E42536",
     }
     delta = 0.1
     offsets = np.linspace(-delta, delta, len(models))
@@ -203,9 +203,9 @@ def plot_test_risk_all_methods(
 def table_test_risk_all_methods(df: pd.DataFrame) -> pd.DataFrame:
     models = [
         "RF",
-        f"{NAME_RF}(posthoc-mse)",
-        f"{NAME_RF}(posthoc-nrw)",
-        f"{NAME_RF}(posthoc-reg)",
+        f"{NAME_RF}(mse)",
+        f"{NAME_RF}(nrw)",
+        f"{NAME_RF}(reg)",
     ]
 
     # Compute stats
@@ -238,7 +238,7 @@ def plot_envs_risk(
     out_dir: str | None = None,
 ):
     # Dynamically get model list
-    models = ["RF", f"{NAME_RF}(posthoc-{method})"]
+    models = ["RF", f"{NAME_RF}({method})"]
     num_models = len(models)
 
     # Colors and offsets
@@ -418,15 +418,15 @@ def plot_envs_mse_all_methods(
 
     models = [
         "RF",
-        f"{NAME_RF}(posthoc-mse)",
-        f"{NAME_RF}(posthoc-nrw)",
-        f"{NAME_RF}(posthoc-reg)",
+        f"{NAME_RF}(mse)",
+        f"{NAME_RF}(nrw)",
+        f"{NAME_RF}(reg)",
     ]
     colors = {
         "RF": "#5790FC",
-        "MaxRM-RF(posthoc-mse)": "#F89C20",
-        "MaxRM-RF(posthoc-nrw)": "#964A8B",
-        "MaxRM-RF(posthoc-reg)": "#E42536",
+        "MaxRM-RF(mse)": "#F89C20",
+        "MaxRM-RF(nrw)": "#964A8B",
+        "MaxRM-RF(reg)": "#E42536",
     }
     num_models = len(models)
     delta = 0.18
@@ -514,7 +514,7 @@ def plot_envs_mse_all_methods(
     ax.grid(True, axis="y", linewidth=0.2, alpha=0.7)
     ax.legend(loc="best", frameon=True)
 
-    plt.subplots_adjust(top=0.9, bottom=0.2)
+    plt.subplots_adjust(top=0.9, bottom=0.2, fontsize=14)
     plt.tight_layout()
 
     if saveplot and out_dir is not None:
@@ -535,7 +535,7 @@ def plot_max_mse_mtry(
     out_dir: str | None = None,
     suffix: str = "mse",
 ) -> None:
-    methods = ["RF", f"{NAME_RF}(posthoc-{suffix})"]
+    methods = ["RF", f"{NAME_RF}({suffix})"]
     if suffix == "mse":
         colors = ["#5790FC", "#F89C20"]
     elif suffix == "nrw":
@@ -594,7 +594,7 @@ def plot_max_mse_mtry(
         lab = "Regret"
     plt.ylabel(f"Maximum {lab} over environments")
     plt.grid(True, linewidth=0.2)
-    plt.legend(frameon=True)
+    plt.legend(frameon=True, fontsize=14)
     plt.tight_layout()
 
     if saveplot:

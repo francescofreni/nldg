@@ -464,7 +464,7 @@ def plot_dtr(
             )
             if suffix is None:
                 lab = (
-                    f"{NAME_RF}(posthoc-mse)"
+                    f"{NAME_RF}(mse)"
                     if "fitted_minmax_xtrgrd" in dtr
                     else f"{NAME_RF}(mse)"
                 )
@@ -513,7 +513,7 @@ def plot_dtr(
                     dtr["fitted_minmax_xtrgrd"],
                     color=COLORS["purple"],
                     linewidth=2,
-                    label=f"{NAME_RF}(posthoc-mse-xtrgrd)",
+                    label=f"{NAME_RF}(mse-xtrgrd)",
                 )
             if "fitted_magging" in dtr:
                 ax.plot(
