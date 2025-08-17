@@ -86,13 +86,13 @@ def get_fold_df(
     del df_out
 
     # drop outliers
-    q1, q99 = train["GPP"].quantile([0.01, 0.99])
-    ndrop = np.mean((train["GPP"] < q1) | (train["GPP"] > q99))
-    logger.info(f"* Dropping {ndrop*100:.2f}% training outliers")
-    train = train.loc[(train["GPP"] > q1) & (train["GPP"] < q99)]
-    ndrop_test = np.mean((test["GPP"] < q1) | (test["GPP"] > q99))
-    logger.info(f"* Dropping {ndrop_test*100:.2f}% test outliers")
-    test = test.loc[(test["GPP"] > q1) & (test["GPP"] < q99)]
+    # q1, q99 = train["GPP"].quantile([0.01, 0.99])
+    # ndrop = np.mean((train["GPP"] < q1) | (train["GPP"] > q99))
+    # logger.info(f"* Dropping {ndrop*100:.2f}% training outliers")
+    # train = train.loc[(train["GPP"] > q1) & (train["GPP"] < q99)]
+    # ndrop_test = np.mean((test["GPP"] < q1) | (test["GPP"] > q99))
+    # logger.info(f"* Dropping {ndrop_test*100:.2f}% test outliers")
+    # test = test.loc[(test["GPP"] > q1) & (test["GPP"] < q99)]
 
     # clean up
     train_ids = train["site_id"]
