@@ -48,8 +48,8 @@ def get_default_params(model_name):
         params = {
             "forest_type": "Regression",
             "n_estimators": 20,
-            "min_samples_leaf": 30,
-            "max_depth": 10,
+            "min_samples_leaf": 60,
+            "max_depth": 8,
             "seed": 42,
             "n_jobs": 20,
         }
