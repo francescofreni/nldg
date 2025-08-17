@@ -291,13 +291,14 @@ if __name__ == "__main__":
         ypred = model.predict(xtest)
         if model_name == "rf":
             ypred /= 1e8
+            yfitted = model.predict(xtrain)
         res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
         res["group"] = group
         if model_name == "rf":
-            res["max_mse"] = max_mse(ytrain / 1e8, ypred, train_ids_int)
-            res["max_nrw"] = -min_reward(ytrain / 1e8, ypred, train_ids_int)
+            res["max_mse"] = max_mse(ytrain / 1e8, yfitted, train_ids_int)
+            res["max_nrw"] = -min_reward(ytrain / 1e8, yfitted, train_ids_int)
             res["max_reg"] = max_regret(
-                ytrain / 1e8, ypred, sols_erm / 1e8, train_ids_int
+                ytrain / 1e8, yfitted, sols_erm / 1e8, train_ids_int
             )
         results.append(res)
 
