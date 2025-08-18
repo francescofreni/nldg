@@ -152,7 +152,10 @@ if __name__ == "__main__":
         ["model", "group"], as_index=False
     ).first()
 
-    metrics = ["mse", "rmse", "r2_score", "relative_error", "mae", "nse"]
+    if setting in ["l10so", "l5so"]:
+        metrics = ["max_mse_test", "max_rmse_test"]
+    else:
+        metrics = ["mse", "rmse", "r2_score", "relative_error", "mae", "nse"]
     plot_df = all_results.melt(
         id_vars=["model", "group"],
         value_vars=metrics,

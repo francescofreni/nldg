@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-SEED = 42
+SEED = 1  # 42
 SITES10 = [
     "AU-ASM",
     "BR-Npw",

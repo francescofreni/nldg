@@ -77,7 +77,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--setting",
         type=str,
-        choices=["insite", "insite-random", "logo", "loso"],
+        choices=["insite", "insite-random", "logo", "loso", "l10so", "l5so"],
         default="loso",
         help="Experiment setting",
     )
@@ -178,19 +178,23 @@ if __name__ == "__main__":
     df = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
 
     # Set-up groups
-    groups = generate_fold_info(df, setting, start, stop)
+    if setting != "l5so":
+        groups = generate_fold_info(df, setting, start, stop)
+    else:
+        groups = generate_fold_info(df, setting, start, stop, fold_size=5)
     results = []
 
     # Run experiment
-    for group in groups:
+    for group_id, group in enumerate(groups):
         logging.info(f"Running group: {group}...")
-        xtrain, ytrain, xtest, ytest, train_ids = get_fold_df(
+        xtrain, ytrain, xtest, ytest, train_ids, test_ids = get_fold_df(
             df, setting, group, cv=cv, remove_missing=True
         )
         if xtrain is None:
             continue
 
         train_ids_int = train_ids.astype("category").cat.codes
+        test_ids_int = test_ids.astype("category").cat.codes
 
         if model_name == "rf":
             ytrain *= 1e8
@@ -295,12 +299,20 @@ if __name__ == "__main__":
             ytrain /= 1e8
             yfitted /= 1e8
             sols_erm /= 1e8
-        res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
-        res["group"] = group
+        if setting not in ["l10so", "l5so"]:
+            res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
+            res["group"] = group
+        else:
+            max_mse_test = max_mse(ytest, ypred, test_ids_int)
+            res = {
+                "max_mse_test": max_mse_test,
+                "max_rmse_test": np.sqrt(max_mse_test),
+            }
+            res["group"] = group_id
         if model_name == "rf":
-            res["max_mse"] = max_mse(ytrain, yfitted, train_ids_int)
-            res["max_nrw"] = -min_reward(ytrain, yfitted, train_ids_int)
-            res["max_reg"] = max_regret(
+            res["max_mse_train"] = max_mse(ytrain, yfitted, train_ids_int)
+            res["max_nrw_train"] = -min_reward(ytrain, yfitted, train_ids_int)
+            res["max_reg_train"] = max_regret(
                 ytrain, yfitted, sols_erm, train_ids_int
             )
         results.append(res)

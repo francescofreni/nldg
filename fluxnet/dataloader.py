@@ -11,16 +11,46 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
 
 
-def generate_fold_info(df, setting, start, stop=None):
+# def generate_fold_info(df, setting, start, stop=None):
+#     if setting in ["insite", "insite-random", "loso"]:
+#         sites = df["site_id"].unique()
+#         if stop is None:
+#             stop = len(sites)
+#         groups = sorted(sites)[start:stop]
+#     elif setting == "logo":
+#         if stop is None or stop > 10:
+#             stop = 10
+#         groups = range(start, stop)
+#     return groups
+
+
+def generate_fold_info(df, setting, start=0, stop=None, fold_size=10, seed=42):
     if setting in ["insite", "insite-random", "loso"]:
-        sites = df["site_id"].unique()
+        sites = df["site_id"].dropna().unique()
+        sites = sorted(sites)
         if stop is None:
             stop = len(sites)
-        groups = sorted(sites)[start:stop]
+        groups = sites[start:stop]
+
     elif setting == "logo":
         if stop is None or stop > 10:
             stop = 10
-        groups = range(start, stop)
+        groups = list(range(start, stop))
+
+    elif setting == "l10so" or setting == "l5so":
+        sites = pd.Series(df["site_id"].dropna().unique())
+        if seed is not None:
+            sites = sites.sample(frac=1.0, random_state=seed).reset_index(
+                drop=True
+            )
+        else:
+            sites = sites.sort_values(kind="stable").reset_index(drop=True)
+        folds = [
+            list(sites[i : i + fold_size])
+            for i in range(0, len(sites), fold_size)
+        ]
+        groups = folds[slice(start, stop)]
+
     return groups
 
 
@@ -36,7 +66,7 @@ def get_fold_df(
     # Get the correct data
     if setting == "insite" or setting == "insite-random":
         df_out = df.loc[df["site_id"] == group].copy()
-    elif setting == "logo" or setting == "loso":
+    elif setting in ["logo", "loso", "l10so", "l5so"]:
         df_out = df.copy()
 
     # drop columns
@@ -82,7 +112,13 @@ def get_fold_df(
         test = df_out.loc[df_out["site_id"] == group].copy()
         if test.shape[0] == 0:
             logger.warning(f"* SKIPPING {group}: no test data")
-            return None, None, None, None, None
+            return None, None, None, None, None, None
+    elif setting in ["l10so", "l5so"]:
+        train = df_out.loc[~df_out["site_id"].isin(group)].copy()
+        test = df_out.loc[df_out["site_id"].isin(group)].copy()
+        if test.shape[0] == 0:
+            logger.warning(f"* SKIPPING {group}: no test data")
+            return None, None, None, None, None, None
     del df_out
 
     # drop outliers
@@ -96,6 +132,7 @@ def get_fold_df(
 
     # clean up
     train_ids = train["site_id"]
+    test_ids = test["site_id"].copy()
     train.drop(columns="site_id", inplace=True)
     test.drop(columns="site_id", inplace=True)
 
@@ -121,4 +158,4 @@ def get_fold_df(
         xtest = torch.tensor(xtest, dtype=torch.float32)
         ytest = torch.tensor(ytest, dtype=torch.float32).view(-1, 1)
 
-    return xtrain, ytrain, xtest, ytest, train_ids
+    return xtrain, ytrain, xtest, ytest, train_ids, test_ids
