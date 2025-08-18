@@ -130,7 +130,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--solver",
         type=str,
-        default=None,
+        default="ECOS",
         choices=["CLARABEL", "SCS", "ECOS"],
         help="Interior-point solver to use for MaxRM Random Forest (default: None)."
         "Must be one of None, 'CLARABEL', 'SCS', 'ECOS'.",
