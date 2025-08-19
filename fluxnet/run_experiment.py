@@ -96,7 +96,15 @@ if __name__ == "__main__":
     parser.add_argument(
         "--setting",
         type=str,
-        choices=["insite", "insite-random", "logo", "loso", "l10so", "l5so"],
+        choices=[
+            "insite",
+            "insite-random",
+            "logo",
+            "loso",
+            "l10so",
+            "l5so",
+            "l3so",
+        ],
         default="loso",
         help="Experiment setting",
     )
@@ -197,10 +205,12 @@ if __name__ == "__main__":
     df = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
 
     # Set-up groups
-    if setting != "l5so":
-        groups = generate_fold_info(df, setting, start, stop)
-    else:
+    if setting == "l5s0":
         groups = generate_fold_info(df, setting, start, stop, fold_size=5)
+    elif setting == "l3so":
+        groups = generate_fold_info(df, setting, start, stop, fold_size=3)
+    else:
+        groups = generate_fold_info(df, setting, start, stop)
     results = []
 
     # Run experiment
@@ -318,7 +328,7 @@ if __name__ == "__main__":
             ytrain /= 1e8
             yfitted /= 1e8
             sols_erm /= 1e8
-        if setting not in ["l10so", "l5so"]:
+        if setting not in ["l10so", "l5so", "l3so"]:
             res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
             res["group"] = group
         else:
