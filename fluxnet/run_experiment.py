@@ -205,7 +205,7 @@ if __name__ == "__main__":
     df = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
 
     # Set-up groups
-    if setting == "l5s0":
+    if setting == "l5so":
         groups = generate_fold_info(df, setting, start, stop, fold_size=5)
     elif setting == "l3so":
         groups = generate_fold_info(df, setting, start, stop, fold_size=3)

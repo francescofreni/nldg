@@ -1,4 +1,4 @@
-# Code slightly modified from https://github.com/anyafries/fluxnet_bench.git
+# Code modified from https://github.com/anyafries/fluxnet_bench.git
 import os
 import logging
 import numpy as np
