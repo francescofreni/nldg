@@ -70,9 +70,21 @@ def get_fold_df(
         df_out = df.copy()
 
     # drop columns
-    df_out.drop(columns=["time", "longitude", "latitude"], inplace=True)
+    df_out.drop(
+        columns=["time", "longitude", "latitude", "year"], inplace=True
+    )
     if "date" in df.columns:
         df_out.drop(columns="date", inplace=True)
+
+    df_out["season"] = df_out["season"].astype(int)
+    df_out = pd.get_dummies(
+        df_out, columns=["season"], prefix="season", dtype=np.float64
+    )
+    df_out["month_sin"] = np.sin(2 * np.pi * df_out["month"] / 12)
+    df_out["month_cos"] = np.cos(2 * np.pi * df_out["month"] / 12)
+    df_out["hour_sin"] = np.sin(2 * np.pi * df_out["hour"] / 24)
+    df_out["hour_cos"] = np.cos(2 * np.pi * df_out["hour"] / 24)
+    df_out.drop(columns=["month", "hour"], inplace=True)
 
     # drop missing
     if any(df_out.isna().mean() == 1):
