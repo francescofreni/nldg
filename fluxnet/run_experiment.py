@@ -36,23 +36,42 @@ def get_model(model_name, params={}):
         raise NotImplementedError(f"Model `{model_name}` not implemented.")
 
 
-def get_default_params(model_name):
+def get_default_params(model_name, agg):
     """
     Returns default parameters for the specified model.
 
     Args:
         model_name (str): The name of the model.
+        agg (str): Dataset used.
     """
     params = {}
     if model_name == "rf":
-        params = {
-            "forest_type": "Regression",
-            "n_estimators": 20,
-            "min_samples_leaf": 60,
-            "max_depth": 8,
-            "seed": 42,
-            "n_jobs": 20,
-        }
+        if agg == "daily50":
+            params = {
+                "forest_type": "Regression",
+                "n_estimators": 20,
+                "min_samples_leaf": 60,
+                "max_depth": 8,
+                "seed": 42,
+                "n_jobs": 20,
+            }
+        elif agg == "daily30":
+            params = {
+                "forest_type": "Regression",
+                "n_estimators": 20,
+                "min_samples_leaf": 30,
+                "max_depth": 8,
+                "seed": 42,
+                "n_jobs": 20,
+            }
+        else:
+            params = {
+                "forest_type": "Regression",
+                "n_estimators": 20,
+                "min_samples_leaf": 30,
+                "seed": 42,
+                "n_jobs": 20,
+            }
     return params
 
 
@@ -170,7 +189,7 @@ if __name__ == "__main__":
         params = pd.read_csv(params)
         params = params.to_dict(orient="records")[0]
     else:
-        params = get_default_params(model_name)
+        params = get_default_params(model_name, agg)
 
     # Load data
     data_path = os.path.join(path, agg + ".csv")
