@@ -277,9 +277,14 @@ if __name__ == "__main__":
                         success = True
                         break
                     except Exception as e_try:
-                        logging.warning(
-                            f"* Solver {solver} failed for group {group}."
-                        )
+                        if solver is None:
+                            logging.warning(
+                                f"* Default solver failed for group {group}."
+                            )
+                        else:
+                            logging.warning(
+                                f"* Solver {solver} failed for group {group}."
+                            )
 
                 if not success:
                     logging.warning(
