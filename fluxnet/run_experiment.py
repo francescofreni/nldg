@@ -177,7 +177,6 @@ if __name__ == "__main__":
     cv = args.cv
     method = args.method
     risk = args.risk
-    solver = args.solver
 
     if exp_name is None:
         if model_name == "rf":
