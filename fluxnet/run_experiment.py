@@ -55,7 +55,7 @@ def get_default_params(model_name, agg):
                 "seed": 42,
                 "n_jobs": 20,
             }
-        elif agg == "daily30":
+        elif agg in ["daily30", "daily50_2020", "daily_2020"]:
             params = {
                 "forest_type": "Regression",
                 "n_estimators": 20,
@@ -89,7 +89,16 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agg",
         type=str,
-        choices=["seasonal", "daily", "raw", "daily10", "daily30", "daily50"],
+        choices=[
+            "seasonal",
+            "daily",
+            "raw",
+            "daily10",
+            "daily30",
+            "daily50",
+            "daily50_2020",
+            "daily_2020",
+        ],
         default="daily10",
         help="Data aggregation level",
     )
