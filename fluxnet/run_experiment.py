@@ -259,13 +259,18 @@ if __name__ == "__main__":
                     kwargs["method"] = "regret"
                     kwargs["sols_erm"] = sols_erm
                     kwargs["sols_erm_trees"] = sols_erm_trees
-                solvers = ["CLARABEL", "ECOS", "SCS"]
+                solvers = [None, "CLARABEL", "ECOS", "SCS"]
 
                 for solver in solvers:
                     try:
-                        logging.info(
-                            f"* Trying solver={solver} for group {group}..."
-                        )
+                        if solver is None:
+                            logging.info(
+                                f"* Trying default solver for group {group}..."
+                            )
+                        else:
+                            logging.info(
+                                f"* Trying solver {solver} for group {group}..."
+                            )
                         model.modify_predictions_trees(
                             train_ids_int, **kwargs, solver=solver
                         )
