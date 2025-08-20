@@ -163,14 +163,6 @@ if __name__ == "__main__":
         help="Risk definition (default: 'mse')."
         "Must be one of 'mse', 'reward', 'regret'.",
     )
-    parser.add_argument(
-        "--solver",
-        type=str,
-        default=None,
-        choices=["CLARABEL", "SCS", "ECOS"],
-        help="Interior-point solver to use for MaxRM Random Forest (default: None)."
-        "Must be one of None, 'CLARABEL', 'SCS', 'ECOS'.",
-    )
 
     args = parser.parse_args()
     path = args.path
@@ -242,90 +234,62 @@ if __name__ == "__main__":
         model.fit(xtrain, ytrain)
 
         # Just to compute the maximum regret across training environments
-        sols_erm = np.zeros(len(train_ids_int))
-        sols_erm_trees = np.zeros((params["n_estimators"], len(train_ids_int)))
-        for env in np.unique(train_ids_int):
-            mask = train_ids_int == env
-            xtrain_env = xtrain[mask]
-            ytrain_env = ytrain[mask]
-            rf_env = RandomForest(**params)
-            rf_env.fit(xtrain_env, ytrain_env)
-            fitted_env = rf_env.predict(xtrain_env)
-            sols_erm[mask] = fitted_env
-            for i in range(params["n_estimators"]):
-                fitted_env_tree = rf_env.trees[i].predict(xtrain_env)
-                sols_erm_trees[i, mask] = fitted_env_tree
+        if model_name == "rf":
+            sols_erm = np.zeros(len(train_ids_int))
+            sols_erm_trees = np.zeros(
+                (params["n_estimators"], len(train_ids_int))
+            )
+            for env in np.unique(train_ids_int):
+                mask = train_ids_int == env
+                xtrain_env = xtrain[mask]
+                ytrain_env = ytrain[mask]
+                rf_env = RandomForest(**params)
+                rf_env.fit(xtrain_env, ytrain_env)
+                fitted_env = rf_env.predict(xtrain_env)
+                sols_erm[mask] = fitted_env
+                for i in range(params["n_estimators"]):
+                    fitted_env_tree = rf_env.trees[i].predict(xtrain_env)
+                    sols_erm_trees[i, mask] = fitted_env_tree
 
         if model_name == "rf" and method == "maxrm":
             try:
-                if risk == "mse":
+                kwargs = {"n_jobs": params["n_jobs"]}
+                if risk == "reward":
+                    kwargs["method"] = "reward"
+                elif risk == "regret":
+                    kwargs["method"] = "regret"
+                    kwargs["sols_erm"] = sols_erm
+                    kwargs["sols_erm_trees"] = sols_erm_trees
+                solvers = ["CLARABEL", "ECOS", "SCS"]
+
+                for solver in solvers:
                     try:
-                        model.modify_predictions_trees(
-                            train_ids_int,
-                            solver=solver,
-                            n_jobs=params["n_jobs"],
+                        logging.info(
+                            f"* Trying solver={solver} for group {group}..."
                         )
-                    except Exception as e1:
+                        model.modify_predictions_trees(
+                            train_ids_int, **kwargs, solver=solver
+                        )
+                        success = True
+                        break
+                    except Exception as e_try:
                         logging.warning(
-                            f"* FALLBACK [{group}]: modify_predictions_trees (mse) failed "
-                            f"with default optimizer. Retrying with opt_method='extragradient'."
-                        )
-                        model.modify_predictions_trees(
-                            train_ids_int,
-                            solver=solver,
-                            n_jobs=params["n_jobs"],
-                            opt_method="extragradient",
+                            f"* Solver {solver} failed for group {group}."
                         )
 
-                elif risk == "reward":
-                    try:
-                        model.modify_predictions_trees(
-                            train_ids_int,
-                            method="reward",
-                            solver=solver,
-                            n_jobs=params["n_jobs"],
-                        )
-                    except Exception as e1:
-                        logging.warning(
-                            f"* FALLBACK [{group}]: modify_predictions_trees (reward) failed "
-                            f"with default optimizer. Retrying with opt_method='extragradient'."
-                        )
-                        model.modify_predictions_trees(
-                            train_ids_int,
-                            method="reward",
-                            solver=solver,
-                            n_jobs=params["n_jobs"],
-                            opt_method="extragradient",
-                        )
-
-                else:
-                    try:
-                        model.modify_predictions_trees(
-                            train_ids_int,
-                            method="regret",
-                            sols_erm=sols_erm,
-                            sols_erm_trees=sols_erm_trees,
-                            solver=solver,
-                            n_jobs=params["n_jobs"],
-                        )
-                    except Exception as e1:
-                        logging.warning(
-                            f"* FALLBACK [{group}]: modify_predictions_trees (regret) failed "
-                            f"with default optimizer. Retrying with opt_method='extragradient'."
-                        )
-                        model.modify_predictions_trees(
-                            train_ids_int,
-                            method="regret",
-                            sols_erm=sols_erm,
-                            sols_erm_trees=sols_erm_trees,
-                            solver=solver,
-                            n_jobs=params["n_jobs"],
-                            opt_method="extragradient",
-                        )
+                if not success:
+                    logging.warning(
+                        f"* Fallback [{group}]: all solvers failed. Retrying with opt_method='extragradient'."
+                    )
+                    model.modify_predictions_trees(
+                        train_ids_int,
+                        **kwargs,
+                        opt_method="extragradient",
+                    )
 
             except Exception as e:
                 logging.error(
-                    f"* SKIPPING {group}: Error in modify_predictions_trees after fallback"
+                    f"* SKIPPING {group}: Error in modify_predictions_trees after all fallbacks"
                 )
                 continue
 
