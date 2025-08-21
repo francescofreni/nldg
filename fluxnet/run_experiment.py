@@ -55,7 +55,13 @@ def get_default_params(model_name, agg):
                 "seed": 42,
                 "n_jobs": 20,
             }
-        elif agg in ["daily30", "daily50_2020", "daily_2020"]:
+        elif agg in [
+            "daily30",
+            "daily50_2020",
+            "daily_2020",
+            "daily50_2017",
+            "daily_2017",
+        ]:
             params = {
                 "forest_type": "Regression",
                 "n_estimators": 20,
@@ -98,6 +104,8 @@ if __name__ == "__main__":
             "daily50",
             "daily50_2020",
             "daily_2020",
+            "daily50_2017",
+            "daily_2017",
         ],
         default="daily10",
         help="Data aggregation level",
