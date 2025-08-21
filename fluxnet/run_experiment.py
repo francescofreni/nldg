@@ -61,6 +61,7 @@ def get_default_params(model_name, agg):
             "daily_2020",
             "daily50_2017",
             "daily_2017",
+            "daily_2021",
         ]:
             params = {
                 "forest_type": "Regression",
@@ -106,6 +107,7 @@ if __name__ == "__main__":
             "daily_2020",
             "daily50_2017",
             "daily_2017",
+            "daily_2021",
         ],
         default="daily10",
         help="Data aggregation level",

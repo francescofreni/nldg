@@ -142,6 +142,25 @@ def get_fold_df(
     logger.info(f"* Dropping {ndrop_test*100:.2f}% test outliers")
     test = test.loc[(test["GPP"] > q1) & (test["GPP"] < q99)]
 
+    # # Standardization
+    # to_standardize = [
+    #     'Tair', 'vpd', 'SWdown', 'LWdown', 'SWdown_clearsky',
+    #     'LST_TERRA_Day', 'LST_TERRA_Night', 'EVI', 'NIRv',
+    #     'NDWI_band7', 'LAI', 'fPAR'
+    # ]
+    # to_standardize = [c for c in to_standardize if c in train.columns]
+    #
+    # # Fit global scalers on TRAIN only
+    # x_scaler = StandardScaler().fit(train[to_standardize])
+    # y_scaler = StandardScaler().fit(train[[target]])
+    #
+    # # Apply to TRAIN and TEST
+    # train.loc[:, to_standardize] = x_scaler.transform(train[to_standardize])
+    # test.loc[:, to_standardize] = x_scaler.transform(test[to_standardize])
+    #
+    # train.loc[:, [target]] = y_scaler.transform(train[[target]])
+    # test.loc[:, [target]] = y_scaler.transform(test[[target]])
+
     # clean up
     train_ids = train["site_id"]
     test_ids = test["site_id"].copy()
@@ -154,15 +173,6 @@ def get_fold_df(
     # split into x,y
     xtrain, ytrain = train.values[:, xcols], train.values[:, ycol].ravel()
     xtest, ytest = test.values[:, xcols], test.values[:, ycol].ravel()
-
-    # scale
-    # scaler_X = MinMaxScaler()
-    # # scaler_X = StandardScaler()
-    # xtrain = scaler_X.fit_transform(xtrain)
-    # xtest  = scaler_X.transform(xtest)
-    # scaler_y = MinMaxScaler()
-    # ytrain = scaler_y.fit_transform(ytrain)
-    # ytest  = scaler_y.transform(ytest)
 
     if astorch:
         xtrain = torch.tensor(xtrain, dtype=torch.float32)
