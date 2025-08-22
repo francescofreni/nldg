@@ -45,7 +45,7 @@ def latex_table_best_per_group(
     df,
     metric,
     better="lower",
-    column_order=["RF", "MaxRM-RF(mse)", "MaxRM-RF(nrw)", "MaxRM-RF(reg)"],
+    column_order=("RF", "MaxRM-RF(mse)", "MaxRM-RF(nrw)", "MaxRM-RF(reg)"),
 ):
     metric_df = df[df["metric"] == metric].copy()
     table_df = metric_df.pivot(index="group", columns="model", values="value")
@@ -90,6 +90,43 @@ def latex_table_best_per_group(
         )
 
     return latex_str
+
+
+def count_no_worse_than_rf(
+    df,
+    metric,
+    better="lower",
+    methods=("MaxRM-RF(mse)", "MaxRM-RF(nrw)", "MaxRM-RF(reg)"),
+    ref="RF",
+):
+    metric_df = df[df["metric"] == metric].copy()
+    table = metric_df.pivot(index="group", columns="model", values="value")
+
+    cols = [ref] + [m for m in methods if m in table.columns]
+    table = table.reindex(columns=cols)
+
+    table = table.dropna(subset=[ref])
+
+    if better == "lower":
+        comp = lambda a, b: a <= b
+    else:  # "upper"
+        comp = lambda a, b: a >= b
+
+    totals = table.shape[0]
+    results = {}
+    for m in methods:
+        if m in table.columns:
+            # Compare method to RF row-wise; ignore rows where method is NaN
+            mask = table[m].notna()
+            count = comp(table.loc[mask, m], table.loc[mask, ref]).sum()
+            denom = mask.sum()
+            results[m] = {
+                "count": int(count),
+                "denom": int(denom),
+                "pct": (count / denom) if denom else float("nan"),
+            }
+
+    return totals, results
 
 
 if __name__ == "__main__":
@@ -175,6 +212,16 @@ if __name__ == "__main__":
     else:
         better = "upper"
     print(latex_table_best_per_group(plot_df, metric=metric, better=better))
+
+    totals, res = count_no_worse_than_rf(plot_df, metric, better)
+    summary_lines = [
+        f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}$\\%) no worse than RF"
+        for m, v in res.items()
+    ]
+    latex_summary = (
+        "\\begin{itemize}\n" + "\n".join(summary_lines) + "\n\\end{itemize}"
+    )
+    print(latex_summary)
 
     # # Plot the results
     # sns.boxplot(x="model", y="rmse", data=all_results)
