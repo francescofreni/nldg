@@ -163,7 +163,14 @@ if __name__ == "__main__":
         value_name="value",
     )
 
-    if metric in ["mse", "rmse", "relative_error", "mae"]:
+    if metric in [
+        "mse",
+        "rmse",
+        "relative_error",
+        "mae",
+        "max_mse_test",
+        "max_rmse_test",
+    ]:
         better = "lower"
     else:
         better = "upper"
