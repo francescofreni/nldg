@@ -98,7 +98,7 @@ if __name__ == "__main__":
         "--path", type=str, default=os.path.join(BASE_DIR, "data_cleaned")
     )
     parser.add_argument("--override", type=bool, default=False)
-    parser.add_argument("--agg", type=str, default="daily10")
+    parser.add_argument("--agg", type=str, default="daily-10")
     parser.add_argument("--setting", type=str, default="loso")
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--stop", type=int, default=None)

@@ -96,8 +96,8 @@ if __name__ == "__main__":
     if year is None and nsites is None:
         print("No sites or year selected, the dataset is unchanged.")
     elif year is None and nsites is not None:
-        subset.to_csv(os.path.join(folder_path, f"daily{nsites}.csv"))
+        subset.to_csv(os.path.join(folder_path, f"daily-{nsites}.csv"))
     elif year is not None and nsites is not None:
-        subset.to_csv(os.path.join(folder_path, f"daily{nsites}_{year}.csv"))
+        subset.to_csv(os.path.join(folder_path, f"daily-{nsites}-{year}.csv"))
     elif year is not None and nsites is None:
-        data.to_csv(os.path.join(folder_path, f"daily_{year}.csv"))
+        data.to_csv(os.path.join(folder_path, f"daily-{year}.csv"))
