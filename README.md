@@ -56,7 +56,7 @@ The code in `notebooks/demo_rf.ipynb` and `notebooks/demo_ss.ipynb` demonstrates
 │   ├── parallel_test_runtime.py        # Experiment to check the effect of parallelization
 │   ├── sim_diff_methods.py             # Comparing different variants of MaxRM Random Forest
 │   ├── sim_gen_gap.py                  # Verifying generalization guarantees
-│   ├── sim_mse_degeneration.py         # Guarantee for MSE fails with heteroskedastic noise
+│   ├── sim_mse_degeneration.py         # MSE fails with heteroskedastic noise
 │   ├── sim_smoothsplines.py            # Comparing MaxRM Smoothing Splines with standard SS
 │   └── utils.py                        # Helper functions
 |
@@ -86,6 +86,7 @@ The code in `notebooks/demo_rf.ipynb` and `notebooks/demo_ss.ipynb` demonstrates
 └── results
     ├── figures                         # Saved figures
     ├── output_ca_housing               # Saved results California Housing experiment
+    |   └── hyperparameters             # Saved results varying hyperparameters experiment
     └── output_simulation
         ├── sim_diff_methods            # Saved results variants comparison
         ├── sim_mse_degeneration        # Saved results MSE degeneration
@@ -154,26 +155,26 @@ The data needs to be copied in the folder `fluxnet/data`. To obtain the cleaned 
 ```bash
 python fluxnet/preprocessing.py
 ```
-The aggregated datasets will be available in `fluxnet/data_cleaned`. To create a subset of the daily data with $10$ sites, run the following:
+The aggregated datasets will be available in `fluxnet/data_cleaned`. To create the subset of the daily data used in the experiments, run the following:
 ```bash
-python fluxnet/create_subset_daily.py --nsites 10
+python fluxnet/create_subset_daily.py --nsites 50 --year 2017
 ```
-Alternatively, you can also create a subset with a different number of sites. The resulting dataset will show up in `fluxnet/data_cleaned`.
+The resulting dataset will show up in `fluxnet/data_cleaned`.
 
-To run the experiment with $10$ sites (only if $20$+ cores are available!):
+To run the experiments (only if $20$+ cores are available!):
 ```bash
-python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf"
-python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "mse"
-python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "reward"
-python fluxnet/run_experiment.py --agg "daily10" --setting "loso" --model_name "rf" --method "maxrm" --risk "regret"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "mse"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "reward"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "regret"
 ```
-To run the experiment with, say, $30$ sites, replace `"daily10"` with `"daily30"`. The results will be available at `fluxnet/results`. 
+To run the second experiment, replace `"l5so"` with `"logo"`. The results will be available at `fluxnet/results`. 
 
 To get a LaTeX table summarizing the results, run:
 ```bash
-python fluxnet/eval.py --agg "daily10" --setting "loso" --metric "rmse"
+python fluxnet/eval.py --agg "daily-50-2017" --setting "l5so" --metric "max_mse_test"
 ```
-If, instead of the RMSE, you would like to report the $R^2$, replace `"rmse"` with `"r2_score"`.
+Again, for the results of the second experiment, replace `"l5so"` with `"logo"`. If you want the RMSPE instead of the MSPE, replace `"max_mse_test"` with `"max_rmse_test"`.
 
 [//]: # (## 📚 Documentation)
 
