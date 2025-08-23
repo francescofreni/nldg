@@ -46,7 +46,7 @@ def get_default_params(model_name, agg):
     """
     params = {}
     if model_name == "rf":
-        if agg == "daily50":
+        if agg == "daily-50":
             params = {
                 "forest_type": "Regression",
                 "n_estimators": 20,
@@ -324,7 +324,7 @@ if __name__ == "__main__":
             ytrain /= 1e8
             yfitted /= 1e8
             sols_erm /= 1e8
-        if setting not in ["l10so", "l5so", "l3so"]:
+        if setting not in ["l10so", "l5so", "l3so", "logo"]:
             res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
             res["group"] = group
         else:

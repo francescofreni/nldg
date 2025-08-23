@@ -4,6 +4,7 @@ import logging
 import numpy as np
 import pandas as pd
 import torch
+from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -24,7 +25,7 @@ logger = logging.getLogger(__name__)
 #     return groups
 
 
-def generate_fold_info(df, setting, start=0, stop=None, fold_size=10, seed=42):
+def generate_fold_info(df, setting, start=0, stop=None, fold_size=10):
     if setting in ["insite", "insite-random", "loso"]:
         sites = df["site_id"].dropna().unique()
         sites = sorted(sites)
@@ -33,18 +34,29 @@ def generate_fold_info(df, setting, start=0, stop=None, fold_size=10, seed=42):
         groups = sites[start:stop]
 
     elif setting == "logo":
-        if stop is None or stop > 10:
-            stop = 10
-        groups = list(range(start, stop))
+        # if stop is None or stop > 10:
+        #     stop = 10
+        # groups = list(range(start, stop))
+        dataset = df.copy()
+        dataset = dataset.dropna(axis=1, how="all")
+        dataset = dataset.dropna(axis=0, how="any")
+
+        lat = np.radians(dataset["latitude"])
+        lon = np.radians(dataset["longitude"])
+        x = np.cos(lat) * np.cos(lon)
+        y = np.cos(lat) * np.sin(lon)
+        z = np.sin(lat)
+        coords = np.vstack((x, y, z)).T
+        kmeans = KMeans(n_clusters=4, random_state=0).fit(coords)
+        labels = kmeans.labels_
+        unique_labels = np.unique(labels)
+        groups = []
+        for lab in unique_labels:
+            groups.append(np.unique(dataset[labels == lab]["site_id"]))
 
     elif setting == "l10so" or setting == "l5so" or setting == "l3so":
         sites = pd.Series(df["site_id"].dropna().unique())
-        if seed is not None:
-            sites = sites.sample(frac=1.0, random_state=seed).reset_index(
-                drop=True
-            )
-        else:
-            sites = sites.sort_values(kind="stable").reset_index(drop=True)
+        sites = sites.sample(frac=1.0, random_state=42).reset_index(drop=True)
         folds = [
             list(sites[i : i + fold_size])
             for i in range(0, len(sites), fold_size)
@@ -112,12 +124,12 @@ def get_fold_df(
         n_train = int(df_out.shape[0] * 0.8)
         train = df_out.sample(n=n_train, random_state=1)
         test = df_out.drop(train.index)
-    elif setting == "logo":
-        data_path = os.path.join(BASE_DIR, "data_cleaned")
-        sites = pd.read_csv(os.path.join(data_path, "grouping_equal_size.csv"))
-        sites = sites.loc[sites["balanced_cluster"] == group, "site"]
-        train = df_out.loc[~df_out["site_id"].isin(sites)].copy()
-        test = df_out.loc[df_out["site_id"].isin(sites)].copy()
+    # elif setting == "logo":
+    #     data_path = os.path.join(BASE_DIR, "data_cleaned")
+    #     sites = pd.read_csv(os.path.join(data_path, "grouping_equal_size.csv"))
+    #     sites = sites.loc[sites["balanced_cluster"] == group, "site"]
+    #     train = df_out.loc[~df_out["site_id"].isin(sites)].copy()
+    #     test = df_out.loc[df_out["site_id"].isin(sites)].copy()
     elif setting == "loso":
         # split it by site
         train = df_out.loc[df_out["site_id"] != group].copy()
@@ -125,7 +137,7 @@ def get_fold_df(
         if test.shape[0] == 0:
             logger.warning(f"* SKIPPING {group}: no test data")
             return None, None, None, None, None, None
-    elif setting in ["l10so", "l5so", "l3so"]:
+    elif setting in ["l10so", "l5so", "l3so", "logo"]:
         train = df_out.loc[~df_out["site_id"].isin(group)].copy()
         test = df_out.loc[df_out["site_id"].isin(group)].copy()
         if test.shape[0] == 0:

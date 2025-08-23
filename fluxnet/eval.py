@@ -189,7 +189,7 @@ if __name__ == "__main__":
         ["model", "group"], as_index=False
     ).first()
 
-    if setting in ["l10so", "l5so", "l3so"]:
+    if setting in ["l10so", "l5so", "l3so", "logo"]:
         metrics = ["max_mse_test", "max_rmse_test"]
     else:
         metrics = ["mse", "rmse", "r2_score", "relative_error", "mae", "nse"]
