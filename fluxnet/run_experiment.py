@@ -127,6 +127,7 @@ if __name__ == "__main__":
             "l10so",
             "l5so",
             "l3so",
+            "l15so",
         ],
         default="loso",
         help="Experiment setting",
@@ -223,6 +224,8 @@ if __name__ == "__main__":
         groups = generate_fold_info(df, setting, start, stop, fold_size=5)
     elif setting == "l3so":
         groups = generate_fold_info(df, setting, start, stop, fold_size=3)
+    elif setting == "l15so":
+        groups = generate_fold_info(df, setting, start, stop, fold_size=15)
     else:
         groups = generate_fold_info(df, setting, start, stop)
     results = []
@@ -324,7 +327,7 @@ if __name__ == "__main__":
             ytrain /= 1e8
             yfitted /= 1e8
             sols_erm /= 1e8
-        if setting not in ["l10so", "l5so", "l3so", "logo"]:
+        if setting not in ["l10so", "l5so", "l3so", "logo", "l15so"]:
             res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
             res["group"] = group
         else:
