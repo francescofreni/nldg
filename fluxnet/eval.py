@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     totals, res = count_no_worse_than_rf(plot_df, metric, better)
     summary_lines = [
-        f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}$\\%) no worse than RF"
+        f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}\\%$) no worse than RF"
         for m, v in res.items()
     ]
     latex_summary = (
