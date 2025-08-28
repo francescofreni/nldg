@@ -54,12 +54,7 @@ def generate_fold_info(df, setting, start=0, stop=None, fold_size=10):
         for lab in unique_labels:
             groups.append(np.unique(dataset[labels == lab]["site_id"]))
 
-    elif (
-        setting == "l10so"
-        or setting == "l5so"
-        or setting == "l3so"
-        or setting == "l15so"
-    ):
+    elif setting == "l5so":
         sites = pd.Series(df["site_id"].dropna().unique())
         sites = sites.sample(frac=1.0, random_state=42).reset_index(drop=True)
         folds = [
@@ -83,7 +78,7 @@ def get_fold_df(
     # Get the correct data
     if setting == "insite" or setting == "insite-random":
         df_out = df.loc[df["site_id"] == group].copy()
-    elif setting in ["logo", "loso", "l10so", "l5so", "l3so", "l15so"]:
+    elif setting in ["logo", "loso", "l5so"]:
         df_out = df.copy()
 
     # drop columns
@@ -142,7 +137,7 @@ def get_fold_df(
         if test.shape[0] == 0:
             logger.warning(f"* SKIPPING {group}: no test data")
             return None, None, None, None, None, None
-    elif setting in ["l10so", "l5so", "l3so", "logo", "l15so"]:
+    elif setting in ["l5so", "logo"]:
         train = df_out.loc[~df_out["site_id"].isin(group)].copy()
         test = df_out.loc[df_out["site_id"].isin(group)].copy()
         if test.shape[0] == 0:

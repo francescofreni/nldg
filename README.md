@@ -161,20 +161,20 @@ python fluxnet/create_subset_daily.py --nsites 50 --year 2017
 ```
 The resulting dataset will show up in `fluxnet/data_cleaned`.
 
-To run the experiments (only if $20$+ cores are available!):
+To run the experiments under the LOSO setting (only if $20$+ cores are available!):
 ```bash
-python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf"
-python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "mse"
-python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "reward"
-python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "regret"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf" --method "maxrm" --risk "mse"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf" --method "maxrm" --risk "reward"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf" --method "maxrm" --risk "regret"
 ```
-To run the second experiment, replace `"l5so"` with `"logo"`. The results will be available at `fluxnet/results`. 
+To use the L-$5$-SO and LOGO settings, replace `"loso"` with `"l5so"` and `"logo"`, respectively. The results will be available at `fluxnet/results`. 
 
 To get a LaTeX table summarizing the results, run:
 ```bash
-python fluxnet/eval.py --agg "daily-50-2017" --setting "l5so" --metric "max_mse_test"
+python fluxnet/eval.py --agg "daily-50-2017" --setting "loso" --metric "mse"
 ```
-Again, for the results of the second experiment, replace `"l5so"` with `"logo"`. If you want the RMSPE instead of the MSPE, replace `"max_mse_test"` with `"max_rmse_test"`.
+For the results with the L-$5$-SO and LOGO settings, replace `"loso"` with `"l5so"` and `"logo"`, respectively, and `"mse"` with `"max_mse_test"`.
 
 [//]: # (## 📚 Documentation)
 

@@ -46,29 +46,8 @@ def get_default_params(model_name, agg):
     """
     params = {}
     if model_name == "rf":
-        if agg == "daily-50":
-            params = {
-                "forest_type": "Regression",
-                "n_estimators": 20,
-                "min_samples_leaf": 60,
-                "max_depth": 8,
-                "seed": 42,
-                "n_jobs": 20,
-            }
-        elif agg in [
-            "daily-30",
-            "daily-50-2020",
-            "daily-2020",
+        if agg in [
             "daily-50-2017",
-            "daily-2017",
-            "daily-2021",
-            "daily-2016",
-            "daily-50-2016",
-            "daily-2018",
-            "daily-2019",
-            "daily-2002",
-            "daily-2003",
-            "daily-2005",
         ]:
             params = {
                 "forest_type": "Regression",
@@ -107,23 +86,9 @@ if __name__ == "__main__":
             "seasonal",
             "daily",
             "raw",
-            "daily-10",
-            "daily-30",
-            "daily-50",
-            "daily-50-2020",
-            "daily-2020",
             "daily-50-2017",
-            "daily-2017",
-            "daily-2021",
-            "daily-2016",
-            "daily-50-2016",
-            "daily-2018",
-            "daily-2019",
-            "daily-2002",
-            "daily-2003",
-            "daily-2005",
         ],
-        default="daily-10",
+        default="daily-50-2017",
         help="Data aggregation level",
     )
     parser.add_argument(
@@ -134,10 +99,7 @@ if __name__ == "__main__":
             "insite-random",
             "logo",
             "loso",
-            "l10so",
             "l5so",
-            "l3so",
-            "l15so",
         ],
         default="loso",
         help="Experiment setting",
@@ -232,10 +194,6 @@ if __name__ == "__main__":
     # Set-up groups
     if setting == "l5so":
         groups = generate_fold_info(df, setting, start, stop, fold_size=5)
-    elif setting == "l3so":
-        groups = generate_fold_info(df, setting, start, stop, fold_size=3)
-    elif setting == "l15so":
-        groups = generate_fold_info(df, setting, start, stop, fold_size=15)
     else:
         groups = generate_fold_info(df, setting, start, stop)
     results = []
@@ -337,7 +295,7 @@ if __name__ == "__main__":
             ytrain /= 1e8
             yfitted /= 1e8
             sols_erm /= 1e8
-        if setting not in ["l10so", "l5so", "l3so", "logo", "l15so"]:
+        if setting not in ["l5so", "logo"]:
             res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
             res["group"] = group
         else:

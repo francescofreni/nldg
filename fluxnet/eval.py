@@ -135,7 +135,7 @@ if __name__ == "__main__":
         "--path", type=str, default=os.path.join(BASE_DIR, "data_cleaned")
     )
     parser.add_argument("--override", type=bool, default=False)
-    parser.add_argument("--agg", type=str, default="daily-10")
+    parser.add_argument("--agg", type=str, default="daily-50-2017")
     parser.add_argument("--setting", type=str, default="loso")
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--stop", type=int, default=None)
@@ -189,7 +189,7 @@ if __name__ == "__main__":
         ["model", "group"], as_index=False
     ).first()
 
-    if setting in ["l10so", "l5so", "l3so", "logo", "l15so"]:
+    if setting in ["l5so", "logo"]:
         metrics = ["max_mse_test", "max_rmse_test"]
     else:
         metrics = ["mse", "rmse", "r2_score", "relative_error", "mae", "nse"]
