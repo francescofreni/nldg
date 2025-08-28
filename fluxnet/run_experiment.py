@@ -8,6 +8,7 @@ from adaXT.random_forest import RandomForest
 from dataloader import generate_fold_info, get_fold_df
 from eval import evaluate_fold
 from nldg.utils import max_mse, max_regret, min_reward
+from sklearn.linear_model import LinearRegression
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -32,6 +33,8 @@ def get_model(model_name, params={}):
     """
     if model_name == "rf":
         return RandomForest(**params)
+    elif model_name == "lr":
+        return LinearRegression()
     else:
         raise NotImplementedError(f"Model `{model_name}` not implemented.")
 
@@ -113,7 +116,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        choices=["rf"],
+        choices=["rf", "lr"],
         default="rf",
         help="Model to use for the experiment",
     )
@@ -150,6 +153,12 @@ if __name__ == "__main__":
         help="Risk definition (default: 'mse')."
         "Must be one of 'mse', 'reward', 'regret'.",
     )
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Seed for L5SO strategy (default: 42).",
+    )
 
     args = parser.parse_args()
     path = args.path
@@ -164,6 +173,7 @@ if __name__ == "__main__":
     cv = args.cv
     method = args.method
     risk = args.risk
+    seed = args.seed
 
     if exp_name is None:
         if model_name == "rf":
@@ -192,10 +202,7 @@ if __name__ == "__main__":
     df = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
 
     # Set-up groups
-    if setting == "l5so":
-        groups = generate_fold_info(df, setting, start, stop, fold_size=5)
-    else:
-        groups = generate_fold_info(df, setting, start, stop)
+    groups = generate_fold_info(df, setting, start, stop, seed)
     results = []
 
     # Run experiment
@@ -210,7 +217,7 @@ if __name__ == "__main__":
         train_ids_int = train_ids.astype("category").cat.codes
         test_ids_int = test_ids.astype("category").cat.codes
 
-        if model_name == "rf":
+        if model_name in ["rf", "lr"]:
             ytrain *= 1e8
 
         # Get model
@@ -289,12 +296,13 @@ if __name__ == "__main__":
 
         # Evaluate model
         ypred = model.predict(xtest)
-        if model_name == "rf":
-            yfitted = model.predict(xtrain)
+        if model_name in ["rf", "lr"]:
             ypred /= 1e8
             ytrain /= 1e8
-            yfitted /= 1e8
-            sols_erm /= 1e8
+            if model_name == "rf":
+                yfitted = model.predict(xtrain)
+                yfitted /= 1e8
+                sols_erm /= 1e8
         if setting not in ["l5so", "logo"]:
             res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
             res["group"] = group

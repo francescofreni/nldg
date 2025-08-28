@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 #     return groups
 
 
-def generate_fold_info(df, setting, start=0, stop=None, fold_size=10):
+def generate_fold_info(df, setting, start=0, stop=None, fold_size=5, seed=42):
     if setting in ["insite", "insite-random", "loso"]:
         sites = df["site_id"].dropna().unique()
         sites = sorted(sites)
@@ -56,7 +56,9 @@ def generate_fold_info(df, setting, start=0, stop=None, fold_size=10):
 
     elif setting == "l5so":
         sites = pd.Series(df["site_id"].dropna().unique())
-        sites = sites.sample(frac=1.0, random_state=42).reset_index(drop=True)
+        sites = sites.sample(frac=1.0, random_state=seed).reset_index(
+            drop=True
+        )
         folds = [
             list(sites[i : i + fold_size])
             for i in range(0, len(sites), fold_size)
