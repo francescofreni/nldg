@@ -168,13 +168,13 @@ python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_
 python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf" --method "maxrm" --risk "reward"
 python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf" --method "maxrm" --risk "regret"
 ```
-To use the L-$5$-SO and LOGO settings, replace `"loso"` with `"l5so"` and `"logo"`, respectively. The results will be available at `fluxnet/results`. 
+To use the L-5-SO and LOGO settings, replace `"loso"` with `"l5so"` and `"logo"`, respectively. The results will be available at `fluxnet/results`. 
 
 To get a LaTeX table summarizing the results, run:
 ```bash
 python fluxnet/eval.py --agg "daily-50-2017" --setting "loso" --metric "mse"
 ```
-For the results with the L-$5$-SO and LOGO settings, replace `"loso"` with `"l5so"` and `"logo"`, respectively, and `"mse"` with `"max_mse_test"`.
+For the results with the L-5-SO and LOGO settings, replace `"loso"` with `"l5so"` and `"logo"`, respectively, and `"mse"` with `"max_mse_test"`.
 
 [//]: # (## 📚 Documentation)
 
