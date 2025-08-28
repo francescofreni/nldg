@@ -202,7 +202,7 @@ if __name__ == "__main__":
     df = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
 
     # Set-up groups
-    groups = generate_fold_info(df, setting, start, stop, seed)
+    groups = generate_fold_info(df, setting, start, stop, seed=seed)
     results = []
 
     # Run experiment
