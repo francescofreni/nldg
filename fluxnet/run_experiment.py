@@ -39,19 +39,24 @@ def get_model(model_name, params={}):
         raise NotImplementedError(f"Model `{model_name}` not implemented.")
 
 
-def get_default_params(model_name, agg):
+def get_default_params(model_name, agg, with_max_depth):
     """
     Returns default parameters for the specified model.
 
     Args:
         model_name (str): The name of the model.
         agg (str): Dataset used.
+        with_max_depth (bool): If True, set maximum depth for trees.
     """
     params = {}
     if model_name == "rf":
-        if agg in [
-            "daily-50-2017",
-        ]:
+        if (
+            agg
+            in [
+                "daily-50-2017",
+            ]
+            and with_max_depth
+        ):
             params = {
                 "forest_type": "Regression",
                 "n_estimators": 20,
@@ -159,6 +164,12 @@ if __name__ == "__main__":
         default=42,
         help="Seed for L5SO strategy (default: 42).",
     )
+    parser.add_argument(
+        "--with_max_depth",
+        type=bool,
+        default=True,
+        help="Whether to include max_depth as hyperparameter (default: True).",
+    )
 
     args = parser.parse_args()
     path = args.path
@@ -174,6 +185,7 @@ if __name__ == "__main__":
     method = args.method
     risk = args.risk
     seed = args.seed
+    with_max_depth = args.with_max_depth
 
     if exp_name is None:
         if model_name == "rf":
@@ -194,7 +206,7 @@ if __name__ == "__main__":
         params = pd.read_csv(params)
         params = params.to_dict(orient="records")[0]
     else:
-        params = get_default_params(model_name, agg)
+        params = get_default_params(model_name, agg, with_max_depth)
 
     # Load data
     data_path = os.path.join(path, agg + ".csv")
