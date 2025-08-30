@@ -9,6 +9,7 @@ from dataloader import generate_fold_info, get_fold_df
 from eval import evaluate_fold
 from nldg.utils import max_mse, max_regret, min_reward
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import mean_squared_error
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -68,8 +69,8 @@ def get_default_params(model_name, agg, with_max_depth):
         else:
             params = {
                 "forest_type": "Regression",
-                "n_estimators": 20,
-                "min_samples_leaf": 15,
+                "n_estimators": 40,
+                "min_samples_leaf": 10,
                 "seed": 42,
                 "n_jobs": 20,
             }
@@ -170,6 +171,11 @@ if __name__ == "__main__":
         action="store_false",
         help="Exclude max_depth from hyperparameters (default: included).",
     )
+    parser.add_argument(
+        "--fit_residuals",
+        action="store_true",
+        help="Fit Random Forest variants on the residuals (default: False).",
+    )
 
     args = parser.parse_args()
     path = args.path
@@ -186,6 +192,7 @@ if __name__ == "__main__":
     risk = args.risk
     seed = args.seed
     with_max_depth = args.with_max_depth
+    fit_residuals = args.fit_residuals
 
     if exp_name is None:
         if model_name == "rf":
@@ -232,9 +239,21 @@ if __name__ == "__main__":
         if model_name in ["rf", "lr"]:
             ytrain *= 1e8
 
+        if fit_residuals:
+            lr = LinearRegression()
+            lr.fit(xtrain, ytrain)
+            yfitted_lr = lr.predict(xtrain)
+            ypred_lr = lr.predict(xtest)
+            ypred_lr /= 1e8
+            res_train = ytrain - yfitted_lr
+            res_test = ytest - ypred_lr
+
         # Get model
         model = get_model(model_name, params=params)
-        model.fit(xtrain, ytrain)
+        if fit_residuals:
+            model.fit(xtrain, res_train)
+        else:
+            model.fit(xtrain, ytrain)
 
         # Just to compute the maximum regret across training environments
         if model_name == "rf":
@@ -242,10 +261,14 @@ if __name__ == "__main__":
             sols_erm_trees = np.zeros(
                 (params["n_estimators"], len(train_ids_int))
             )
+            if fit_residuals:
+                response = res_train
+            else:
+                response = ytrain
             for env in np.unique(train_ids_int):
                 mask = train_ids_int == env
                 xtrain_env = xtrain[mask]
-                ytrain_env = ytrain[mask]
+                ytrain_env = response[mask]
                 rf_env = RandomForest(**params)
                 rf_env.fit(xtrain_env, ytrain_env)
                 fitted_env = rf_env.predict(xtrain_env)
@@ -265,6 +288,7 @@ if __name__ == "__main__":
                     kwargs["sols_erm_trees"] = sols_erm_trees
                 solvers = [None, "CLARABEL", "ECOS", "SCS"]
 
+                success = False
                 for solver in solvers:
                     try:
                         if solver is None:
@@ -308,29 +332,47 @@ if __name__ == "__main__":
 
         # Evaluate model
         ypred = model.predict(xtest)
-        if model_name in ["rf", "lr"]:
+        if fit_residuals:
             ypred /= 1e8
-            ytrain /= 1e8
-            if model_name == "rf":
-                yfitted = model.predict(xtrain)
-                yfitted /= 1e8
-                sols_erm /= 1e8
-        if setting not in ["l5so", "logo"]:
-            res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
-            res["group"] = group
+            ypred_final = ypred_lr + ypred
+            if setting not in ["l5so", "logo"]:
+                res = {
+                    "mse_test": mean_squared_error(ytest, ypred_final),
+                    "mse_res_test": mean_squared_error(res_test, ypred),
+                    "group": group,
+                }
+            else:
+                res = {
+                    "max_mse_test": max_mse(ytest, ypred_final, test_ids_int),
+                    "max_mse_res_test": max_mse(res_test, ypred, test_ids_int),
+                    "group": group_id,
+                }
         else:
-            max_mse_test = max_mse(ytest, ypred, test_ids_int)
-            res = {
-                "max_mse_test": max_mse_test,
-                "max_rmse_test": np.sqrt(max_mse_test),
-            }
-            res["group"] = group_id
-        if model_name == "rf":
-            res["max_mse_train"] = max_mse(ytrain, yfitted, train_ids_int)
-            res["max_nrw_train"] = -min_reward(ytrain, yfitted, train_ids_int)
-            res["max_reg_train"] = max_regret(
-                ytrain, yfitted, sols_erm, train_ids_int
-            )
+            if model_name in ["rf", "lr"]:
+                ypred /= 1e8
+                ytrain /= 1e8
+                if model_name == "rf":
+                    yfitted = model.predict(xtrain)
+                    yfitted /= 1e8
+                    sols_erm /= 1e8
+            if setting not in ["l5so", "logo"]:
+                res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
+                res["group"] = group
+            else:
+                max_mse_test = max_mse(ytest, ypred, test_ids_int)
+                res = {
+                    "max_mse_test": max_mse_test,
+                    "max_rmse_test": np.sqrt(max_mse_test),
+                    "group": group_id,
+                }
+            if model_name == "rf":
+                res["max_mse_train"] = max_mse(ytrain, yfitted, train_ids_int)
+                res["max_nrw_train"] = -min_reward(
+                    ytrain, yfitted, train_ids_int
+                )
+                res["max_reg_train"] = max_regret(
+                    ytrain, yfitted, sols_erm, train_ids_int
+                )
         results.append(res)
 
     # Save results
