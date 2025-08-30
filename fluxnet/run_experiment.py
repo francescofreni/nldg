@@ -165,10 +165,10 @@ if __name__ == "__main__":
         help="Seed for L5SO strategy (default: 42).",
     )
     parser.add_argument(
-        "--with_max_depth",
-        type=bool,
-        default=True,
-        help="Whether to include max_depth as hyperparameter (default: True).",
+        "--no_max_depth",
+        dest="with_max_depth",
+        action="store_false",
+        help="Exclude max_depth from hyperparameters (default: included).",
     )
 
     args = parser.parse_args()
