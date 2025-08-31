@@ -336,15 +336,13 @@ if __name__ == "__main__":
             ypred /= 1e8
             ypred_final = ypred_lr + ypred
             if setting not in ["l5so", "logo"]:
-                res = {
-                    "mse_test": mean_squared_error(ytest, ypred_final),
-                    "mse_res_test": mean_squared_error(res_test, ypred),
-                    "group": group,
-                }
+                res = evaluate_fold(res_test, ypred, verbose=True, digits=3)
+                res["group"] = group
             else:
+                max_mse_test = max_mse(res_test, ypred, test_ids_int)
                 res = {
-                    "max_mse_test": max_mse(ytest, ypred_final, test_ids_int),
-                    "max_mse_res_test": max_mse(res_test, ypred, test_ids_int),
+                    "max_mse_test": max_mse_test,
+                    "max_rmse_test": np.sqrt(max_mse_test),
                     "group": group_id,
                 }
         else:
