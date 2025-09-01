@@ -424,6 +424,10 @@ if __name__ == "__main__":
                     train_ids_int,
                     ret_ind=True,
                 )
+        sites_int = np.unique(train_ids_int)
+        categories = train_ids.astype("category").cat.categories
+        site_labels = [categories[i] for i in sites_int]
+        res["sites_train_labels"] = site_labels
         results.append(res)
 
     # Save results
