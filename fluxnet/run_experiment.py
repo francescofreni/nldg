@@ -334,7 +334,10 @@ if __name__ == "__main__":
         ypred = model.predict(xtest)
         if fit_residuals:
             ypred /= 1e8
-            ypred_final = ypred_lr + ypred
+            res_train /= 1e8
+            yfitted = model.predict(xtrain)
+            yfitted /= 1e8
+            sols_erm /= 1e8
             if setting not in ["l5so", "logo"]:
                 res = evaluate_fold(res_test, ypred, verbose=True, digits=3)
                 res["group"] = group
@@ -345,6 +348,16 @@ if __name__ == "__main__":
                     "max_rmse_test": np.sqrt(max_mse_test),
                     "group": group_id,
                 }
+            if model_name == "rf":
+                res["max_mse_train"] = max_mse(
+                    res_train, yfitted, train_ids_int
+                )
+                res["max_nrw_train"] = -min_reward(
+                    res_train, yfitted, train_ids_int
+                )
+                res["max_reg_train"] = max_regret(
+                    res_train, yfitted, sols_erm, train_ids_int
+                )
         else:
             if model_name in ["rf", "lr"]:
                 ypred /= 1e8
