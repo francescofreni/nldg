@@ -176,6 +176,11 @@ if __name__ == "__main__":
         action="store_true",
         help="Fit Random Forest variants on the residuals (default: False).",
     )
+    parser.add_argument(
+        "--additional_metrics",
+        action="store_true",
+        help="Report additional metrics, e.g. per-training-site risk (default: False).",
+    )
 
     args = parser.parse_args()
     path = args.path
@@ -193,6 +198,7 @@ if __name__ == "__main__":
     seed = args.seed
     with_max_depth = args.with_max_depth
     fit_residuals = args.fit_residuals
+    additional_metrics = args.additional_metrics
 
     if exp_name is None:
         if model_name == "rf":
@@ -358,26 +364,27 @@ if __name__ == "__main__":
                 res["max_reg_train"] = max_regret(
                     res_train, yfitted, sols_erm, train_ids_int
                 )
-                res["mse_train"], _ = max_mse(
-                    res_train,
-                    yfitted,
-                    train_ids_int,
-                    ret_ind=True,
-                )
-                rewards, _ = min_reward(
-                    res_train,
-                    yfitted,
-                    train_ids_int,
-                    ret_ind=True,
-                )
-                res["nrw_train"] = [-r for r in rewards]
-                res["reg_train"], _ = max_regret(
-                    res_train,
-                    yfitted,
-                    sols_erm,
-                    train_ids_int,
-                    ret_ind=True,
-                )
+                if additional_metrics:
+                    res["mse_train"], _ = max_mse(
+                        res_train,
+                        yfitted,
+                        train_ids_int,
+                        ret_ind=True,
+                    )
+                    rewards, _ = min_reward(
+                        res_train,
+                        yfitted,
+                        train_ids_int,
+                        ret_ind=True,
+                    )
+                    res["nrw_train"] = [-r for r in rewards]
+                    res["reg_train"], _ = max_regret(
+                        res_train,
+                        yfitted,
+                        sols_erm,
+                        train_ids_int,
+                        ret_ind=True,
+                    )
         else:
             if model_name in ["rf", "lr"]:
                 ypred /= 1e8
@@ -404,30 +411,32 @@ if __name__ == "__main__":
                 res["max_reg_train"] = max_regret(
                     ytrain, yfitted, sols_erm, train_ids_int
                 )
-                res["mse_train"], _ = max_mse(
-                    ytrain,
-                    yfitted,
-                    train_ids_int,
-                    ret_ind=True,
-                )
-                rewards, _ = min_reward(
-                    ytrain,
-                    yfitted,
-                    train_ids_int,
-                    ret_ind=True,
-                )
-                res["nrw_train"] = [-r for r in rewards]
-                res["reg_train"], _ = max_regret(
-                    ytrain,
-                    yfitted,
-                    sols_erm,
-                    train_ids_int,
-                    ret_ind=True,
-                )
-        sites_int = np.unique(train_ids_int)
-        categories = train_ids.astype("category").cat.categories
-        site_labels = [categories[i] for i in sites_int]
-        res["sites_train_labels"] = site_labels
+                if additional_metrics:
+                    res["mse_train"], _ = max_mse(
+                        ytrain,
+                        yfitted,
+                        train_ids_int,
+                        ret_ind=True,
+                    )
+                    rewards, _ = min_reward(
+                        ytrain,
+                        yfitted,
+                        train_ids_int,
+                        ret_ind=True,
+                    )
+                    res["nrw_train"] = [-r for r in rewards]
+                    res["reg_train"], _ = max_regret(
+                        ytrain,
+                        yfitted,
+                        sols_erm,
+                        train_ids_int,
+                        ret_ind=True,
+                    )
+        if additional_metrics:
+            sites_int = np.unique(train_ids_int)
+            categories = train_ids.astype("category").cat.categories
+            site_labels = [categories[i] for i in sites_int]
+            res["sites_train_labels"] = site_labels
         results.append(res)
 
     # Save results
