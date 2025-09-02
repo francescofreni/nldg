@@ -7,3 +7,4 @@ build/
 archive/
 notebooks/settings/
 *.nc
+*.pdf

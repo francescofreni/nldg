@@ -349,10 +349,12 @@ if __name__ == "__main__":
                 res["group"] = group
             else:
                 max_mse_test = max_mse(res_test, ypred, test_ids_int)
+                max_nrw_test = -min_reward(res_test, ypred, test_ids_int)
                 res = {
                     "max_mse_test": max_mse_test,
                     "max_rmse_test": np.sqrt(max_mse_test),
                     "group": group_id,
+                    "max_nrw_test": max_nrw_test,
                 }
             if model_name == "rf":
                 res["max_mse_train"] = max_mse(
