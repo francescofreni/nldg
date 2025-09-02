@@ -387,6 +387,13 @@ if __name__ == "__main__":
                         train_ids_int,
                         ret_ind=True,
                     )
+                    rewards, _ = min_reward(
+                        res_test,
+                        ypred,
+                        test_ids_int,
+                        ret_ind=True,
+                    )
+                    res["nrw_test"] = [-r for r in rewards]
         else:
             if model_name in ["rf", "lr"]:
                 ypred /= 1e8
