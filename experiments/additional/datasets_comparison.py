@@ -91,7 +91,7 @@ if __name__ == "__main__":
             rf.fit(Xtr, Ytr)
             preds_rf = rf.predict(Xte)
 
-            rf.modify_predictions_trees(Etr)
+            rf.modify_predictions_trees(Etr, solver="ECOS")
             preds_maxrm = rf.predict(Xte)
 
             results_dict["RF"].append(max_mse(Yte, preds_rf, Ete))
