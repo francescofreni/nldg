@@ -16,7 +16,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 
 if __name__ == "__main__":
-    data_settings = np.arange(1, 8)
+    data_settings = np.arange(1, 7)
     for data_setting in data_settings:
         results_dict = {
             "RF": [],
@@ -25,21 +25,18 @@ if __name__ == "__main__":
         output_path = os.path.join(OUT_DIR, "datasets_comparison.txt")
         for i in tqdm(range(N_SIM)):
             if data_setting == 1:
-                dtr = gen_data_v2(n=SAMPLE_SIZE, random_state=i)
-                dte = gen_data_v2(n=SAMPLE_SIZE, random_state=1000 + i)
-            elif data_setting == 2:
                 dtr = gen_data_v3(n=SAMPLE_SIZE, random_state=i, setting=2)
                 dte = gen_data_v3(
                     n=SAMPLE_SIZE, random_state=1000 + i, setting=2
                 )
-            elif data_setting == 3:
+            elif data_setting == 2:
                 n_easy = SAMPLE_SIZE // 3
                 n_hard = SAMPLE_SIZE - n_easy
                 dtr = gen_data_v4(n_easy=n_easy, n_hard=n_hard, random_state=i)
                 dte = gen_data_v4(
                     n_easy=n_easy, n_hard=n_hard, random_state=1000 + i
                 )
-            elif data_setting == 4:
+            elif data_setting == 3:
                 dtr = gen_data_v5(
                     n_samples=SAMPLE_SIZE,
                     adv_fraction=0.1,
@@ -54,7 +51,7 @@ if __name__ == "__main__":
                     setting=2,
                     random_state=1000 + i,
                 )
-            elif data_setting == 5:
+            elif data_setting == 4:
                 dtr = gen_data_v6(
                     n=SAMPLE_SIZE,
                     noise_std=NOISE_STD,
@@ -67,7 +64,7 @@ if __name__ == "__main__":
                     random_state=1000 + i,
                     setting=2,
                 )
-            elif data_setting == 6:
+            elif data_setting == 5:
                 dtr = gen_data_v7(n=SAMPLE_SIZE, random_state=i)
                 dte = gen_data_v7(n=SAMPLE_SIZE, random_state=1000 + i)
             else:
