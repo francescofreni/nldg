@@ -185,7 +185,7 @@ def train_model_GDRO_online(
     verbose=False,
 ):
     """
-    Online mirror-ascent GDRO (Algorithm 1): sample one group and one example per step.
+    Online mirror-ascent GDRO: sample one group and one example per step.
 
     Args:
         X_train (np.ndarray): training features.
@@ -194,7 +194,7 @@ def train_model_GDRO_online(
         hidden_dims (list): hidden layer sizes.
         lr_model (float): learning rate for model update (eta_theta).
         eta (float): step size for q-update (eta_q).
-        steps (int): total online iterations T.
+        epochs (int): total online iterations T.
         batch_size (int): examples per step from selected group.
         weight_decay (float): L2 penalty.
         seed (int): random seed.
