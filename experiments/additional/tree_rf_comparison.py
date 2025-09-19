@@ -67,7 +67,7 @@ if __name__ == "__main__":
     tree_bias2 = tree_bias2_pt.mean()
     tree_var = tree_var_pt.mean()
 
-    output_path = os.path.join(OUT_DIR, "summary_all.txt")
+    output_path = os.path.join(OUT_DIR, "tree_rf_comparison.txt")
     with open(output_path, "w") as f:
         f.write("MaxRM Random Forest\n")
         f.write(f"Bias^2: {rf_bias2}\n")
