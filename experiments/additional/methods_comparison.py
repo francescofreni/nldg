@@ -11,8 +11,8 @@ from nldg.utils import max_mse, min_reward
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-N_SIM = 20
-N_ESTIMATORS = 50
+N_SIM = 10
+N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 5
 SEED = 42
 COLORS = {
