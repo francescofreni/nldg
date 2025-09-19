@@ -84,12 +84,10 @@ class DataContainer:
                 self.E_sources_list.append(np.full(self.n, l, dtype=int))
             else:
                 if l == 0:
-                    X = np.random.multivariate_normal(
-                        mu, Sigma, self.n * self.L
-                    )
-                    Y = self.f_funcs[l](X) + np.random.randn(self.n * self.L)
+                    X = np.random.multivariate_normal(mu, Sigma, self.n * 3)
+                    Y = self.f_funcs[l](X) + np.random.randn(self.n * 3)
                     self.E_sources_list.append(
-                        np.full(self.n * self.L, l, dtype=int)
+                        np.full(self.n * 3, l, dtype=int)
                     )
                 else:
                     X = np.random.multivariate_normal(mu, Sigma, self.n)
