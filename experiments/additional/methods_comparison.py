@@ -33,6 +33,7 @@ def plot_maxrisk_vs_nenvs(
     results: dict[int, dict[str, float]],
     risk_label: str = "mse",
     cov_shift: bool = False,
+    unbalanced_envs: bool = False,
 ) -> None:
     methods = []
     for L in results:
@@ -96,7 +97,8 @@ def plot_maxrisk_vs_nenvs(
 
     plt.savefig(
         os.path.join(
-            OUT_DIR, f"methods_comparison_{risk_label}_{str(cov_shift)}.pdf"
+            OUT_DIR,
+            f"methods_comparison_{risk_label}_covshift{str(cov_shift)}_unbalanced{str(unbalanced_envs)}.pdf",
         ),
         dpi=300,
         bbox_inches="tight",
@@ -265,7 +267,8 @@ if __name__ == "__main__":
     df_stats = pd.DataFrame(rows)
     df_stats.to_csv(
         os.path.join(
-            OUT_DIR, f"methods_comparison_{risk_label}_{str(cov_shift)}.csv"
+            OUT_DIR,
+            f"methods_comparison_{risk_label}_covshift{str(cov_shift)}_unbalanced{str(unbalanced_envs)}.csv",
         ),
         index=False,
     )
@@ -282,4 +285,9 @@ if __name__ == "__main__":
     #     index=False,
     # )
 
-    plot_maxrisk_vs_nenvs(results, risk_label=risk_label, cov_shift=cov_shift)
+    plot_maxrisk_vs_nenvs(
+        results,
+        risk_label=risk_label,
+        cov_shift=cov_shift,
+        unbalanced_envs=unbalanced_envs,
+    )
