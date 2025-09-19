@@ -142,17 +142,17 @@ if __name__ == "__main__":
     else:
         risk_label = "nrw"
 
-    Ls = [3, 5, 7, 9]  # number of environments
+    Ls = [3, 4, 5, 6]  # number of environments
     results = {L: {} for L in Ls}
     for L in tqdm(Ls):
         if not unbalanced_envs:
             data = DataContainer(
-                n=1000, N=1000, cov_shift=cov_shift, risk=risk
+                n=2000, N=20000, cov_shift=cov_shift, risk=risk
             )
         else:
             data = DataContainer(
                 n=500,
-                N=1000,
+                N=20000,
                 cov_shift=cov_shift,
                 risk=risk,
                 unbalanced_envs=unbalanced_envs,
