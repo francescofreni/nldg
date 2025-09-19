@@ -11,8 +11,8 @@ from nldg.utils import max_mse, min_reward
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-N_SIM = 100  # 200
-N_ESTIMATORS = 100
+N_SIM = 50
+N_ESTIMATORS = 50
 MIN_SAMPLES_LEAF = 5
 SEED = 42
 COLORS = {
@@ -44,7 +44,6 @@ def plot_maxrisk_vs_nenvs(
     plt.figure(figsize=(7.2, 4.8))
     for m in methods:
         base = m.split("(")[0]
-        print(base)
         color = COLORS.get(base, "#000000")
         ys = [results[L][m] for L in L_vals if m in results[L]]
         xs = [L for L in L_vals if m in results[L]]
@@ -108,10 +107,10 @@ if __name__ == "__main__":
     else:
         risk_label = "nrw"
 
-    Ls = [3, 5, 7, 9]  # [3, 4, 5, 6, 7, 8, 9, 10]  # number of source domains
+    Ls = [3, 5, 7, 9]  # number of environments
     results = {L: {} for L in Ls}
     for L in tqdm(Ls):
-        data = DataContainer(n=2000, N=20000, cov_shift=cov_shift, risk=risk)
+        data = DataContainer(n=1000, N=1000, cov_shift=cov_shift, risk=risk)
         data.generate_funcs_list(L=L, seed=SEED)
         max_risks = np.zeros((N_SIM, 4))  # RF, MaxRM-RF, GroupDRO, DRoL
         for sim in tqdm(range(N_SIM), leave=False):
@@ -136,9 +135,24 @@ if __name__ == "__main__":
             pred_rf = rf.predict(Xte)
 
             # MaxRM-RF
-            rf.modify_predictions_trees(
-                Etr, method=risk, solver="ECOS", n_jobs=n_jobs
-            )
+            solvers = ["ECOS", "SCS"]
+            success = False
+            for solver in solvers:
+                try:
+                    rf.modify_predictions_trees(
+                        Etr, method=risk, solver=solver, n_jobs=n_jobs
+                    )
+                    success = True
+                    break
+                except Exception as e_try:
+                    pass
+            if not success:
+                rf.modify_predictions_trees(
+                    Etr,
+                    method=risk,
+                    n_jobs=n_jobs,
+                    opt_method="extragradient",
+                )
             pred_maxrmrf = rf.predict(Xte)
 
             # GroupDRO-NN
@@ -154,6 +168,7 @@ if __name__ == "__main__":
                 "n_estimators": N_ESTIMATORS,
                 "min_samples_leaf": MIN_SAMPLES_LEAF,
                 "seed": SEED,
+                "n_jobs": n_jobs,
             }
             sigma2 = np.ones(L)  # the noise term is N(0,1)
             drol = DRoL(data, params, method=risk, sigma2=sigma2, seed=SEED)
@@ -178,11 +193,18 @@ if __name__ == "__main__":
         results[L][f"GroupDRO-NN({risk_label})"] = np.mean(max_risks[:, 2])
         results[L][f"DRoL({risk_label})"] = np.mean(max_risks[:, 3])
 
+    # print(results)
+
     rows = []
     for L, methods in results.items():
         for method, value in methods.items():
             rows.append({"L": L, "method": method, "risk": value})
     df = pd.DataFrame(rows)
-    df.to_csv(os.path.join(OUT_DIR, "results.csv"), index=False)
+    df.to_csv(
+        os.path.join(
+            OUT_DIR, f"methods_comparison_{risk_label}_{str(cov_shift)}.csv"
+        ),
+        index=False,
+    )
 
     plot_maxrisk_vs_nenvs(results, risk_label=risk_label, cov_shift=cov_shift)

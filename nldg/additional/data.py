@@ -40,8 +40,8 @@ class DataContainer:
         if not self.cov_shift:
             self.mu0 = np.zeros(self.d)
         else:
-            self.mu0 = np.array([1, -1, 0.5, 0.0, 0.0])
-        # X_sample = np.random.randn(20000, self.d) + self.mu0
+            self.mu0 = np.array([-0.5, -0.5, 0.25, 0.25, 0.25])
+        X_sample = np.random.randn(1000, self.d) + self.mu0
         for l in range(L):
             # random beta in [-1,1]^d
             beta = np.random.uniform(-1, 1, self.d)
@@ -60,8 +60,12 @@ class DataContainer:
                     np.sin(x.dot(beta)) + np.sum(np.dot(x, A) * x, axis=1) - c
                 )
 
-            self.f_funcs.append(f_func)
-            # self.f_funcs.append(lambda x, f_fun=f_func: f_fun(x) - np.mean(f_fun(X_sample)))
+            if self.risk == "mse":
+                self.f_funcs.append(f_func)
+            else:
+                self.f_funcs.append(
+                    lambda x, f_fun=f_func: f_fun(x) - np.mean(f_fun(X_sample))
+                )
 
     def generate_data(self, seed=None):
         np.random.seed(seed)
