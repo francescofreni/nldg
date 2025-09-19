@@ -11,7 +11,7 @@ from nldg.utils import max_mse, min_reward
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-N_SIM = 50
+N_SIM = 20
 N_ESTIMATORS = 50
 MIN_SAMPLES_LEAF = 5
 SEED = 42
@@ -41,21 +41,48 @@ def plot_maxrisk_vs_nenvs(
 
     L_vals = sorted(results.keys())
 
-    plt.figure(figsize=(7.2, 4.8))
+    plt.figure(figsize=(8, 5))
     for m in methods:
         base = m.split("(")[0]
         color = COLORS.get(base, "#000000")
-        ys = [results[L][m] for L in L_vals if m in results[L]]
-        xs = [L for L in L_vals if m in results[L]]
+
+        # ys = [results[L][m] for L in L_vals if m in results[L]]
+        # xs = [L for L in L_vals if m in results[L]]
+        # plt.plot(
+        #     xs,
+        #     ys,
+        #     label=m,
+        #     color=color,
+        #     marker="o",
+        #     linestyle="-",
+        #     markeredgecolor="white",
+        # )
+
+        xs, means, lowers, uppers = [], [], [], []
+        for L in L_vals:
+            vals = np.asarray(results[L][m], dtype=float)
+            if vals.size == 0:
+                continue
+            n = vals.size
+            mu = vals.mean()
+            stderr = vals.std(ddof=1) / np.sqrt(n) if n > 1 else 0.0
+            width = 1.96 * stderr
+
+            xs.append(L)
+            means.append(mu)
+            lowers.append(mu - width)
+            uppers.append(mu + width)
+
         plt.plot(
             xs,
-            ys,
+            means,
             label=m,
             color=color,
             marker="o",
             linestyle="-",
             markeredgecolor="white",
         )
+        plt.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
 
     plt.xlabel("Number of environments")
     if risk_label == "mse":
@@ -69,7 +96,7 @@ def plot_maxrisk_vs_nenvs(
 
     plt.savefig(
         os.path.join(
-            OUT_DIR, f"methods_comparison_{risk_label}_{str(cov_shift)}.png"
+            OUT_DIR, f"methods_comparison_{risk_label}_{str(cov_shift)}.pdf"
         ),
         dpi=300,
         bbox_inches="tight",
@@ -82,6 +109,11 @@ if __name__ == "__main__":
         "--cov_shift",
         action="store_true",
         help="Whether the target covariate distribution differs from the training ones (default: False).",
+    )
+    parser.add_argument(
+        "--unbalanced_envs",
+        action="store_true",
+        help="Whether the environments should be unbalanced (default: False).",
     )
     parser.add_argument(
         "--risk",
@@ -99,6 +131,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
     cov_shift = args.cov_shift
+    unbalanced_envs = args.unbalanced_envs
     risk = args.risk
     n_jobs = args.n_jobs
 
@@ -110,7 +143,18 @@ if __name__ == "__main__":
     Ls = [3, 5, 7, 9]  # number of environments
     results = {L: {} for L in Ls}
     for L in tqdm(Ls):
-        data = DataContainer(n=1000, N=1000, cov_shift=cov_shift, risk=risk)
+        if not unbalanced_envs:
+            data = DataContainer(
+                n=1000, N=1000, cov_shift=cov_shift, risk=risk
+            )
+        else:
+            data = DataContainer(
+                n=500,
+                N=1000,
+                cov_shift=cov_shift,
+                risk=risk,
+                unbalanced_envs=unbalanced_envs,
+            )
         data.generate_funcs_list(L=L, seed=SEED)
         max_risks = np.zeros((N_SIM, 4))  # RF, MaxRM-RF, GroupDRO, DRoL
         for sim in tqdm(range(N_SIM), leave=False):
@@ -188,23 +232,54 @@ if __name__ == "__main__":
                 max_risks[sim, 2] = -min_reward(Yte, pred_gdro, Ete)
                 max_risks[sim, 3] = -min_reward(Yte, pred_drol, Ete)
 
-        results[L]["RF"] = np.mean(max_risks[:, 0])
-        results[L][f"MaxRM-RF({risk_label})"] = np.mean(max_risks[:, 1])
-        results[L][f"GroupDRO-NN({risk_label})"] = np.mean(max_risks[:, 2])
-        results[L][f"DRoL({risk_label})"] = np.mean(max_risks[:, 3])
+        # results[L]["RF"] = np.mean(max_risks[:, 0])
+        # results[L][f"MaxRM-RF({risk_label})"] = np.mean(max_risks[:, 1])
+        # results[L][f"GroupDRO-NN({risk_label})"] = np.mean(max_risks[:, 2])
+        # results[L][f"DRoL({risk_label})"] = np.mean(max_risks[:, 3])
+
+        results[L]["RF"] = max_risks[:, 0].tolist()
+        results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
+        results[L][f"GroupDRO-NN({risk_label})"] = max_risks[:, 2].tolist()
+        results[L][f"DRoL({risk_label})"] = max_risks[:, 3].tolist()
 
     # print(results)
 
     rows = []
     for L, methods in results.items():
-        for method, value in methods.items():
-            rows.append({"L": L, "method": method, "risk": value})
-    df = pd.DataFrame(rows)
-    df.to_csv(
+        for method, vals in methods.items():
+            arr = np.asarray(vals, dtype=float)
+            n = arr.size
+            mu = arr.mean()
+            stderr = arr.std(ddof=1) / np.sqrt(n) if n > 1 else 0.0
+            width = 1.96 * stderr
+            rows.append(
+                {
+                    "L": L,
+                    "method": method,
+                    "n": n,
+                    "mean": mu,
+                    "lower": mu - width,
+                    "upper": mu + width,
+                }
+            )
+    df_stats = pd.DataFrame(rows)
+    df_stats.to_csv(
         os.path.join(
             OUT_DIR, f"methods_comparison_{risk_label}_{str(cov_shift)}.csv"
         ),
         index=False,
     )
+
+    # rows = []
+    # for L, methods in results.items():
+    #     for method, value in methods.items():
+    #         rows.append({"L": L, "method": method, "risk": value})
+    # df = pd.DataFrame(rows)
+    # df.to_csv(
+    #     os.path.join(
+    #         OUT_DIR, f"methods_comparison_{risk_label}_{str(cov_shift)}.csv"
+    #     ),
+    #     index=False,
+    # )
 
     plot_maxrisk_vs_nenvs(results, risk_label=risk_label, cov_shift=cov_shift)

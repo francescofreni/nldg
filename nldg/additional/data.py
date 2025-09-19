@@ -3,7 +3,9 @@ import numpy as np
 
 
 class DataContainer:
-    def __init__(self, n, N, cov_shift=False, risk="mse"):
+    def __init__(
+        self, n, N, cov_shift=False, risk="mse", unbalanced_envs=False
+    ):
         self.n = n  # number of samples in each source domain
         self.N = N  # number of samples in the target domain
         self.d = 5  # number of features
@@ -31,6 +33,7 @@ class DataContainer:
             cov_shift  # whether the target X marginal is different or not
         )
         self.risk = risk  # Risk definition
+        self.unbalanced_envs = unbalanced_envs
 
     def generate_funcs_list(self, L, seed=None):
         np.random.seed(seed)
@@ -75,8 +78,18 @@ class DataContainer:
         mu = np.zeros(self.d)
         Sigma = np.eye(self.d)
         for l in range(self.L):
-            X = np.random.multivariate_normal(mu, Sigma, self.n)
-            Y = self.f_funcs[l](X) + np.random.randn(self.n)
+            if not self.unbalanced_envs:
+                X = np.random.multivariate_normal(mu, Sigma, self.n)
+                Y = self.f_funcs[l](X) + np.random.randn(self.n)
+            else:
+                if l == 0:
+                    X = np.random.multivariate_normal(
+                        mu, Sigma, self.n * self.L
+                    )
+                    Y = self.f_funcs[l](X) + np.random.randn(self.n * self.L)
+                else:
+                    X = np.random.multivariate_normal(mu, Sigma, self.n)
+                    Y = self.f_funcs[l](X) + np.random.randn(self.n)
             self.X_sources_list.append(X)
             self.Y_sources_list.append(Y)
             self.E_sources_list.append(np.full(self.n, l, dtype=int))
