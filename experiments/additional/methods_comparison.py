@@ -27,6 +27,8 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 OUT_DIR = os.path.join(RESULTS_DIR, "output_additional")
 os.makedirs(OUT_DIR, exist_ok=True)
+OUT_DIR = os.path.join(OUT_DIR, "methods_comparison")
+os.makedirs(OUT_DIR, exist_ok=True)
 
 
 def plot_maxrisk_vs_nenvs(
@@ -151,7 +153,7 @@ if __name__ == "__main__":
             )
         else:
             data = DataContainer(
-                n=500,
+                n=1000,
                 N=20000,
                 cov_shift=cov_shift,
                 risk=risk,
