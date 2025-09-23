@@ -46,6 +46,7 @@ def plot_maxrisk_vs_nenvs(
     L_vals = sorted(results.keys())
 
     plt.figure(figsize=(8, 5))
+    ax = plt.gca()
     for m in methods:
         base = m.split("(")[0]
         color = COLORS.get(base, "#000000")
@@ -77,7 +78,7 @@ def plot_maxrisk_vs_nenvs(
             lowers.append(mu - width)
             uppers.append(mu + width)
 
-        plt.plot(
+        ax.plot(
             xs,
             means,
             label=m,
@@ -86,18 +87,19 @@ def plot_maxrisk_vs_nenvs(
             linestyle="-",
             markeredgecolor="white",
         )
-        plt.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
+        ax.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
 
-    plt.xlabel("Number of environments")
+    ax.set_xlabel("Number of environments")
     if risk_label == "mse":
-        plt.ylabel("Maximum MSE across environments")
+        ax.set_ylabel("Maximum MSE across environments")
     else:
-        plt.ylabel("Maximum Negative Reward across environments")
+        ax.set_ylabel("Maximum Negative Reward across environments")
 
-    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.set_xticks(L_vals)
+    ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
-    plt.grid(True, linewidth=0.2)
-    plt.legend(frameon=True, fontsize=12)
+    ax.grid(True, linewidth=0.2)
+    ax.legend(frameon=True, fontsize=12)
     plt.tight_layout()
 
     plt.savefig(
