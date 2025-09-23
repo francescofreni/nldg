@@ -10,6 +10,7 @@ from nldg.additional.gdro import GroupDRO
 from nldg.utils import max_mse, min_reward
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from matplotlib.ticker import MaxNLocator
 
 N_SIM = 10
 N_ESTIMATORS = 100
@@ -92,6 +93,8 @@ def plot_maxrisk_vs_nenvs(
         plt.ylabel("Maximum MSE across environments")
     else:
         plt.ylabel("Maximum Negative Reward across environments")
+
+    plt.gca().xaxis.set_major_locator(MaxNLocator(integer=True))
 
     plt.grid(True, linewidth=0.2)
     plt.legend(frameon=True, fontsize=12)
