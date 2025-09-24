@@ -142,7 +142,7 @@ if __name__ == "__main__":
     else:
         risk_label = "nrw"
 
-    Ls = [3, 4, 5, 6]  # number of environments
+    Ls = [3, 4, 5, 6, 7, 8, 9, 10]  # number of environments
     results = {L: {} for L in Ls}
     for L in tqdm(Ls):
         if not unbalanced_envs:
