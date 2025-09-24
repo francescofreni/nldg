@@ -4,7 +4,7 @@ import numpy as np
 
 class DataContainer:
     def __init__(
-        self, n, N, cov_shift=False, risk="mse", unbalanced_envs=False
+        self, n, N, change_X_distr=False, risk="mse", unbalanced_envs=False
     ):
         self.n = n  # number of samples in each source domain
         self.N = N  # number of samples in the target domain
@@ -29,8 +29,8 @@ class DataContainer:
         self.f_funcs = []  # list of source conditional outcome functions
         self.mu0 = None  # target covariate distribution mean, used when generating data
         self.Sigma0 = None  # target covariate distribution covariance, used when generating data
-        self.cov_shift = (
-            cov_shift  # whether the target X marginal is different or not
+        self.change_X_distr = (
+            change_X_distr  # whether the target X marginal is different or not
         )
         self.risk = risk  # Risk definition
         self.unbalanced_envs = unbalanced_envs
@@ -40,7 +40,7 @@ class DataContainer:
         self.L = L
         beta_list = []
         A_list = []
-        if not self.cov_shift:
+        if not self.change_X_distr:
             self.mu0 = np.zeros(self.d)
         else:
             self.mu0 = np.array([-0.25, -0.25, 0, 0.25, 0.25])
