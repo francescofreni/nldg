@@ -63,7 +63,9 @@ class DataContainer:
                     np.sin(x.dot(beta)) + np.sum(np.dot(x, A) * x, axis=1) - c
                 )
 
-            if self.risk == "mse":
+            # self.f_funcs.append(f_func)
+
+            if self.risk in ["mse", "regret"]:
                 self.f_funcs.append(f_func)
             else:
                 self.f_funcs.append(

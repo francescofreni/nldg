@@ -154,11 +154,16 @@ class DRoL:
             constraints = [cp.sum(q) == 1, cp.norm(q - prior_weight) <= rho]
         if self.method == "reward":
             objective = cp.Minimize(cp.quad_form(q, Gamma))
-        else:
+        elif self.method == "mse":
             gamma = np.diag(Gamma)
             linear = gamma + self.sigma2
             objective = cp.Minimize(
                 cp.quad_form(q, Gamma) - cp.sum(cp.multiply(linear, q))
+            )
+        else:
+            gamma = np.diag(Gamma)
+            objective = cp.Minimize(
+                cp.quad_form(q, Gamma) - cp.sum(cp.multiply(gamma, q))
             )
         prob = cp.Problem(objective, constraints)
         prob.solve()

@@ -8,26 +8,93 @@ from nldg.utils import set_all_seeds
 
 
 class GroupDRO:
-    def __init__(self, data, hidden_dims, seed=42, risk="mse"):
-        """
-        Args:
-            data (_type_): DataContainer
-            input_dim (int): Number of features.
-            hidden_dims (List[int], optional): Sizes of hidden layers.
-            seed (int, optional): Random seed.
-        """
+    def __init__(
+        self, data, hidden_dims, seed=42, risk="mse", oracle_kwargs=None
+    ):
         set_all_seeds(seed)
         self.data = data
-        # Define the neural network architecture
-        layers = []
-        prev_dim = self.data.d
-        for h_dim in hidden_dims:
-            layers.append(nn.Linear(prev_dim, h_dim))
-            layers.append(nn.ReLU())
-            prev_dim = h_dim
-        layers.append(nn.Linear(prev_dim, 1))  # Output layer for regression
-        self.model = nn.Sequential(*layers)
+        self.hidden_dims = list(hidden_dims)
         self.risk = risk
+        self.oracle_kwargs = oracle_kwargs or {}
+        self._regret_baselines = None  # torch.tensor of shape [L]
+        self.group_predictors = []
+        # Model for GroupDRO
+        self.model = self._make_model()
+
+    def _make_model(self):
+        layers, prev_dim = [], self.data.d
+        for h in self.hidden_dims:
+            layers += [nn.Linear(prev_dim, h), nn.ReLU()]
+            prev_dim = h
+        layers.append(nn.Linear(prev_dim, 1))
+        return nn.Sequential(*layers)
+
+    @torch.no_grad()
+    def _group_y2_means(self, Y_groups):
+        # for negative reward: E[Y^2] per group (scalar per group)
+        return torch.tensor(
+            [torch.mean(y.squeeze() ** 2).item() for y in Y_groups],
+            dtype=torch.float32,
+        )
+
+    def _fit_group_predictors(self, X_groups, Y_groups):
+        """
+        Train predictors on the different environments
+        """
+        baselines = []
+        group_predictors = []
+        for l in range(self.data.L):
+            X, Y = X_groups[l], Y_groups[l]
+            n = X.shape[0]
+            idx = torch.randperm(n)
+            n_val = max(1, int(0.2 * n))
+            val_idx, tr_idx = idx[:n_val], idx[n_val:]
+            Xtr, Ytr = X[tr_idx], Y[tr_idx]
+            Xval, Yval = X[val_idx], Y[val_idx]
+
+            model = self._make_model()
+            opt = optim.Adam(
+                model.parameters(),
+                lr=self.oracle_kwargs.get("lr", 1e-3),
+                weight_decay=self.oracle_kwargs.get("weight_decay", 1e-5),
+            )
+            loss_fn = nn.MSELoss()
+            best = float("inf")
+            best_state = None
+            patience = self.oracle_kwargs.get("early_stopping_patience", 5)
+            min_delta = self.oracle_kwargs.get("min_delta", 1e-4)
+            no_improve = 0
+            epochs = self.oracle_kwargs.get("epochs", 100)
+
+            for _ in range(epochs):
+                model.train()
+                opt.zero_grad()
+                preds = model(Xtr)
+                loss = loss_fn(preds, Ytr)
+                loss.backward()
+                opt.step()
+
+                # val
+                model.eval()
+                val_pred = model(Xval).detach()
+                val_loss = loss_fn(val_pred, Yval).item()
+                if val_loss < best - min_delta:
+                    best, best_state, no_improve = (
+                        val_loss,
+                        {k: v.clone() for k, v in model.state_dict().items()},
+                        0,
+                    )
+                else:
+                    no_improve += 1
+                    if no_improve >= patience:
+                        break
+            if best_state is not None:
+                model.load_state_dict(best_state)
+            baselines.append(best)
+            group_predictors.append(model)
+
+        self.group_predictors = group_predictors
+        return torch.tensor(baselines, dtype=torch.float32)
 
     def fit(
         self,
@@ -74,6 +141,15 @@ class GroupDRO:
             for Y in self.data.Y_sources_list
         ]
 
+        if self.risk == "reward":
+            y2_means = self._group_y2_means(Y_groups)
+        elif self.risk == "regret":
+            if self._regret_baselines is None:
+                self._regret_baselines = self._fit_group_predictors(
+                    X_groups, Y_groups
+                )
+            b = self._regret_baselines
+
         # Track best state for early stopping
         best_loss = float("inf")
         best_model_state = copy.deepcopy(self.model.state_dict())
@@ -88,10 +164,12 @@ class GroupDRO:
                 X = X_groups[l]
                 Y = Y_groups[l]
                 preds = self.model(X)
-                if self.risk == "mse":
-                    loss = loss_fn(preds, Y)
-                else:
-                    loss = loss_fn(preds, Y) - torch.mean(Y**2)
+                base = 0.0
+                if self.risk == "reward":
+                    base = y2_means[l].item()
+                elif self.risk == "regret":
+                    base = b[l].item()
+                loss = loss_fn(preds, Y) - base
                 group_losses.append(loss)
 
             group_losses_tensor = torch.stack(
@@ -152,4 +230,15 @@ class GroupDRO:
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32)
             preds = self.model(X_tensor).numpy().flatten()
+        return preds
+
+    def predict_per_group(self, X, E):
+        preds = np.zeros(len(E))
+        for l in range(self.data.L):
+            model = self.group_predictors[l]
+            model.eval()
+            mask = E == l
+            with torch.no_grad():
+                X_tensor = torch.tensor(X[mask], dtype=torch.float32)
+                preds[mask] = model(X_tensor).numpy().flatten()
         return preds

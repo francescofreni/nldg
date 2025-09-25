@@ -6,7 +6,7 @@ import pandas as pd
 from adaXT.random_forest import RandomForest
 from nldg.additional.data import DataContainer
 from nldg.additional.drol import DRoL
-from nldg.utils import max_mse, min_reward
+from nldg.utils import max_mse, min_reward, max_regret
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from matplotlib.ticker import MaxNLocator
@@ -85,8 +85,10 @@ def plot_maxrisk_vs_nenvs(
     ax.set_xlabel("Number of test environments")
     if risk_label == "mse":
         ax.set_ylabel("Maximum MSE across test environments")
-    else:
+    elif risk_label == "nrw":
         ax.set_ylabel("Maximum Negative Reward across test environments")
+    else:
+        ax.set_ylabel("Maximum Regret across test environments")
 
     ax.set_xticks(L_vals)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -121,9 +123,9 @@ if __name__ == "__main__":
         "--risk",
         type=str,
         default="mse",
-        choices=["mse", "reward"],
+        choices=["mse", "reward", "regret"],
         help="Risk definition (default: 'mse')."
-        "Must be one of 'mse', 'reward'.",
+        "Must be one of 'mse', 'reward', 'regret'.",
     )
     parser.add_argument(
         "--n_jobs",
@@ -139,8 +141,10 @@ if __name__ == "__main__":
 
     if risk == "mse":
         risk_label = "mse"
-    else:
+    elif risk == "reward":
         risk_label = "nrw"
+    else:
+        risk_label = "reg"
 
     Ls = [3, 4, 5, 6, 7, 8, 9, 10]  # number of environments
     results = {L: {} for L in Ls}
@@ -169,6 +173,30 @@ if __name__ == "__main__":
             Yte = np.concatenate(data.Y_target_potential_list)
             Ete = np.concatenate(data.E_target_potential_list)
 
+            if risk == "regret":
+                fitted_erm = np.zeros(len(Etr))
+                fitted_erm_trees = np.zeros((N_ESTIMATORS, len(Etr)))
+                pred_erm = np.zeros(len(Ete))
+                for env in np.unique(Etr):
+                    mask = Etr == env
+                    Xtr_env = Xtr[mask]
+                    Ytr_env = Ytr[mask]
+                    rf_e = RandomForest(
+                        "Regression",
+                        n_estimators=N_ESTIMATORS,
+                        min_samples_leaf=MIN_SAMPLES_LEAF,
+                        seed=SEED,
+                        n_jobs=n_jobs,
+                    )
+                    rf_e.fit(Xtr_env, Ytr_env)
+                    fitted_erm[mask] = rf_e.predict(Xtr_env)
+                    for i in range(N_ESTIMATORS):
+                        fitted_erm_trees[i, mask] = rf_e.trees[i].predict(
+                            Xtr_env
+                        )
+                    mask_te = Ete == env
+                    pred_erm[mask_te] = rf_e.predict(Xte[mask_te])
+
             # RF
             rf = RandomForest(
                 "Regression",
@@ -183,10 +211,17 @@ if __name__ == "__main__":
             # MaxRM-RF
             solvers = ["ECOS", "SCS"]
             success = False
+            kwargs = {"n_jobs": n_jobs}
+            if risk == "regret":
+                kwargs["sols_erm"] = fitted_erm
+                kwargs["sols_erm_trees"] = fitted_erm_trees
             for solver in solvers:
                 try:
                     rf.modify_predictions_trees(
-                        Etr, method=risk, solver=solver, n_jobs=n_jobs
+                        Etr,
+                        method=risk,
+                        **kwargs,
+                        solver=solver,
                     )
                     success = True
                     break
@@ -196,7 +231,7 @@ if __name__ == "__main__":
                 rf.modify_predictions_trees(
                     Etr,
                     method=risk,
-                    n_jobs=n_jobs,
+                    **kwargs,
                     opt_method="extragradient",
                 )
             pred_maxrmrf = rf.predict(Xte)
@@ -217,6 +252,8 @@ if __name__ == "__main__":
                     bias_correct=True, priors=None
                 )
                 pred_drol = np.tile(_pred_drol, L)
+                if risk == "regret":
+                    pred_erm_drol = drol.pred_full_mat.flatten()
             except Exception as e:
                 pred_drol = None
 
@@ -228,13 +265,24 @@ if __name__ == "__main__":
                     max_risks[sim, 2] = np.nan
                 else:
                     max_risks[sim, 2] = max_mse(Yte, pred_drol, Ete)
-            else:
+            elif risk == "reward":
                 max_risks[sim, 0] = -min_reward(Yte, pred_rf, Ete)
                 max_risks[sim, 1] = -min_reward(Yte, pred_maxrmrf, Ete)
                 if pred_drol is None:
                     max_risks[sim, 2] = np.nan
                 else:
                     max_risks[sim, 2] = -min_reward(Yte, pred_drol, Ete)
+            else:
+                max_risks[sim, 0] = max_regret(Yte, pred_rf, pred_erm, Ete)
+                max_risks[sim, 1] = max_regret(
+                    Yte, pred_maxrmrf, pred_erm, Ete
+                )
+                if pred_drol is None:
+                    max_risks[sim, 2] = np.nan
+                else:
+                    max_risks[sim, 2] = max_regret(
+                        Yte, pred_drol, pred_erm_drol, Ete
+                    )
 
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
