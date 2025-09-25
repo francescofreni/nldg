@@ -63,14 +63,14 @@ class DataContainer:
                     np.sin(x.dot(beta)) + np.sum(np.dot(x, A) * x, axis=1) - c
                 )
 
-            # self.f_funcs.append(f_func)
+            self.f_funcs.append(f_func)
 
-            if self.risk in ["mse", "regret"]:
-                self.f_funcs.append(f_func)
-            else:
-                self.f_funcs.append(
-                    lambda x, f_fun=f_func: f_fun(x) - np.mean(f_fun(X_sample))
-                )
+            # if self.risk in ["mse", "regret"]:
+            #     self.f_funcs.append(f_func)
+            # else:
+            #     self.f_funcs.append(
+            #         lambda x, f_fun=f_func: f_fun(x) - np.mean(f_fun(X_sample))
+            #     )
 
     def generate_data(self, seed=None):
         np.random.seed(seed)
