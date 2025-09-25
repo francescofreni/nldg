@@ -246,17 +246,19 @@ if __name__ == "__main__":
             )
             gdro.fit(epochs=500)
             pred_gdro = gdro.predict(Xte)
-            pred_erm_gdro = gdro.predict_per_group(Xte, Ete)
+            if risk == "regret":
+                pred_erm_gdro = gdro.predict_per_group(Xte, Ete)
 
             # Mean
             pred_mean = np.full(len(Yte), np.mean(Ytr))
-            pred_erm_mean = np.zeros(len(Ete))
-            for env in np.unique(Ete):
-                mask_tr = Etr == env
-                mask_te = Ete == env
-                pred_erm_mean[mask_te] = np.full(
-                    np.sum(mask_te), np.mean(Ytr[mask_tr])
-                )
+            if risk == "regret":
+                pred_erm_mean = np.zeros(len(Ete))
+                for env in np.unique(Ete):
+                    mask_tr = Etr == env
+                    mask_te = Ete == env
+                    pred_erm_mean[mask_te] = np.full(
+                        np.sum(mask_te), np.mean(Ytr[mask_tr])
+                    )
 
             # Evaluate the maximum risk
             if risk == "mse":
