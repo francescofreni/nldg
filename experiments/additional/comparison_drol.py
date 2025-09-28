@@ -252,8 +252,6 @@ if __name__ == "__main__":
                     bias_correct=True, priors=None
                 )
                 pred_drol = np.tile(_pred_drol, L)
-                if risk == "regret":
-                    pred_erm_drol = drol.pred_full_mat.flatten()
             except Exception as e:
                 pred_drol = None
 
@@ -281,7 +279,7 @@ if __name__ == "__main__":
                     max_risks[sim, 2] = np.nan
                 else:
                     max_risks[sim, 2] = max_regret(
-                        Yte, pred_drol, pred_erm_drol, Ete
+                        Yte, pred_drol, pred_erm, Ete
                     )
 
         results[L]["RF"] = max_risks[:, 0].tolist()
