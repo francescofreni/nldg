@@ -320,48 +320,48 @@ if __name__ == "__main__":
             X_train_s = scaler.fit_transform(X_train)
             X_test_env_s = scaler.transform(X_test_env)
 
-            # # start old -----------------------------
-            # nn = NearestNeighbors(n_neighbors=1, algorithm="auto", n_jobs=-1)
-            # nn.fit(X_train_s)
-            # dists_scaled, _ = nn.kneighbors(X_test_env_s, return_distance=True)
-            # dists_scaled = dists_scaled.ravel()
+            # start old -----------------------------
+            nn = NearestNeighbors(n_neighbors=1, algorithm="auto", n_jobs=-1)
+            nn.fit(X_train_s)
+            dists_scaled, _ = nn.kneighbors(X_test_env_s, return_distance=True)
+            dists_scaled = dists_scaled.ravel()
+
+            idx = nn.kneighbors(X_test_env_s, return_distance=False).ravel()
+            dists_orig = np.linalg.norm(X_train[idx] - X_test_env, axis=1)
+
+            res["dist_scaled"] = np.mean(dists_scaled)
+            res["dist_orig"] = np.mean(dists_orig)
+            # end old -------------------------------
+
+            # # start new ------------------------------
+            # mu_test_s = X_test_env_s.mean(axis=0)
+            # mu_test = X_test_env.mean(axis=0)
             #
-            # idx = nn.kneighbors(X_test_env_s, return_distance=False).ravel()
-            # dists_orig = np.linalg.norm(X_train[idx] - X_test_env, axis=1)
-
-            # res["dist_scaled"] = np.mean(dists_scaled)
-            # res["dist_orig"] = np.mean(dists_orig)
-            # # end old -------------------------------
-
-            # start new ------------------------------
-            mu_test_s = X_test_env_s.mean(axis=0)
-            mu_test = X_test_env.mean(axis=0)
-
-            train_env_codes = np.unique(train_ids_int)
-            mu_train_s = []
-            mu_train = []
-            for code in train_env_codes:
-                mask_tr = (train_ids_int == code).values
-                mu_train_s.append(X_train_s[mask_tr].mean(axis=0))
-                mu_train.append(X_train[mask_tr].mean(axis=0))
-
-            mu_train_s = np.vstack(mu_train_s)
-            mu_train = np.vstack(mu_train)
-
-            dists_means_scaled = np.linalg.norm(mu_train_s - mu_test_s, axis=1)
-            dists_means_orig = np.linalg.norm(mu_train - mu_test, axis=1)
-
-            closest_env_idx = np.argmin(dists_means_scaled)
-            closest_train_env_code = train_env_codes[closest_env_idx]
-
-            res["mean_dist_scaled_min"] = float(dists_means_scaled.min())
-            res["mean_dist_scaled_avg"] = float(dists_means_scaled.mean())
-            res["mean_dist_orig_min"] = float(dists_means_orig.min())
-            res["mean_dist_orig_avg"] = float(dists_means_orig.mean())
-            res["closest_train_env_by_mean"] = int(closest_train_env_code)
-            res["dists_means_scaled"] = dists_means_scaled.tolist()
-            res["dists_means_orig"] = dists_means_orig.tolist()
-            # end new ---------------------------------
+            # train_env_codes = np.unique(train_ids_int)
+            # mu_train_s = []
+            # mu_train = []
+            # for code in train_env_codes:
+            #     mask_tr = (train_ids_int == code).values
+            #     mu_train_s.append(X_train_s[mask_tr].mean(axis=0))
+            #     mu_train.append(X_train[mask_tr].mean(axis=0))
+            #
+            # mu_train_s = np.vstack(mu_train_s)
+            # mu_train = np.vstack(mu_train)
+            #
+            # dists_means_scaled = np.linalg.norm(mu_train_s - mu_test_s, axis=1)
+            # dists_means_orig = np.linalg.norm(mu_train - mu_test, axis=1)
+            #
+            # closest_env_idx = np.argmin(dists_means_scaled)
+            # closest_train_env_code = train_env_codes[closest_env_idx]
+            #
+            # res["mean_dist_scaled_min"] = float(dists_means_scaled.min())
+            # res["mean_dist_scaled_avg"] = float(dists_means_scaled.mean())
+            # res["mean_dist_orig_min"] = float(dists_means_orig.min())
+            # res["mean_dist_orig_avg"] = float(dists_means_orig.mean())
+            # res["closest_train_env_by_mean"] = int(closest_train_env_code)
+            # res["dists_means_scaled"] = dists_means_scaled.tolist()
+            # res["dists_means_orig"] = dists_means_orig.tolist()
+            # # end new ---------------------------------
 
         if model_name == "rf":
             res["max_mse_train"] = max_mse(ytrain, yfitted, train_ids_int)
