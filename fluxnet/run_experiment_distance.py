@@ -338,6 +338,8 @@ if __name__ == "__main__":
                 ytrain, yfitted, sols_erm, train_ids_int
             )
 
+        results.append(res)
+
     # Save results
     results_df = pd.DataFrame(results)
     results_dir = os.path.join(BASE_DIR, "results")
