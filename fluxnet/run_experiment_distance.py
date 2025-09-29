@@ -302,39 +302,34 @@ if __name__ == "__main__":
                 ytest, ypred, test_ids_int, ret_ind=True
             )
             idx_test = np.argmax(np.array(mse_envs_test))
+            envs_test = np.unique(test_ids)
+            worst_test_env = envs_test[idx_test]
 
             res = {
                 "max_mse_test": max_mse_test,
                 "max_rmse_test": np.sqrt(max_mse_test),
                 "group": group_id,
-                "worst_group": group[idx_test],
+                "worst_test_env": worst_test_env,
             }
 
-            for env_site in group:
-                mask_env = (test_ids == env_site).values
-                X_train = xtrain_num.copy()
-                X_test_env = xtest_num[mask_env].copy()
+            mask_env = (test_ids_int == idx_test).values
+            X_train = xtrain_num.copy()
+            X_test_env = xtest_num[mask_env].copy()
 
-                scaler = StandardScaler()
-                X_train_s = scaler.fit_transform(X_train)
-                X_test_env_s = scaler.transform(X_test_env)
+            scaler = StandardScaler()
+            X_train_s = scaler.fit_transform(X_train)
+            X_test_env_s = scaler.transform(X_test_env)
 
-                nn = NearestNeighbors(
-                    n_neighbors=1, algorithm="auto", n_jobs=-1
-                )
-                nn.fit(X_train_s)
-                dists_scaled, _ = nn.kneighbors(
-                    X_test_env_s, return_distance=True
-                )
-                dists_scaled = dists_scaled.ravel()
+            nn = NearestNeighbors(n_neighbors=1, algorithm="auto", n_jobs=-1)
+            nn.fit(X_train_s)
+            dists_scaled, _ = nn.kneighbors(X_test_env_s, return_distance=True)
+            dists_scaled = dists_scaled.ravel()
 
-                idx = nn.kneighbors(
-                    X_test_env_s, return_distance=False
-                ).ravel()
-                dists_orig = np.linalg.norm(X_train[idx] - X_test_env, axis=1)
+            idx = nn.kneighbors(X_test_env_s, return_distance=False).ravel()
+            dists_orig = np.linalg.norm(X_train[idx] - X_test_env, axis=1)
 
-                res[f"dist_scaled_{env_site}"] = np.mean(dists_scaled)
-                res[f"dist_orig_{env_site}"] = np.mean(dists_orig)
+            res["dist_scaled"] = np.mean(dists_scaled)
+            res["dist_orig"] = np.mean(dists_orig)
 
         if model_name == "rf":
             res["max_mse_train"] = max_mse(ytrain, yfitted, train_ids_int)
