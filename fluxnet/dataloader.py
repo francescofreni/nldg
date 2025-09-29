@@ -76,6 +76,7 @@ def get_fold_df(
     cv=False,
     remove_missing=False,
     astorch=False,
+    num=False,
 ):
     # Get the correct data
     if setting == "insite" or setting == "insite-random":
@@ -194,4 +195,38 @@ def get_fold_df(
         xtest = torch.tensor(xtest, dtype=torch.float32)
         ytest = torch.tensor(ytest, dtype=torch.float32).view(-1, 1)
 
-    return xtrain, ytrain, xtest, ytest, train_ids, test_ids
+    if num:
+        exclude_cols = [
+            target,
+            "IGBP_veg_MF",
+            "IGBP_veg_GRA",
+            "IGBP_veg_ENF",
+            "IGBP_veg_SAV",
+            "IGBP_veg_EBF",
+            "IGBP_veg_WSA",
+            "IGBP_veg_DBF",
+            "IGBP_veg_OSH",
+            "IGBP_veg_CRO",
+            "IGBP_veg_CSH",
+            "IGBP_veg_WET",
+            "IGBP_veg_CVM",
+            "season_1",
+            "season_2",
+            "season_3",
+            "season_4",
+        ]
+        xcols = ~train.columns.isin(exclude_cols)
+        xtrain_num = train.loc[:, xcols].values
+        xtest_num = test.loc[:, xcols].values
+        return (
+            xtrain,
+            ytrain,
+            xtest,
+            ytest,
+            train_ids,
+            test_ids,
+            xtrain_num,
+            xtest_num,
+        )
+    else:
+        return xtrain, ytrain, xtest, ytest, train_ids, test_ids
