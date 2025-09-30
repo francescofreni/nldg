@@ -252,6 +252,7 @@ if __name__ == "__main__":
             ypred_lr = lr.predict(xtest)
             ypred_lr /= 1e8
             res_train = ytrain - yfitted_lr
+            yfitted_lr /= 1e8
             res_test = ytest - ypred_lr
 
         # Get model
@@ -341,55 +342,104 @@ if __name__ == "__main__":
         if fit_residuals:
             ypred /= 1e8
             res_train /= 1e8
+            ytrain /= 1e8
             yfitted = model.predict(xtrain)
             yfitted /= 1e8
             sols_erm /= 1e8
+
+            ypred_full = ypred_lr + ypred
+            yfitted_full = yfitted_lr + yfitted
+            sols_erm_full = yfitted_lr + sols_erm
+
             if setting not in ["l5so", "logo"]:
                 res = evaluate_fold(res_test, ypred, verbose=True, digits=3)
                 res["group"] = group
             else:
-                max_mse_test = max_mse(res_test, ypred, test_ids_int)
-                max_nrw_test = -min_reward(res_test, ypred, test_ids_int)
+                # max_mse_test = max_mse(res_test, ypred, test_ids_int)
+                # max_nrw_test = -min_reward(res_test, ypred, test_ids_int)
+                # res = {
+                #     "max_mse_test": max_mse_test,
+                #     "max_rmse_test": np.sqrt(max_mse_test),
+                #     "group": group_id,
+                #     "max_nrw_test": max_nrw_test,
+                # }
+                max_mse_test = max_mse(ytest, ypred_full, test_ids_int)
                 res = {
                     "max_mse_test": max_mse_test,
                     "max_rmse_test": np.sqrt(max_mse_test),
                     "group": group_id,
-                    "max_nrw_test": max_nrw_test,
                 }
             if model_name == "rf":
+                # res["max_mse_train"] = max_mse(
+                #     res_train, yfitted, train_ids_int
+                # )
+                # res["max_nrw_train"] = -min_reward(
+                #     res_train, yfitted, train_ids_int
+                # )
+                # res["max_reg_train"] = max_regret(
+                #     res_train, yfitted, sols_erm, train_ids_int
+                # )
+                # if additional_metrics:
+                #     res["mse_train"], _ = max_mse(
+                #         res_train,
+                #         yfitted,
+                #         train_ids_int,
+                #         ret_ind=True,
+                #     )
+                #     rewards, _ = min_reward(
+                #         res_train,
+                #         yfitted,
+                #         train_ids_int,
+                #         ret_ind=True,
+                #     )
+                #     res["nrw_train"] = [-r for r in rewards]
+                #     res["reg_train"], _ = max_regret(
+                #         res_train,
+                #         yfitted,
+                #         sols_erm,
+                #         train_ids_int,
+                #         ret_ind=True,
+                #     )
+                #     rewards, _ = min_reward(
+                #         res_test,
+                #         ypred,
+                #         test_ids_int,
+                #         ret_ind=True,
+                #     )
+                #     res["nrw_test"] = [-r for r in rewards]
                 res["max_mse_train"] = max_mse(
-                    res_train, yfitted, train_ids_int
+                    ytrain, yfitted_full, train_ids_int
                 )
                 res["max_nrw_train"] = -min_reward(
-                    res_train, yfitted, train_ids_int
+                    ytrain, yfitted_full, train_ids_int
                 )
                 res["max_reg_train"] = max_regret(
-                    res_train, yfitted, sols_erm, train_ids_int
+                    ytrain, yfitted_full, sols_erm_full, train_ids_int
                 )
                 if additional_metrics:
                     res["mse_train"], _ = max_mse(
-                        res_train,
-                        yfitted,
+                        ytrain,
+                        yfitted_full,
                         train_ids_int,
                         ret_ind=True,
                     )
                     rewards, _ = min_reward(
-                        res_train,
-                        yfitted,
+                        ytrain,
+                        yfitted_full,
                         train_ids_int,
                         ret_ind=True,
                     )
                     res["nrw_train"] = [-r for r in rewards]
                     res["reg_train"], _ = max_regret(
-                        res_train,
-                        yfitted,
-                        sols_erm,
+                        ytrain,
+                        yfitted_full,
+                        sols_erm_full,
                         train_ids_int,
                         ret_ind=True,
                     )
                     rewards, _ = min_reward(
-                        res_test,
-                        ypred,
+                        ytest,
+                        ypred_full,
                         test_ids_int,
                         ret_ind=True,
                     )
