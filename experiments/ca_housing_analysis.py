@@ -541,36 +541,36 @@ if __name__ == "__main__":
     X, y, Z = load_data()
     env = assign_quadrant(Z)
 
-    print("\nRunning experiment: Minimize maximum MSE across environments\n")
-    mse_main_df, mse_envs_df = gen_exp(X, y, env, "mse")
-
-    print(
-        "\nRunning experiment: Minimize maximum negative reward across environments\n"
-    )
-    nrw_main_df, nrw_envs_df = gen_exp(X, y, env, "nrw")
-
-    print(
-        "\nRunning experiment: Minimize maximum regret across environments\n"
-    )
-    reg_main_df, reg_envs_df = gen_exp(X, y, env, "reg")
-
-    combined_df = pd.concat(
-        [mse_main_df, nrw_main_df, reg_main_df], ignore_index=True
-    )
-    plot_test_risk_all_methods(combined_df, saveplot=True, out_dir=OUT_DIR)
-    table_df = table_test_risk_all_methods(combined_df)
-    latex_str = table_df.to_latex(
-        index=False, escape=False, column_format="lcccc"
-    )
-    with open(
-        os.path.join(OUT_DIR, "heldout_mse_all_methods_table.txt"), "w"
-    ) as f:
-        f.write(latex_str)
-
-    env_all = pd.concat(
-        [mse_envs_df, nrw_envs_df, reg_envs_df], ignore_index=True
-    )
-    plot_envs_mse_all_methods(env_all, saveplot=True, out_dir=OUT_DIR)
+    # print("\nRunning experiment: Minimize maximum MSE across environments\n")
+    # mse_main_df, mse_envs_df = gen_exp(X, y, env, "mse")
+    #
+    # print(
+    #     "\nRunning experiment: Minimize maximum negative reward across environments\n"
+    # )
+    # nrw_main_df, nrw_envs_df = gen_exp(X, y, env, "nrw")
+    #
+    # print(
+    #     "\nRunning experiment: Minimize maximum regret across environments\n"
+    # )
+    # reg_main_df, reg_envs_df = gen_exp(X, y, env, "reg")
+    #
+    # combined_df = pd.concat(
+    #     [mse_main_df, nrw_main_df, reg_main_df], ignore_index=True
+    # )
+    # plot_test_risk_all_methods(combined_df, saveplot=True, out_dir=OUT_DIR)
+    # table_df = table_test_risk_all_methods(combined_df)
+    # latex_str = table_df.to_latex(
+    #     index=False, escape=False, column_format="lcccc"
+    # )
+    # with open(
+    #     os.path.join(OUT_DIR, "heldout_mse_all_methods_table.txt"), "w"
+    # ) as f:
+    #     f.write(latex_str)
+    #
+    # env_all = pd.concat(
+    #     [mse_envs_df, nrw_envs_df, reg_envs_df], ignore_index=True
+    # )
+    # plot_envs_mse_all_methods(env_all, saveplot=True, out_dir=OUT_DIR)
 
     print("\nRunning experiment: Linear Regression\n")
     main_df, env_df = gen_exp_linear(X, y, env)

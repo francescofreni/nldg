@@ -732,23 +732,19 @@ def write_lr_env_specific_table_txt(
     """
     os.makedirs(out_dir, exist_ok=True)
 
-    # Group to get mean/std/count per (heldout_idx, train_env_idx)
+    # stats per (heldout_idx, train_env_idx)
     grp = env_metrics_df.groupby(["HeldOutQuadrantIdx", "EnvIndex"])["MSE"]
     stats = grp.agg(["mean", "std", "count"]).reset_index()
-    stats["ci95"] = _ci95(stats["std"], stats["count"])
+    stats["ci95"] = 1.96 * stats["std"] / np.sqrt(stats["count"])
 
-    lines = []
-    # Build a table for each held-out env (row) across its training envs (columns)
+    blocks = []
     for heldout_idx in range(len(QUADRANTS)):
-        # Column order: all envs except the held-out one
         train_env_indices = [
             j for j in range(len(QUADRANTS)) if j != heldout_idx
         ]
         header = ["Held-out Env"] + [QUADRANTS[j] for j in train_env_indices]
-        if not lines:  # write header only once
-            lines.append("\t".join(header))
+        rows = ["\t".join(header)]
 
-        # Prepare row
         row = [QUADRANTS[heldout_idx]]
         for j in train_env_indices:
             sub = stats[
@@ -756,14 +752,22 @@ def write_lr_env_specific_table_txt(
                 & (stats["EnvIndex"] == j)
             ]
             m = float(sub["mean"].iloc[0])
-            c = float(sub["ci95"].iloc[0])
+            n = int(sub["count"].iloc[0])
+            s = (
+                float(sub["std"].iloc[0])
+                if not np.isnan(sub["std"].iloc[0])
+                else 0.0
+            )
+            c = (1.96 * s / np.sqrt(n)) if n > 1 else 0.0
             cell = f"{m:.3f} ± {c:.3f}"
             row.append(cell)
 
-        lines.append("\t".join(row))
+        rows.append("\t".join(row))
+        blocks.append("\n".join(rows))
 
+    content = ("\n\n").join(blocks) + "\n"
     with open(os.path.join(out_dir, "lr_val_envs_mse.txt"), "w") as f:
-        f.write("\n".join(lines))
+        f.write(content)
 
 
 # ==========
