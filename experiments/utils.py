@@ -690,6 +690,82 @@ def plot_max_risk_vs_hyperparam(
 #         plt.show()
 
 
+def _ci95(std: pd.Series, n: pd.Series) -> pd.Series:
+    return 1.96 * std / np.sqrt(n)
+
+
+def write_lr_test_table_txt(
+    main_df: pd.DataFrame,
+    out_dir: str,
+):
+    """
+    Creates a text file for the LR results.
+    Column shows Test MSE mean ± 95% CI per held-out environment.
+    """
+    os.makedirs(out_dir, exist_ok=True)
+
+    grp = main_df.groupby("HeldOutQuadrant")["Test_mse"]
+    means = grp.mean().reindex(QUADRANTS)
+    stds = grp.std().reindex(QUADRANTS)
+    ns = grp.count().reindex(QUADRANTS)
+    ci = _ci95(stds, ns)
+
+    header = ["Quadrant", "LR"]
+    lines = ["\t".join(header)]
+    for q in QUADRANTS:
+        m = means.loc[q]
+        c = ci.loc[q]
+        cell = f"{m:.3f} ± {c:.3f}"
+        lines.append(f"{q}\t{cell}")
+
+    with open(os.path.join(out_dir, "lr_test_mse.txt"), "w") as f:
+        f.write("\n".join(lines))
+
+
+def write_lr_env_specific_table_txt(
+    env_metrics_df: pd.DataFrame,
+    out_dir: str,
+):
+    """
+    For each held-out environment, prints the MSE (mean ± 95% CI) achieved on the *training*
+    environments during validation. Columns are the three training envs (the held-out env is omitted).
+    """
+    os.makedirs(out_dir, exist_ok=True)
+
+    # Group to get mean/std/count per (heldout_idx, train_env_idx)
+    grp = env_metrics_df.groupby(["HeldOutQuadrantIdx", "EnvIndex"])["MSE"]
+    stats = grp.agg(["mean", "std", "count"]).reset_index()
+    stats["ci95"] = _ci95(stats["std"], stats["count"])
+
+    lines = []
+    # Build a table for each held-out env (row) across its training envs (columns)
+    for heldout_idx in range(len(QUADRANTS)):
+        # Column order: all envs except the held-out one
+        train_env_indices = [
+            j for j in range(len(QUADRANTS)) if j != heldout_idx
+        ]
+        header = ["Held-out Env"] + [QUADRANTS[j] for j in train_env_indices]
+        if not lines:  # write header only once
+            lines.append("\t".join(header))
+
+        # Prepare row
+        row = [QUADRANTS[heldout_idx]]
+        for j in train_env_indices:
+            sub = stats[
+                (stats["HeldOutQuadrantIdx"] == heldout_idx)
+                & (stats["EnvIndex"] == j)
+            ]
+            m = float(sub["mean"].iloc[0])
+            c = float(sub["ci95"].iloc[0])
+            cell = f"{m:.3f} ± {c:.3f}"
+            row.append(cell)
+
+        lines.append("\t".join(row))
+
+    with open(os.path.join(out_dir, "lr_val_envs_mse.txt"), "w") as f:
+        f.write("\n".join(lines))
+
+
 # ==========
 # Additional
 # ==========

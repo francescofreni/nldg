@@ -9,6 +9,7 @@ from nldg.utils import max_mse, max_regret, min_reward
 from adaXT.random_forest import RandomForest
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import mean_squared_error
+from sklearn.linear_model import LinearRegression
 from tqdm import tqdm
 from utils import (
     plot_test_risk,
@@ -16,6 +17,8 @@ from utils import (
     plot_test_risk_all_methods,
     table_test_risk_all_methods,
     plot_envs_mse_all_methods,
+    write_lr_test_table_txt,
+    write_lr_env_specific_table_txt,
 )
 
 # Setup logging
@@ -420,38 +423,157 @@ def gen_exp(
     return main_result_df, env_metrics_result_df
 
 
+def eval_one_quadrant_linear(
+    quadrant_idx: int,
+    X: pd.DataFrame,
+    y: pd.Series,
+    env: np.ndarray,
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Linear Regression only.
+    """
+    # Masks
+    test_mask = env == quadrant_idx
+    train_mask = ~test_mask
+
+    X_test, y_test = X[test_mask], y[test_mask]
+    X_pool, y_pool = X[train_mask], y[train_mask]
+    env_pool = env[train_mask]
+
+    train_env_indices = np.unique(env_pool)
+
+    main_records = []
+    env_metrics_records = []
+
+    for b in tqdm(range(B)):
+        # Stratified split across the 3 training envs
+        X_tr, X_val, y_tr, y_val, env_tr, env_val = train_test_split(
+            X_pool,
+            y_pool,
+            env_pool,
+            test_size=VAL_PERCENTAGE,
+            random_state=b,
+            stratify=env_pool,
+        )
+
+        # Fit global ERM Linear Regression
+        lr = LinearRegression()
+        lr.fit(X_tr, y_tr)
+        preds_val = lr.predict(X_val)
+        preds_test = lr.predict(X_test)
+
+        # Compute metrics
+        mse_envs_val, max_mse_val = max_mse(
+            y_val, preds_val, env_val, ret_ind=True
+        )
+        mse_test = mean_squared_error(y_test, preds_test)
+
+        # Main performance metrics (Linear Regression only)
+        main_records.append(
+            {
+                "HeldOutQuadrant": QUADRANTS[quadrant_idx],
+                "Rep": b,
+                "Model": "LR",
+                "Train_max_mse": float(max_mse_val),
+                "Test_mse": float(mse_test),
+            }
+        )
+
+        # Environment-specific performance metrics (on validation split)
+        for i, env_value in enumerate(mse_envs_val):
+            env_idx = train_env_indices[i]
+            env_metrics_records.append(
+                {
+                    "HeldOutQuadrant": QUADRANTS[quadrant_idx],
+                    "HeldOutQuadrantIdx": quadrant_idx,
+                    "Rep": b,
+                    "Model": "LR",
+                    "EnvIndex": int(env_idx),
+                    "MSE": float(env_value),
+                }
+            )
+
+    return pd.DataFrame.from_records(main_records), pd.DataFrame.from_records(
+        env_metrics_records
+    )
+
+
+def gen_exp_linear(
+    X: pd.DataFrame,
+    y: pd.Series,
+    env: np.ndarray,
+) -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Linear Regression only.
+    """
+    main_dfs = []
+    env_metrics_dfs = []
+    logger.info(
+        "Submitting quadrant tasks (Linear Regression) to ProcessPoolExecutor"
+    )
+    with ProcessPoolExecutor() as exe:
+        futures = {}
+        for qi in range(len(QUADRANTS)):
+            logger.info(
+                f"Submitting quadrant {QUADRANTS[qi]} (idx={qi}) to pool"
+            )
+            fut = exe.submit(eval_one_quadrant_linear, qi, X, y, env)
+            futures[fut] = qi
+
+        for fut in as_completed(futures):
+            qi = futures[fut]
+            logger.info(
+                f"Quadrant {QUADRANTS[qi]} completed, collecting results"
+            )
+            main_df, env_metrics_df = fut.result()
+            main_dfs.append(main_df)
+            env_metrics_dfs.append(env_metrics_df)
+
+    # Combine and save
+    main_result_df = pd.concat(main_dfs, ignore_index=True)
+    env_metrics_result_df = pd.concat(env_metrics_dfs, ignore_index=True)
+
+    return main_result_df, env_metrics_result_df
+
+
 if __name__ == "__main__":
     logger.info("Loading data and assigning environments")
     X, y, Z = load_data()
     env = assign_quadrant(Z)
 
-    print("\nRunning experiment: Minimize maximum MSE across environments\n")
-    mse_main_df, mse_envs_df = gen_exp(X, y, env, "mse")
+    # print("\nRunning experiment: Minimize maximum MSE across environments\n")
+    # mse_main_df, mse_envs_df = gen_exp(X, y, env, "mse")
+    #
+    # print(
+    #     "\nRunning experiment: Minimize maximum negative reward across environments\n"
+    # )
+    # nrw_main_df, nrw_envs_df = gen_exp(X, y, env, "nrw")
+    #
+    # print(
+    #     "\nRunning experiment: Minimize maximum regret across environments\n"
+    # )
+    # reg_main_df, reg_envs_df = gen_exp(X, y, env, "reg")
+    #
+    # combined_df = pd.concat(
+    #     [mse_main_df, nrw_main_df, reg_main_df], ignore_index=True
+    # )
+    # plot_test_risk_all_methods(combined_df, saveplot=True, out_dir=OUT_DIR)
+    # table_df = table_test_risk_all_methods(combined_df)
+    # latex_str = table_df.to_latex(
+    #     index=False, escape=False, column_format="lcccc"
+    # )
+    # with open(
+    #     os.path.join(OUT_DIR, "heldout_mse_all_methods_table.txt"), "w"
+    # ) as f:
+    #     f.write(latex_str)
+    #
+    # env_all = pd.concat(
+    #     [mse_envs_df, nrw_envs_df, reg_envs_df], ignore_index=True
+    # )
+    # plot_envs_mse_all_methods(env_all, saveplot=True, out_dir=OUT_DIR)
 
-    print(
-        "\nRunning experiment: Minimize maximum negative reward across environments\n"
-    )
-    nrw_main_df, nrw_envs_df = gen_exp(X, y, env, "nrw")
+    print("\nRunning experiment: Linear Regression\n")
+    main_df, env_df = gen_exp_linear(X, y, env)
 
-    print(
-        "\nRunning experiment: Minimize maximum regret across environments\n"
-    )
-    reg_main_df, reg_envs_df = gen_exp(X, y, env, "reg")
-
-    combined_df = pd.concat(
-        [mse_main_df, nrw_main_df, reg_main_df], ignore_index=True
-    )
-    plot_test_risk_all_methods(combined_df, saveplot=True, out_dir=OUT_DIR)
-    table_df = table_test_risk_all_methods(combined_df)
-    latex_str = table_df.to_latex(
-        index=False, escape=False, column_format="lcccc"
-    )
-    with open(
-        os.path.join(OUT_DIR, "heldout_mse_all_methods_table.txt"), "w"
-    ) as f:
-        f.write(latex_str)
-
-    env_all = pd.concat(
-        [mse_envs_df, nrw_envs_df, reg_envs_df], ignore_index=True
-    )
-    plot_envs_mse_all_methods(env_all, saveplot=True, out_dir=OUT_DIR)
+    write_lr_test_table_txt(main_df, out_dir=OUT_DIR)
+    write_lr_env_specific_table_txt(env_df, out_dir=OUT_DIR)
