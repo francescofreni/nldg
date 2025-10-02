@@ -43,7 +43,8 @@ class DataContainer:
         if not self.change_X_distr:
             self.mu0 = np.zeros(self.d)
         else:
-            self.mu0 = np.array([-0.25, -0.25, 0, 0.25, 0.25])
+            # self.mu0 = np.array([-0.25, -0.25, 0, 0.25, 0.25])
+            self.mu0 = np.array([1, -1, 0.5, 0, 0])
         X_sample = np.random.randn(1000, self.d) + self.mu0
         for l in range(L):
             # random beta in [-1,1]^d
