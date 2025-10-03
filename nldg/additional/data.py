@@ -28,7 +28,9 @@ class DataContainer:
 
         self.f_funcs = []  # list of source conditional outcome functions
         self.mu0 = None  # target covariate distribution mean, used when generating data
+        self.mu = None  # source covariate distribution mean
         self.Sigma0 = None  # target covariate distribution covariance, used when generating data
+        self.Sigma = None  # source covariate distribution covariance
         self.change_X_distr = (
             change_X_distr  # whether the target X marginal is different or not
         )
@@ -44,8 +46,7 @@ class DataContainer:
             self.mu0 = np.zeros(self.d)
         else:
             # self.mu0 = np.array([-0.25, -0.25, 0, 0.25, 0.25])
-            # self.mu0 = np.array([1, -1, 0.5, 0, 0])
-            self.mu0 = np.array([-1, -1, 0, 1, 1])
+            self.mu0 = np.array([-0.5, -0.5, 0, 0.5, 0.5])
         X_sample = np.random.randn(1000, self.d) + self.mu0
         for l in range(L):
             # random beta in [-1,1]^d
@@ -67,20 +68,15 @@ class DataContainer:
 
             self.f_funcs.append(f_func)
 
-            # if self.risk in ["mse", "regret"]:
-            #     self.f_funcs.append(f_func)
-            # else:
-            #     self.f_funcs.append(
-            #         lambda x, f_fun=f_func: f_fun(x) - np.mean(f_fun(X_sample))
-            #     )
-
     def generate_data(self, seed=None):
         np.random.seed(seed)
         self._reset_lists()
 
         # ------- Generate Source Data -------
         mu = np.zeros(self.d)
+        self.mu = mu
         Sigma = np.eye(self.d)
+        self.Sigma = Sigma
         for l in range(self.L):
             if not self.unbalanced_envs:
                 X = np.random.multivariate_normal(mu, Sigma, self.n)
