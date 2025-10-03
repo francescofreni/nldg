@@ -1,5 +1,6 @@
 # code modified from https://github.com/zywang0701/DRoL/blob/main/simu1.py
 import os
+import copy
 import argparse
 import numpy as np
 import pandas as pd
@@ -19,6 +20,7 @@ COLORS = {
     "RF": "#5790FC",
     "MaxRM-RF": "#F89C20",
     "DRoL": "#964A8B",
+    "DRoL-test": "#E42536",
 }
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -162,8 +164,12 @@ if __name__ == "__main__":
                 unbalanced_envs=unbalanced_envs,
             )
         data.generate_funcs_list(L=L, seed=SEED)
-        max_risks = np.zeros((N_SIM, 3))  # RF, MaxRM-RF, DRoL
+        if change_X_distr:
+            max_risks = np.zeros((N_SIM, 4))  # RF, MaxRM-RF, DRoL, DRoL-test
+        else:
+            max_risks = np.zeros((N_SIM, 3))  # RF, MaxRM-RF, DRoL
         for sim in tqdm(range(N_SIM), leave=False):
+            rng = np.random.default_rng(sim)
             data.generate_data(seed=sim)
 
             Xtr = np.vstack(data.X_sources_list)
@@ -172,6 +178,26 @@ if __name__ == "__main__":
             Xte = np.vstack(data.X_target_list)
             Yte = np.concatenate(data.Y_target_potential_list)
             Ete = np.concatenate(data.E_target_potential_list)
+
+            if change_X_distr:
+                data_drol = copy.deepcopy(data)
+                data_drol.X_target_list = []
+                data_drol.Y_target_potential_list = []
+                data_drol.E_target_potential_list = []
+                data_drol.X_target = rng.multivariate_normal(
+                    data_drol.mu, data_drol.Sigma, data_drol.N
+                )
+                for l in range(data_drol.L):
+                    Y_target_drol = data_drol.f_funcs[l](
+                        data_drol.X_target
+                    ) + rng.normal(size=data_drol.N)
+                    data_drol.X_target_list.append(data_drol.X_target)
+                    data_drol.Y_target_potential_list.append(Y_target_drol)
+                    data_drol.E_target_potential_list.append(
+                        np.full(data_drol.N, l, dtype=int)
+                    )
+                data_drol.mu0 = data.mu
+                data_drol.Sigma0 = data.Sigma
 
             if risk == "regret":
                 fitted_erm = np.zeros(len(Etr))
@@ -245,15 +271,45 @@ if __name__ == "__main__":
                 "n_jobs": n_jobs,
             }
             sigma2 = np.ones(L)  # the noise term is N(0,1)
-            drol = DRoL(data, params, method=risk, sigma2=sigma2, seed=SEED)
+            if change_X_distr:
+                drol = DRoL(
+                    data_drol, params, method=risk, sigma2=sigma2, seed=SEED
+                )
+            else:
+                drol = DRoL(
+                    data, params, method=risk, sigma2=sigma2, seed=SEED
+                )
             try:
                 drol.fit(density_learner="logistic")
                 _pred_drol, weights = drol.predict(
                     bias_correct=True, priors=None
                 )
+                if change_X_distr:
+                    pred_full_mat = np.zeros((data_drol.N, data_drol.L))
+                    for l in range(data_drol.L):
+                        pred_full_mat[:, l] = drol.source_full_models[
+                            l
+                        ].predict(data.X_target)
+                    _pred_drol = pred_full_mat @ weights
                 pred_drol = np.tile(_pred_drol, L)
             except Exception as e:
                 pred_drol = None
+
+            # DRoL-test
+            if change_X_distr:
+                drol_test = DRoL(
+                    data, params, method=risk, sigma2=sigma2, seed=SEED
+                )
+                try:
+                    drol_test.fit(density_learner="logistic")
+                    _pred_drol_test, weights_test = drol_test.predict(
+                        bias_correct=True, priors=None
+                    )
+                    pred_drol_test = np.concatenate(
+                        [_pred_drol_test for _ in range(L)]
+                    )
+                except Exception as e:
+                    pred_drol_test = None
 
             # Evaluate the maximum risk
             if risk == "mse":
@@ -263,6 +319,11 @@ if __name__ == "__main__":
                     max_risks[sim, 2] = np.nan
                 else:
                     max_risks[sim, 2] = max_mse(Yte, pred_drol, Ete)
+                if change_X_distr:
+                    if pred_drol_test is None:
+                        max_risks[sim, 3] = np.nan
+                    else:
+                        max_risks[sim, 3] = max_mse(Yte, pred_drol_test, Ete)
             elif risk == "reward":
                 max_risks[sim, 0] = -min_reward(Yte, pred_rf, Ete)
                 max_risks[sim, 1] = -min_reward(Yte, pred_maxrmrf, Ete)
@@ -270,6 +331,13 @@ if __name__ == "__main__":
                     max_risks[sim, 2] = np.nan
                 else:
                     max_risks[sim, 2] = -min_reward(Yte, pred_drol, Ete)
+                if change_X_distr:
+                    if pred_drol_test is None:
+                        max_risks[sim, 3] = np.nan
+                    else:
+                        max_risks[sim, 3] = -min_reward(
+                            Yte, pred_drol_test, Ete
+                        )
             else:
                 max_risks[sim, 0] = max_regret(Yte, pred_rf, pred_erm, Ete)
                 max_risks[sim, 1] = max_regret(
@@ -281,10 +349,19 @@ if __name__ == "__main__":
                     max_risks[sim, 2] = max_regret(
                         Yte, pred_drol, pred_erm, Ete
                     )
+                if change_X_distr:
+                    if pred_drol_test is None:
+                        max_risks[sim, 3] = np.nan
+                    else:
+                        max_risks[sim, 3] = max_regret(
+                            Yte, pred_drol_test, pred_erm, Ete
+                        )
 
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
         results[L][f"DRoL({risk_label})"] = max_risks[:, 2].tolist()
+        if change_X_distr:
+            results[L][f"DRoL-test({risk_label})"] = max_risks[:, 3].tolist()
 
     rows = []
     for L, methods in results.items():
