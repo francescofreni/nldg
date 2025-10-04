@@ -169,7 +169,6 @@ if __name__ == "__main__":
         else:
             max_risks = np.zeros((N_SIM, 3))  # RF, MaxRM-RF, DRoL
         for sim in tqdm(range(N_SIM), leave=False):
-            rng = np.random.default_rng(sim)
             data.generate_data(seed=sim)
 
             Xtr = np.vstack(data.X_sources_list)
@@ -180,6 +179,7 @@ if __name__ == "__main__":
             Ete = np.concatenate(data.E_target_potential_list)
 
             if change_X_distr:
+                rng = np.random.default_rng(sim)
                 data_drol = copy.deepcopy(data)
                 data_drol.X_target_list = []
                 data_drol.Y_target_potential_list = []
