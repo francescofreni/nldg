@@ -47,7 +47,6 @@ class DataContainer:
         else:
             # self.mu0 = np.array([-0.25, -0.25, 0, 0.25, 0.25])
             self.mu0 = np.array([-0.25, -0.25, 0.5, 0.25, 0.25])
-            # self.mu0 = np.array([-0.5, -0.5, 0, 0.5, 0.5])
         for l in range(L):
             # random beta in [-1,1]^d
             beta = np.random.uniform(-1, 1, self.d)
@@ -59,7 +58,7 @@ class DataContainer:
             A_list.append(A)
 
             # compute c = trace(A) + mu^T A mu
-            c = np.trace(A)  # + self.mu0.dot(A.dot(self.mu0))
+            c = np.trace(A) + self.mu0.dot(A.dot(self.mu0))
 
             def f_func(x, beta=beta, A=A, c=c):
                 return (
