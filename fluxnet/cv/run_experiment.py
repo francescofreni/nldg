@@ -361,7 +361,7 @@ if __name__ == "__main__":
                         method,
                         risk,
                         n_jobs,
-                        verbose=False,
+                        verbose=True,
                     )
                     fold_scores.append(score)
                 if np.all(np.isnan(fold_scores)):
@@ -429,6 +429,7 @@ if __name__ == "__main__":
                 "max_rmse_test": np.sqrt(max_mse_test),
                 "group": group_id,
             }
+            print(max_mse_test)
         if model_name == "rf":
             yfitted = model.predict(xtrain)
             yfitted /= SCALE
