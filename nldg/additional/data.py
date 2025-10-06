@@ -59,7 +59,7 @@ class DataContainer:
             A_list.append(A)
 
             # compute c = trace(A) + mu^T A mu
-            c = np.trace(A) + self.mu0.dot(A.dot(self.mu0))
+            c = np.trace(A)  # + self.mu0.dot(A.dot(self.mu0))
 
             def f_func(x, beta=beta, A=A, c=c):
                 return (
