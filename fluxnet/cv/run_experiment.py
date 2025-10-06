@@ -14,7 +14,7 @@ from sklearn.linear_model import LinearRegression
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARAMS_GRID = {
     "n_estimators": [100],
-    "max_depth": [8, 15, 30],
+    "max_depth": [15, 30],
     "min_samples_leaf": [5, 15, 30],
     "max_features": [0.5, 1.0],
 }
@@ -79,6 +79,7 @@ def modify_predictions(
     sols_erm=None,
     sols_erm_trees=None,
     n_jobs=20,
+    verbose=True,
 ):
     """
     Try modify_predictions_trees with several solvers, then fall back to
@@ -89,37 +90,49 @@ def modify_predictions(
         kwargs["sols_erm"] = sols_erm
         kwargs["sols_erm_trees"] = sols_erm_trees
 
-    solvers = [None, "CLARABEL", "ECOS", "SCS"]
+    solvers = ["ECOS", "SCS", None]
 
     for solver in solvers:
         try:
-            if solver is None:
-                logging.info(f"* Trying default solver for group {group}...")
-            else:
-                logging.info(f"* Trying solver {solver} for group {group}...")
+            if verbose:
+                if solver is None:
+                    logging.info(
+                        f"* Trying default solver for group {group}..."
+                    )
+                else:
+                    logging.info(
+                        f"* Trying solver {solver} for group {group}..."
+                    )
             model.modify_predictions_trees(
                 train_ids_int, **kwargs, solver=solver
             )
             return True
         except Exception:
-            if solver is None:
-                logging.warning(f"* Default solver failed for group {group}.")
-            else:
-                logging.warning(f"* Solver {solver} failed for group {group}.")
+            if verbose:
+                if solver is None:
+                    logging.warning(
+                        f"* Default solver failed for group {group}."
+                    )
+                else:
+                    logging.warning(
+                        f"* Solver {solver} failed for group {group}."
+                    )
 
-    logging.warning(
-        f"* Fallback [{group}]: all solvers failed. "
-        "Retrying with opt_method='extragradient'."
-    )
+    if verbose:
+        logging.warning(
+            f"* Fallback [{group}]: all solvers failed. "
+            "Retrying with opt_method='extragradient'."
+        )
     try:
         model.modify_predictions_trees(
             train_ids_int, **kwargs, opt_method="extragradient"
         )
         return True
     except Exception:
-        logging.error(
-            f"* SKIPPING {group}: Error in modify_predictions_trees after all fallbacks"
-        )
+        if verbose:
+            logging.error(
+                f"* SKIPPING {group}: Error in modify_predictions_trees after all fallbacks"
+            )
         return False
 
 
@@ -140,6 +153,7 @@ def score_fold(
     method,
     risk,
     n_jobs,
+    verbose=True,
 ):
     # split
     train_ids_int = np.asarray(train_ids_int)
@@ -185,6 +199,7 @@ def score_fold(
             sols_erm=sols_erm_tr if risk == "regret" else None,
             sols_erm_trees=sols_erm_trees_tr if risk == "regret" else None,
             n_jobs=n_jobs,
+            verbose=verbose,
         )
 
         if not success:
@@ -346,6 +361,7 @@ if __name__ == "__main__":
                         method,
                         risk,
                         n_jobs,
+                        verbose=False,
                     )
                     fold_scores.append(score)
                 if np.all(np.isnan(fold_scores)):
