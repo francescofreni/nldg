@@ -129,7 +129,7 @@ def get_fold_df(
 
     if cv:
         env = np.asarray(train_ids)
-        skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
+        skf = StratifiedKFold(n_splits=4, shuffle=True, random_state=seed)
         cv_folds = [
             (tr_idx, va_idx) for tr_idx, va_idx in skf.split(xtrain, env)
         ]

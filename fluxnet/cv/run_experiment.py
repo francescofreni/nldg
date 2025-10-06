@@ -13,7 +13,7 @@ from sklearn.linear_model import LinearRegression
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARAMS_GRID = {
-    "n_estimators": [100],
+    "n_estimators": [20],
     "max_depth": [15, 30],
     "min_samples_leaf": [5, 15, 30],
     "max_features": [0.5, 1.0],
@@ -90,7 +90,7 @@ def modify_predictions(
         kwargs["sols_erm"] = sols_erm
         kwargs["sols_erm_trees"] = sols_erm_trees
 
-    solvers = ["ECOS", "SCS", None]
+    solvers = [None, "ECOS", "SCS"]
 
     for solver in solvers:
         try:
