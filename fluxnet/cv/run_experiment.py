@@ -208,7 +208,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--path",
         type=str,
-        default=os.path.join(BASE_DIR, "data_cleaned"),
+        default=os.path.join(BASE_DIR, "..", "data_cleaned"),
         help="Path to the data directory",
     )
     parser.add_argument(
@@ -426,7 +426,7 @@ if __name__ == "__main__":
 
     # Save results
     results_df = pd.DataFrame(results)
-    results_dir = os.path.join(BASE_DIR, "results")
+    results_dir = os.path.join(BASE_DIR, "..", "results")
     os.makedirs(results_dir, exist_ok=True)
     path = os.path.join(results_dir, f"{exp_name}.csv")
     logging.info(f"Saving results to {path}...")
