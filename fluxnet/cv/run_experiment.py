@@ -52,6 +52,8 @@ def get_model(model_name, params=None):
         params = {}
     if model_name == "rf":
         return RandomForest(**params)
+    elif model_name == "xgb":
+        return XGBRegressor(**params)
     elif model_name == "lr":
         return LinearRegression()
     else:
@@ -87,6 +89,7 @@ def get_default_params(model_name, n_jobs=20):
             "colsample_bytree": 0.8,
             "random_state": SEED,
             "n_jobs": n_jobs,
+            "verbosity": 0,
         }
     return params
 
@@ -376,6 +379,7 @@ if __name__ == "__main__":
                 else:
                     params_candidate["objective"] = "reg:squarederror"
                     params_candidate["random_state"] = SEED
+                    params_candidate["verbosity"] = 0
                 params_candidate["n_jobs"] = n_jobs
                 fold_scores = []
                 for fold_idx, (tr_idx, va_idx) in enumerate(cv_folds, start=1):
