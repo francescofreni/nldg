@@ -11,6 +11,7 @@ from fluxnet.eval import evaluate_fold
 from nldg.utils import max_mse, max_regret, min_reward
 from sklearn.linear_model import LinearRegression
 from xgboost import XGBRegressor
+from tqdm import tqdm
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARAMS_GRID = {
@@ -372,7 +373,7 @@ if __name__ == "__main__":
                 params_grid = PARAMS_GRID
             else:
                 params_grid = PARAMS_GRID_XGB
-            for params_candidate in iter_grid(params_grid):
+            for params_candidate in tqdm(iter_grid(params_grid), leave=False):
                 if model_name == "rf":
                     params_candidate["forest_type"] = "Regression"
                     params_candidate["seed"] = SEED
@@ -395,7 +396,7 @@ if __name__ == "__main__":
                         method,
                         risk,
                         n_jobs,
-                        verbose=True,
+                        verbose=False,
                     )
                     fold_scores.append(score)
                 if np.all(np.isnan(fold_scores)):
