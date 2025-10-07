@@ -10,6 +10,7 @@ from dataloader import generate_fold_info, get_fold_df
 from fluxnet.eval import evaluate_fold
 from nldg.utils import max_mse, max_regret, min_reward
 from sklearn.linear_model import LinearRegression
+from xgboost import XGBRegressor
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARAMS_GRID = {
@@ -17,6 +18,13 @@ PARAMS_GRID = {
     "max_depth": [10, 15, 30],
     "min_samples_leaf": [5, 15, 25],
     "max_features": ["sqrt", "log2", 1.0],
+}
+PARAMS_GRID_XGB = {
+    "n_estimators": [25, 50, 100],
+    "max_depth": [3, 5, 7, 10],
+    "learning_rate": [0.01, 0.05, 0.1, 0.2],
+    "subsample": [0.6, 0.8, 1.0],
+    "colsample_bytree": [0.6, 0.8, 1.0],
 }
 SCALE = 1e8
 SEED = 42
@@ -63,9 +71,21 @@ def get_default_params(model_name, n_jobs=20):
         params = {
             "forest_type": "Regression",
             "n_estimators": 20,
-            "min_samples_leaf": 30,
             "max_depth": 8,
+            "min_samples_leaf": 30,
+            "max_features": 1.0,
             "seed": SEED,
+            "n_jobs": n_jobs,
+        }
+    elif model_name == "xgb":
+        params = {
+            "objective": "reg:squarederror",
+            "n_estimators": 100,
+            "max_depth": 5,
+            "learning_rate": 0.1,
+            "subsample": 0.8,
+            "colsample_bytree": 0.8,
+            "random_state": SEED,
             "n_jobs": n_jobs,
         }
     return params
@@ -150,6 +170,7 @@ def score_fold(
     params_candidate,
     tr_idx,
     va_idx,
+    model_name,
     method,
     risk,
     n_jobs,
@@ -167,10 +188,10 @@ def score_fold(
     y_tr_scaled = y_tr * SCALE
 
     # fit candidate
-    model = get_model("rf", params=params_candidate)
+    model = get_model(model_name, params=params_candidate)
     model.fit(X_tr, y_tr_scaled)
 
-    if method == "maxrm":
+    if model_name == "rf" and method == "maxrm":
         if risk == "regret":
             sols_erm_va = np.zeros(len(va_ids))
             sols_erm_tr = np.zeros(len(tr_ids))
@@ -247,7 +268,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        choices=["rf", "lr"],
+        choices=["rf", "lr", "xgb"],
         default="rf",
         help="Model to use for the experiment",
     )
@@ -341,12 +362,20 @@ if __name__ == "__main__":
         # ----------------
         # Cross-validation
         # -----------------
-        if model_name == "rf" and cv:
+        if model_name in ["rf", "xgb"] and cv:
             best_score = np.inf
             best_params = params
-            for params_candidate in iter_grid(PARAMS_GRID):
-                params_candidate["forest_type"] = "Regression"
-                params_candidate["seed"] = SEED
+            if model_name == "rf":
+                params_grid = PARAMS_GRID
+            else:
+                params_grid = PARAMS_GRID_XGB
+            for params_candidate in iter_grid(params_grid):
+                if model_name == "rf":
+                    params_candidate["forest_type"] = "Regression"
+                    params_candidate["seed"] = SEED
+                else:
+                    params_candidate["objective"] = "reg:squarederror"
+                    params_candidate["random_state"] = SEED
                 params_candidate["n_jobs"] = n_jobs
                 fold_scores = []
                 for fold_idx, (tr_idx, va_idx) in enumerate(cv_folds, start=1):
@@ -358,6 +387,7 @@ if __name__ == "__main__":
                         params_candidate,
                         tr_idx,
                         va_idx,
+                        model_name,
                         method,
                         risk,
                         n_jobs,
