@@ -16,7 +16,7 @@ PARAMS_GRID = {
     "n_estimators": [60],
     "max_depth": [None, 10, 15],
     "min_samples_leaf": [5, 15, 25],
-    "max_features": ["sqrt", "log2", 1.0],
+    "max_features": [0.3, 0.6, 1.0],
 }
 SCALE = 1e8
 SEED = 42
