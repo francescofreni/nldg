@@ -13,10 +13,10 @@ from sklearn.linear_model import LinearRegression
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARAMS_GRID = {
-    "n_estimators": [20],
-    "max_depth": [15, 30],
-    "min_samples_leaf": [5, 15, 30],
-    "max_features": [0.5, 1.0],
+    "n_estimators": [60],
+    "max_depth": [None, 10, 15],
+    "min_samples_leaf": [5, 15, 25],
+    "max_features": ["sqrt", "log2", 1.0],
 }
 SCALE = 1e8
 SEED = 42
