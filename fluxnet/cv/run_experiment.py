@@ -21,10 +21,10 @@ PARAMS_GRID = {
 }
 PARAMS_GRID_XGB = {
     "n_estimators": [25, 50, 100],
-    "max_depth": [3, 5, 7, 10],
-    "learning_rate": [0.01, 0.05, 0.1, 0.2],
-    "subsample": [0.6, 0.8, 1.0],
-    "colsample_bytree": [0.6, 0.8, 1.0],
+    "max_depth": [3, 6],
+    "learning_rate": [0.01, 0.05, 0.1],
+    "subsample": [0.8, 1.0],
+    "colsample_bytree": [0.8, 1.0],
 }
 SCALE = 1e8
 SEED = 42
