@@ -65,9 +65,16 @@ if __name__ == "__main__":
         default=None,
         help="Filter dataset by year (e.g. 2020). If None, use all years.",
     )
+    parser.add_argument(
+        "--country_code",
+        type=str,
+        default=None,
+        help="First two letters of the site ID (e.g. 'US'). If None, use all countries.",
+    )
     args = parser.parse_args()
     nsites = args.nsites
     year = args.year
+    country_code = args.country_code
 
     folder_path = os.path.join(BASE_DIR, "data_cleaned")
     data_path = os.path.join(folder_path, "daily.csv")
@@ -76,11 +83,14 @@ if __name__ == "__main__":
     if year is not None:
         data = data[data["year"] == year]
 
+    if country_code is not None:
+        data = data[data["site_id"].str.startswith(f"{country_code}-")]
+
     if nsites is not None:
         if year is None and nsites == 10:
-            subset = data[data["site_id"].isin(SITES10)]
+            data = data[data["site_id"].isin(SITES10)]
         elif year is None and nsites == 30:
-            subset = data[data["site_id"].isin(SITES30)]
+            data = data[data["site_id"].isin(SITES30)]
         else:
             unique_sites = data["site_id"].unique()
             if nsites > len(unique_sites):
@@ -91,13 +101,31 @@ if __name__ == "__main__":
             sampled_sites = rng.choice(
                 unique_sites, size=nsites, replace=False
             )
-            subset = data[data["site_id"].isin(sampled_sites)]
+            data = data[data["site_id"].isin(sampled_sites)]
 
-    if year is None and nsites is None:
-        print("No sites or year selected, the dataset is unchanged.")
-    elif year is None and nsites is not None:
-        subset.to_csv(os.path.join(folder_path, f"daily-{nsites}.csv"))
-    elif year is not None and nsites is not None:
-        subset.to_csv(os.path.join(folder_path, f"daily-{nsites}-{year}.csv"))
-    elif year is not None and nsites is None:
+    if year is None and nsites is None and country_code is None:
+        print(
+            "No country code, sites or year selected, the dataset is unchanged."
+        )
+    elif year is not None and nsites is None and country_code is None:
         data.to_csv(os.path.join(folder_path, f"daily-{year}.csv"))
+    elif year is None and nsites is not None and country_code is None:
+        data.to_csv(os.path.join(folder_path, f"daily-{nsites}.csv"))
+    elif year is None and nsites is None and country_code is not None:
+        data.to_csv(os.path.join(folder_path, f"daily-{country_code}.csv"))
+    elif year is not None and nsites is not None and country_code is None:
+        data.to_csv(os.path.join(folder_path, f"daily-{nsites}-{year}.csv"))
+    elif year is not None and nsites is None and country_code is not None:
+        data.to_csv(
+            os.path.join(folder_path, f"daily-{country_code}-{year}.csv")
+        )
+    elif year is None and nsites is not None and country_code is not None:
+        data.to_csv(
+            os.path.join(folder_path, f"daily-{country_code}-{nsites}.csv")
+        )
+    elif year is not None and nsites is not None and country_code is not None:
+        data.to_csv(
+            os.path.join(
+                folder_path, f"daily-{country_code}-{nsites}-{year}.csv"
+            )
+        )
