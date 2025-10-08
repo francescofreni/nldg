@@ -261,7 +261,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agg",
         type=str,
-        choices=["daily-50-2017"],
+        choices=["daily-50-2017", "daily-US-2021"],
         default="daily-50-2017",
         help="Data aggregation level",
     )
