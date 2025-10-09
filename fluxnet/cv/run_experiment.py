@@ -9,7 +9,7 @@ from adaXT.random_forest import RandomForest
 from dataloader import generate_fold_info, get_fold_df
 from fluxnet.eval import evaluate_fold
 from nldg.utils import max_mse, max_regret, min_reward
-from sklearn.linear_model import LinearRegression
+from sklearn.linear_model import LinearRegression, Ridge
 from xgboost import XGBRegressor
 from tqdm import tqdm
 
@@ -34,6 +34,7 @@ PARAMS_GRID_XGB = {
     "subsample": [0.6, 0.8, 1.0],
     "colsample_bytree": [0.6, 0.8, 1.0],
 }
+PARAMS_GRID_RIDGE = {"alpha": [0.001, 0.01, 0.05, 0.1, 1, 10, 100]}
 SCALE = 1e8
 SEED = 42
 
@@ -64,6 +65,8 @@ def get_model(model_name, params=None):
         return XGBRegressor(**params)
     elif model_name == "lr":
         return LinearRegression()
+    elif model_name == "ridge":
+        return Ridge(**params)
     else:
         raise NotImplementedError(f"Model `{model_name}` not implemented.")
 
@@ -99,6 +102,8 @@ def get_default_params(model_name, n_jobs=20):
             "n_jobs": n_jobs,
             "verbosity": 0,
         }
+    elif model_name == "ridge":
+        params = {"alpha": 0.1}
     return params
 
 
@@ -279,7 +284,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        choices=["rf", "lr", "xgb"],
+        choices=["rf", "lr", "xgb", "ridge"],
         default="rf",
         help="Model to use for the experiment",
     )
@@ -373,22 +378,25 @@ if __name__ == "__main__":
         # ----------------
         # Cross-validation
         # -----------------
-        if model_name in ["rf", "xgb"] and cv:
+        if model_name in ["rf", "xgb", "ridge"] and cv:
             best_score = np.inf
             best_params = params
             if model_name == "rf":
                 params_grid = PARAMS_GRID
+            elif model_name == "ridge":
+                params_grid = PARAMS_GRID_RIDGE
             else:
                 params_grid = PARAMS_GRID_XGB
             for params_candidate in tqdm(iter_grid(params_grid), leave=False):
                 if model_name == "rf":
                     params_candidate["forest_type"] = "Regression"
                     params_candidate["seed"] = SEED
+                    params_candidate["n_jobs"] = n_jobs
                 else:
                     params_candidate["objective"] = "reg:squarederror"
                     params_candidate["random_state"] = SEED
                     params_candidate["verbosity"] = 0
-                params_candidate["n_jobs"] = n_jobs
+                    params_candidate["n_jobs"] = n_jobs
                 fold_scores = []
                 for fold_idx, (tr_idx, va_idx) in enumerate(cv_folds, start=1):
                     score = score_fold(
