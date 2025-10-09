@@ -392,7 +392,7 @@ if __name__ == "__main__":
                     params_candidate["forest_type"] = "Regression"
                     params_candidate["seed"] = SEED
                     params_candidate["n_jobs"] = n_jobs
-                else:
+                elif model_name == "xgb":
                     params_candidate["objective"] = "reg:squarederror"
                     params_candidate["random_state"] = SEED
                     params_candidate["verbosity"] = 0
