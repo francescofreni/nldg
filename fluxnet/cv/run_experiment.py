@@ -11,6 +11,7 @@ from fluxnet.eval import evaluate_fold
 from nldg.utils import max_mse, max_regret, min_reward
 from sklearn.linear_model import LinearRegression, Ridge
 from xgboost import XGBRegressor
+from nldg.lr import MaggingLR
 from tqdm import tqdm
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -284,7 +285,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        choices=["rf", "lr", "xgb", "ridge"],
+        choices=["rf", "lr", "xgb", "ridge", "maximin"],
         default="rf",
         help="Model to use for the experiment",
     )
@@ -433,7 +434,10 @@ if __name__ == "__main__":
 
         # Get model
         model = get_model(model_name, params=params)
-        model.fit(xtrain, ytrain_scaled)
+        if model_name == "maximin":
+            model.fit(xtrain, ytrain_scaled, train_ids_int)
+        else:
+            model.fit(xtrain, ytrain_scaled)
 
         # Just to compute the maximum regret across training environments
         if model_name == "rf":

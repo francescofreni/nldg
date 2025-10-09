@@ -51,7 +51,7 @@ class MaggingRF:
         X_train: np.ndarray,
         Y_train: np.ndarray,
         E_train: np.ndarray,
-    ) -> tuple[np.ndarray, np.ndarray]:
+    ) -> np.ndarray:
         """
         Computes the predictions for a given test dataset
         promoting those trees in the Random Forest that
@@ -63,9 +63,7 @@ class MaggingRF:
             E_train: Environment label of the training data.
 
         Returns:
-            A tuple of 2 numpy arrays:
-            - wfitted: Weighted fitted values.
-            - wpreds: Weighted predictions.
+            wfitted: Weighted fitted values.
         """
 
         def objective(w: np.ndarray, F: np.ndarray) -> float:
