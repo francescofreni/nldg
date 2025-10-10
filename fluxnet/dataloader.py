@@ -76,7 +76,6 @@ def get_fold_df(
     cv=False,
     remove_missing=False,
     astorch=False,
-    num=False,
 ):
     # Get the correct data
     if setting == "insite" or setting == "insite-random":
@@ -195,9 +194,12 @@ def get_fold_df(
         xtest = torch.tensor(xtest, dtype=torch.float32)
         ytest = torch.tensor(ytest, dtype=torch.float32).view(-1, 1)
 
-    if num:
-        exclude_cols = [
-            target,
+    col_names = train.columns[xcols]
+    return xtrain, ytrain, xtest, ytest, train_ids, test_ids, col_names
+    
+def preprocess_distance(xtrain, xtest, xcols, norm=False, 
+                        ytrain=None, ytest=None):
+    exclude_cols = [
             "IGBP_veg_MF",
             "IGBP_veg_GRA",
             "IGBP_veg_ENF",
@@ -215,18 +217,19 @@ def get_fold_df(
             "season_3",
             "season_4",
         ]
-        xcols = ~train.columns.isin(exclude_cols)
-        xtrain_num = train.loc[:, xcols].values
-        xtest_num = test.loc[:, xcols].values
-        return (
-            xtrain,
-            ytrain,
-            xtest,
-            ytest,
-            train_ids,
-            test_ids,
-            xtrain_num,
-            xtest_num,
-        )
+    keep_idx = [i for i, col in enumerate(xcols) if col not in exclude_cols]
+    xtrain_sub = xtrain[:, keep_idx] 
+    xtest_sub = xtest[:, keep_idx]
+    if ytrain is not None and ytest is not None:
+        dist_train = np.hstack((xtrain_sub, ytrain.reshape(-1,1)))
+        dist_test = np.hstack((xtest_sub, ytest.reshape(-1,1)))
     else:
-        return xtrain, ytrain, xtest, ytest, train_ids, test_ids
+        dist_train = xtrain_sub
+        dist_test = xtest_sub
+
+    if norm:
+        scaler = StandardScaler().fit(dist_train)
+        dist_train = scaler.transform(dist_train)
+        dist_test = scaler.transform(dist_test)
+
+    return dist_train, dist_test

@@ -8,3 +8,5 @@ archive/
 notebooks/settings/
 *.nc
 *.pdf
+*.pyc
+.DS_Store
