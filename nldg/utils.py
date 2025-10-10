@@ -285,6 +285,7 @@ def max_mse(
     Env: np.ndarray,
     verbose: bool = False,
     ret_ind: bool = False,
+    ret_env: bool = False,
 ) -> float | tuple[list, float]:
     """
     Compute the maximum mean squared error (MSE) across environments.
@@ -295,6 +296,8 @@ def max_mse(
         Env (array): Environment values.
         verbose (bool): Whether to print the MSE for each environment.
         ret_ind (bool): Whether to return also the MSE for each environment.
+        ret_env (bool): Whether to return also the environment label of the 
+            worst-case environment.
 
     Returns:
         if ret_ind:
@@ -303,6 +306,7 @@ def max_mse(
     """
     maxmse = 0.0
     mse_envs = []
+    worst_env = None
     for env in np.unique(Env):
         Ytrue_e = Ytrue[Env == env]
         Ypred_e = Ypred[Env == env]
@@ -311,8 +315,12 @@ def max_mse(
         if verbose:
             print(f"Environment {env} MSE: {mse}")
         maxmse = max(maxmse, mse)
+        if maxmse == mse:
+            worst_env = env
     if ret_ind:
         return mse_envs, maxmse
+    if ret_env:
+        return worst_env, maxmse
     return maxmse
 
 

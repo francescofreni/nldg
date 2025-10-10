@@ -233,7 +233,7 @@ if __name__ == "__main__":
     # Run experiment
     for group_id, group in enumerate(groups):
         logging.info(f"Running group: {group}...")
-        xtrain, ytrain, xtest, ytest, train_ids, test_ids = get_fold_df(
+        xtrain, ytrain, xtest, ytest, train_ids, test_ids, _ = get_fold_df(
             df, setting, group, cv=cv, remove_missing=True
         )
         if xtrain is None:
@@ -363,11 +363,12 @@ if __name__ == "__main__":
                 #     "group": group_id,
                 #     "max_nrw_test": max_nrw_test,
                 # }
-                max_mse_test = max_mse(ytest, ypred_full, test_ids_int)
+                worst_site, max_mse_test = max_mse(ytest, ypred_full, test_ids, ret_env=True)
                 res = {
                     "max_mse_test": max_mse_test,
                     "max_rmse_test": np.sqrt(max_mse_test),
                     "group": group_id,
+                    "worst_site_test": worst_site,
                 }
             if model_name == "rf":
                 # res["max_mse_train"] = max_mse(
@@ -407,9 +408,12 @@ if __name__ == "__main__":
                 #         ret_ind=True,
                 #     )
                 #     res["nrw_test"] = [-r for r in rewards]
-                res["max_mse_train"] = max_mse(
-                    ytrain, yfitted_full, train_ids_int
-                )
+                # res["max_mse_train"] = max_mse(
+                #     ytrain, yfitted_full, train_ids_int
+                # )
+                worst_site, max_mse_train = max_mse(ytrain, yfitted_full, train_ids, ret_env=True)
+                res["max_mse_train"] = max_mse_train
+                res["worst_site_train"] = worst_site
                 res["max_nrw_train"] = -min_reward(
                     ytrain, yfitted_full, train_ids_int
                 )
@@ -456,14 +460,17 @@ if __name__ == "__main__":
                 res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
                 res["group"] = group
             else:
-                max_mse_test = max_mse(ytest, ypred, test_ids_int)
+                worst_site, max_mse_test = max_mse(ytest, ypred, test_ids, ret_env=True)
                 res = {
                     "max_mse_test": max_mse_test,
+                    "worst_site_test": worst_site,
                     "max_rmse_test": np.sqrt(max_mse_test),
                     "group": group_id,
                 }
             if model_name == "rf":
-                res["max_mse_train"] = max_mse(ytrain, yfitted, train_ids_int)
+                worst_site, max_mse_train = max_mse(ytrain, yfitted, train_ids, ret_env=True)
+                res["max_mse_train"] = max_mse_train
+                res["worst_site_train"] = worst_site
                 res["max_nrw_train"] = -min_reward(
                     ytrain, yfitted, train_ids_int
                 )
