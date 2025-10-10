@@ -68,6 +68,8 @@ def get_model(model_name, params=None):
         return LinearRegression()
     elif model_name == "ridge":
         return Ridge(**params)
+    elif model_name == "maximin":
+        return MaggingLR()
     else:
         raise NotImplementedError(f"Model `{model_name}` not implemented.")
 
@@ -275,7 +277,7 @@ if __name__ == "__main__":
         "--setting",
         type=str,
         choices=[
-            "logo",
+            "in-sites-grouped" "logo",
             "loso",
             "l5so",
         ],
@@ -309,7 +311,7 @@ if __name__ == "__main__":
         "--seed",
         type=int,
         default=42,
-        help="Seed for L5SO strategy (default: 42).",
+        help="Seed for L5SO and in-sites-grouped strategies (default: 42).",
     )
     parser.add_argument(
         "--cv",

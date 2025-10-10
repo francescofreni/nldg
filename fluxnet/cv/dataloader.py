@@ -3,7 +3,7 @@ import logging
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, train_test_split
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -33,7 +33,7 @@ def generate_fold_info(df, setting, fold_size=5, seed=42):
         for lab in unique_labels:
             groups.append(np.unique(dataset[labels == lab]["site_id"]))
 
-    elif setting == "l5so":
+    elif setting in ["l5so", "in-sites-grouped"]:
         sites = pd.Series(df["site_id"].dropna().unique())
         sites = sites.sample(frac=1.0, random_state=seed).reset_index(
             drop=True
@@ -90,18 +90,33 @@ def get_fold_df(
             )
 
     # split into train/test
-    if setting == "loso":
+    if setting == "in-sites-grouped":
+        df_out = df_out.loc[df_out["site_id"].isin(group)].copy()
+        sites = df_out["site_id"].unique()
+        train_list, test_list = [], []
+        for site in sites:
+            df_site = df_out[df_out["site_id"] == site]
+            train_site, test_site = train_test_split(
+                df_site,
+                test_size=0.2,
+                shuffle=False,
+            )
+            train_list.append(train_site)
+            test_list.append(test_site)
+        train = pd.concat(train_list, axis=0)
+        test = pd.concat(test_list, axis=0)
+    elif setting == "loso":
         # split it by site
         train = df_out.loc[df_out["site_id"] != group].copy()
         test = df_out.loc[df_out["site_id"] == group].copy()
-        if test.shape[0] == 0:
-            logger.warning(f"* SKIPPING {group}: no test data")
-            return None, None, None, None, None, None
     elif setting in ["l5so", "logo"]:
         train = df_out.loc[~df_out["site_id"].isin(group)].copy()
         test = df_out.loc[df_out["site_id"].isin(group)].copy()
-        if test.shape[0] == 0:
-            logger.warning(f"* SKIPPING {group}: no test data")
+    if test.shape[0] == 0:
+        logger.warning(f"* SKIPPING {group}: no test data")
+        if cv:
+            return None, None, None, None, None, None, None
+        else:
             return None, None, None, None, None, None
     del df_out
 

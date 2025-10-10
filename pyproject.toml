@@ -43,6 +43,7 @@ dependencies = [
     "xarray",
     "netCDF4",
     "xgboost",
+    "cvxopt",
 ]
 
 [project.optional-dependencies]
