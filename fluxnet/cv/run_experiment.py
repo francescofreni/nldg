@@ -16,10 +16,10 @@ from tqdm import tqdm
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARAMS_GRID = {
-    "n_estimators": [60],
-    "max_depth": [10, 15, 30],
+    "n_estimators": [100],
+    "max_depth": [10, 30],
     "min_samples_leaf": [5, 15, 25],
-    "max_features": ["sqrt", "log2", 1.0],
+    "max_features": ["sqrt", 1.0],
 }
 # PARAMS_GRID_XGB = {
 #     "n_estimators": [25, 50, 100],
@@ -29,7 +29,7 @@ PARAMS_GRID = {
 #     "colsample_bytree": [0.8, 1.0],
 # }
 PARAMS_GRID_XGB = {
-    "n_estimators": [100, 150, 200],
+    "n_estimators": [50, 100],
     "max_depth": [3, 6, 10],
     "learning_rate": [0.01, 0.05, 0.1],
     "subsample": [0.6, 0.8, 1.0],
@@ -312,7 +312,13 @@ if __name__ == "__main__":
         "--seed",
         type=int,
         default=42,
-        help="Seed for L5SO and in-sites-grouped strategies (default: 42).",
+        help="Seed for l5so and in-sites-grouped strategies (default: 42).",
+    )
+    parser.add_argument(
+        "--fold_size",
+        type=int,
+        default=10,
+        help="Fold size for in-sites-grouped strategies, ignored if setting is l5so (default: 10).",
     )
     parser.add_argument(
         "--cv",
@@ -334,6 +340,7 @@ if __name__ == "__main__":
     method = args.method
     risk = args.risk
     seed = args.seed
+    fold_size = args.fold_size
     cv = args.cv
     n_jobs = args.n_jobs
 
@@ -351,7 +358,12 @@ if __name__ == "__main__":
     df = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
 
     # Set-up groups
-    groups = generate_fold_info(df, setting, seed=seed)
+    if setting == "in-sites-grouped":
+        groups = generate_fold_info(
+            df, setting, fold_size=fold_size, seed=seed
+        )
+    else:
+        groups = generate_fold_info(df, setting, seed=seed)
     results = []
 
     # Run experiment
