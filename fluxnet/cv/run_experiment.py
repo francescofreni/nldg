@@ -277,7 +277,8 @@ if __name__ == "__main__":
         "--setting",
         type=str,
         choices=[
-            "in-sites-grouped" "logo",
+            "in-sites-grouped",
+            "logo",
             "loso",
             "l5so",
         ],
