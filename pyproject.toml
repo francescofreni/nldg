@@ -44,6 +44,7 @@ dependencies = [
     "netCDF4",
     "xgboost",
     "cvxopt",
+    "pygam",
 ]
 
 [project.optional-dependencies]
