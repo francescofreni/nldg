@@ -13,6 +13,9 @@ from sklearn.linear_model import LinearRegression, Ridge
 from xgboost import XGBRegressor
 from nldg.lr import MaggingLR
 from tqdm import tqdm
+from pygam import LinearGAM, s, l
+from functools import reduce
+from operator import add
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARAMS_GRID = {
@@ -70,6 +73,8 @@ def get_model(model_name, params=None):
         return Ridge(**params)
     elif model_name == "maximin":
         return MaggingLR()
+    elif model_name == "gam":
+        return LinearGAM(**params)
     else:
         raise NotImplementedError(f"Model `{model_name}` not implemented.")
 
@@ -107,6 +112,8 @@ def get_default_params(model_name, n_jobs=20):
         }
     elif model_name == "ridge":
         params = {"alpha": 0.1}
+    elif model_name == "gam":
+        params = {"fit_intercept": True}
     return params
 
 
@@ -288,7 +295,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        choices=["rf", "lr", "xgb", "ridge", "maximin"],
+        choices=["rf", "lr", "xgb", "ridge", "maximin", "gam"],
         default="rf",
         help="Model to use for the experiment",
     )
@@ -379,11 +386,23 @@ if __name__ == "__main__":
                 test_ids,
                 cv_folds,
             ) = get_fold_df(
-                df, setting, group, cv=cv, remove_missing=True, seed=seed
+                df,
+                setting,
+                group,
+                cv=cv,
+                remove_missing=True,
+                seed=seed,
+                model_name=model_name,
             )
         else:
             xtrain, ytrain, xtest, ytest, train_ids, test_ids = get_fold_df(
-                df, setting, group, cv=cv, remove_missing=True, seed=seed
+                df,
+                setting,
+                group,
+                cv=cv,
+                remove_missing=True,
+                seed=seed,
+                model_name=model_name,
             )
         if xtrain is None:
             continue
@@ -448,11 +467,17 @@ if __name__ == "__main__":
         ytrain_scaled = ytrain * SCALE
 
         # Get model
+        if model_name == "gam":
+            terms = [l(0), l(1)] + [s(j) for j in range(2, xtrain.shape[1])]
+            params["terms"] = reduce(add, terms)
         model = get_model(model_name, params=params)
         if model_name == "maximin":
             model.fit(xtrain, ytrain_scaled, train_ids_int)
         else:
-            model.fit(xtrain, ytrain_scaled)
+            if model_name == "gam" and cv:
+                model.gridsearch(xtrain, ytrain_scaled)
+            else:
+                model.fit(xtrain, ytrain_scaled)
 
         # Just to compute the maximum regret across training environments
         if model_name == "rf":

@@ -54,6 +54,7 @@ def get_fold_df(
     cv=False,
     remove_missing=False,
     seed=42,
+    model_name="rf",
 ):
     df_out = df.copy()
 
@@ -141,6 +142,46 @@ def get_fold_df(
     # split into x,y
     xtrain, ytrain = train.values[:, xcols], train.values[:, ycol].ravel()
     xtest, ytest = test.values[:, xcols], test.values[:, ycol].ravel()
+
+    # with GAMs, no need to use dummies
+    if model_name == "gam":
+        veg_cols = [c for c in train.columns if c.startswith("IGBP_veg_")]
+        season_cols = [c for c in train.columns if c.startswith("season_")]
+
+        def onehot_to_code_block(df, cols):
+            X = df[cols].astype(float).to_numpy()
+            sums = X.sum(axis=1)
+            code = X.argmax(axis=1).astype(int)
+            unknown_idx = X.shape[1]
+            code[sums != 1.0] = unknown_idx
+            return code, unknown_idx
+
+        veg_code_tr, veg_unknown_idx = onehot_to_code_block(train, veg_cols)
+        season_code_tr, season_unknown_idx = onehot_to_code_block(
+            train, season_cols
+        )
+
+        veg_seen = np.unique(veg_code_tr)
+        season_seen = np.unique(season_code_tr)
+
+        veg_code_te, _ = onehot_to_code_block(test, veg_cols)
+        season_code_te, _ = onehot_to_code_block(test, season_cols)
+        veg_code_te[~np.isin(veg_code_te, veg_seen)] = veg_unknown_idx
+        season_code_te[
+            ~np.isin(season_code_te, season_seen)
+        ] = season_unknown_idx
+
+        drop_cols = set(veg_cols + season_cols + [target])
+        cont_cols = [c for c in train.columns if c not in drop_cols]
+
+        xtrain = np.c_[
+            veg_code_tr, season_code_tr, train[cont_cols].to_numpy()
+        ]
+        xtest = np.c_[
+            veg_code_te,
+            season_code_te,
+            test.reindex(columns=cont_cols, fill_value=0).to_numpy(),
+        ]
 
     if cv:
         env = np.asarray(train_ids)
