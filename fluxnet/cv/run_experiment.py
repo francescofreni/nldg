@@ -471,6 +471,22 @@ if __name__ == "__main__":
         # -----------------------------------------
         ytrain_scaled = ytrain * SCALE
 
+        # compute the erm solution for gam
+        if model_name == "gam":
+            sols_erm = np.zeros(len(train_ids_int))
+            for env in np.unique(train_ids_int):
+                mask = train_ids_int == env
+                xtrain_env = xtrain[mask]
+                ytrain_env = ytrain_scaled[mask]
+                terms_env = [l(0), l(1)] + [
+                    s(j) for j in range(2, xtrain_env.shape[1])
+                ]
+                params["terms"] = reduce(add, terms_env)
+                am_env = get_model(model_name, params=params)
+                am_env.fit(xtrain_env, ytrain_env)
+                fitted_env = am_env.predict(xtrain_env)
+                sols_erm[mask] = fitted_env
+
         # Get model
         if model_name == "gam":
             terms = [l(0), l(1)] + [s(j) for j in range(2, xtrain.shape[1])]
@@ -481,10 +497,16 @@ if __name__ == "__main__":
         else:
             model = get_model(model_name, params=params)
 
-        if (model_name == "maximin") or (
-            model_name == "gam" and method == "maxrm"
-        ):
+        if model_name == "maximin":
             model.fit(xtrain, ytrain_scaled, train_ids_int)
+        elif model_name == "gam" and method == "maxrm":
+            model.fit(
+                xtrain,
+                ytrain_scaled,
+                train_ids_int,
+                risk=risk,
+                sols_erm=sols_erm,
+            )
         else:
             if model_name == "gam" and method == "erm" and cv:
                 model.gridsearch(xtrain, ytrain_scaled)
@@ -508,17 +530,6 @@ if __name__ == "__main__":
                 for i in range(params["n_estimators"]):
                     fitted_env_tree = rf_env.trees[i].predict(xtrain_env)
                     sols_erm_trees[i, mask] = fitted_env_tree
-
-        if model_name == "gam":
-            sols_erm = np.zeros(len(train_ids_int))
-            for env in np.unique(train_ids_int):
-                mask = train_ids_int == env
-                xtrain_env = xtrain[mask]
-                ytrain_env = ytrain_scaled[mask]
-                am_env = get_model(model_name, params=params)
-                am_env.fit(xtrain_env, ytrain_env)
-                fitted_env = am_env.predict(xtrain_env)
-                sols_erm[mask] = fitted_env
 
         if model_name == "rf" and method == "maxrm":
             success = modify_predictions(
