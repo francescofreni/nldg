@@ -14,6 +14,7 @@ from xgboost import XGBRegressor
 from nldg.lr import MaggingLR
 from tqdm import tqdm
 from pygam import LinearGAM, s, l
+from nldg.gam import MaxRMLinearGAM
 from functools import reduce
 from operator import add
 
@@ -351,7 +352,11 @@ if __name__ == "__main__":
     cv = args.cv
     n_jobs = args.n_jobs
 
-    if model_name == "rf":
+    # TODO: implement cv with MaxRM-AM
+    if model_name == "gam" and method == "maxrm" and cv:
+        raise ValueError("cv not implemented yet for MaxRM-AM.")
+
+    if model_name in ["rf", "gam"]:
         exp_name = f"{agg}_{setting}_{model_name}_{method}_{risk}"
     else:
         exp_name = f"{agg}_{setting}_{model_name}"
@@ -470,11 +475,18 @@ if __name__ == "__main__":
         if model_name == "gam":
             terms = [l(0), l(1)] + [s(j) for j in range(2, xtrain.shape[1])]
             params["terms"] = reduce(add, terms)
-        model = get_model(model_name, params=params)
-        if model_name == "maximin":
+
+        if model_name == "gam" and method == "maxrm":
+            model = MaxRMLinearGAM(**params)
+        else:
+            model = get_model(model_name, params=params)
+
+        if (model_name == "maximin") or (
+            model_name == "gam" and method == "maxrm"
+        ):
             model.fit(xtrain, ytrain_scaled, train_ids_int)
         else:
-            if model_name == "gam" and cv:
+            if model_name == "gam" and method == "erm" and cv:
                 model.gridsearch(xtrain, ytrain_scaled)
             else:
                 model.fit(xtrain, ytrain_scaled)
@@ -496,6 +508,17 @@ if __name__ == "__main__":
                 for i in range(params["n_estimators"]):
                     fitted_env_tree = rf_env.trees[i].predict(xtrain_env)
                     sols_erm_trees[i, mask] = fitted_env_tree
+
+        if model_name == "gam":
+            sols_erm = np.zeros(len(train_ids_int))
+            for env in np.unique(train_ids_int):
+                mask = train_ids_int == env
+                xtrain_env = xtrain[mask]
+                ytrain_env = ytrain_scaled[mask]
+                am_env = get_model(model_name, params=params)
+                am_env.fit(xtrain_env, ytrain_env)
+                fitted_env = am_env.predict(xtrain_env)
+                sols_erm[mask] = fitted_env
 
         if model_name == "rf" and method == "maxrm":
             success = modify_predictions(
@@ -524,7 +547,7 @@ if __name__ == "__main__":
                 "group": group_id,
             }
             print(max_mse_test)
-        if model_name == "rf":
+        if model_name in ["rf", "gam"]:
             yfitted = model.predict(xtrain)
             yfitted /= SCALE
             sols_erm /= SCALE
