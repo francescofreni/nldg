@@ -211,7 +211,8 @@ if __name__ == "__main__":
         better = "lower"
     else:
         better = "upper"
-    print(latex_table_best_per_group(plot_df, metric=metric, better=better))
+    print(latex_table_best_per_group(plot_df, metric=metric, better=better,
+                                     column_order=None))
 
     totals, res = count_no_worse_than_rf(plot_df, metric, better)
     summary_lines = [

@@ -55,6 +55,7 @@ def get_default_params(model_name, agg, with_max_depth):
             agg
             in [
                 "daily-50-2017",
+                "raw-50-2017",
             ]
             and with_max_depth
         ):
@@ -96,6 +97,7 @@ if __name__ == "__main__":
             "daily",
             "raw",
             "daily-50-2017",
+            "raw-50-2017",
         ],
         default="daily-50-2017",
         help="Data aggregation level",
@@ -281,7 +283,8 @@ if __name__ == "__main__":
                 fitted_env = rf_env.predict(xtrain_env)
                 sols_erm[mask] = fitted_env
                 for i in range(params["n_estimators"]):
-                    fitted_env_tree = rf_env.trees[i].predict(xtrain_env)
+                    xtrain_env_np = np.asarray(xtrain_env, dtype=np.float64)
+                    fitted_env_tree = rf_env.trees[i].predict(xtrain_env_np)
                     sols_erm_trees[i, mask] = fitted_env_tree
 
         if model_name == "rf" and method == "maxrm":

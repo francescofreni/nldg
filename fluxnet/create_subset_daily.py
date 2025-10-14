@@ -65,12 +65,20 @@ if __name__ == "__main__":
         default=None,
         help="Filter dataset by year (e.g. 2020). If None, use all years.",
     )
+    parser.add_argument(
+        "--agg",
+        type=str,
+        choices=["seasonal", "daily", "raw"],
+        default="daily",
+        help="Data aggregation level",
+    )
     args = parser.parse_args()
     nsites = args.nsites
     year = args.year
+    agg = args.agg
 
     folder_path = os.path.join(BASE_DIR, "data_cleaned")
-    data_path = os.path.join(folder_path, "daily.csv")
+    data_path = os.path.join(folder_path, agg+".csv")
     data = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
 
     if year is not None:
@@ -82,22 +90,40 @@ if __name__ == "__main__":
         elif year is None and nsites == 30:
             subset = data[data["site_id"].isin(SITES30)]
         else:
-            unique_sites = data["site_id"].unique()
-            if nsites > len(unique_sites):
-                raise ValueError(
-                    f"Requested nsites={args.nsites} but only {len(unique_sites)} unique sites available."
+            if agg == 'daily':
+                unique_sites = data["site_id"].unique()
+                if nsites > len(unique_sites):
+                    raise ValueError(
+                        f"Requested nsites={args.nsites} but only {len(unique_sites)} unique sites available."
+                    )
+                rng = np.random.default_rng(SEED)
+                sampled_sites = rng.choice(
+                    unique_sites, size=nsites, replace=False
                 )
-            rng = np.random.default_rng(SEED)
-            sampled_sites = rng.choice(
-                unique_sites, size=nsites, replace=False
-            )
-            subset = data[data["site_id"].isin(sampled_sites)]
+                subset = data[data["site_id"].isin(sampled_sites)]
+            else:
+                daily_path = "daily"
+                if nsites is not None: 
+                    daily_path += f"-{nsites}"
+                if year is not None:
+                    daily_path += f"-{year}"
+                daily_path += ".csv"
+                # if daily_path does not exist, raise error
+                if not os.path.exists(os.path.join(folder_path, daily_path)):
+                    raise ValueError(
+                        f"File {daily_path} does not exist. Please create the subset for daily data first."
+                    )
+                daily_data = pd.read_csv(
+                    os.path.join(folder_path, daily_path), index_col=0
+                ).reset_index(drop=True)
+                unique_sites = daily_data["site_id"].unique()
+                subset = data[data["site_id"].isin(unique_sites)]
 
     if year is None and nsites is None:
         print("No sites or year selected, the dataset is unchanged.")
     elif year is None and nsites is not None:
-        subset.to_csv(os.path.join(folder_path, f"daily-{nsites}.csv"))
+        subset.to_csv(os.path.join(folder_path, f"{agg}-{nsites}.csv"))
     elif year is not None and nsites is not None:
-        subset.to_csv(os.path.join(folder_path, f"daily-{nsites}-{year}.csv"))
+        subset.to_csv(os.path.join(folder_path, f"{agg}-{nsites}-{year}.csv"))
     elif year is not None and nsites is None:
-        data.to_csv(os.path.join(folder_path, f"daily-{year}.csv"))
+        data.to_csv(os.path.join(folder_path, f"{agg}-{year}.csv"))
