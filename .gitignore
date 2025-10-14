@@ -6,6 +6,7 @@ build/
 .idea/
 archive/
 notebooks/settings/
+fluxnet/notebooks/
 *.nc
 *.pdf
 *.pyc
