@@ -326,7 +326,7 @@ if __name__ == "__main__":
         "--fold_size",
         type=int,
         default=10,
-        help="Fold size for in-sites-grouped strategies, ignored if setting is l5so (default: 10).",
+        help="Fold size for the in-sites-grouped strategy, ignored if setting is l5so (default: 10).",
     )
     parser.add_argument(
         "--cv",
@@ -337,7 +337,7 @@ if __name__ == "__main__":
         "--n_jobs",
         type=int,
         default=20,
-        help="Number of jobs (default: 20).",
+        help="Number of jobs used for rf and xgb (default: 20).",
     )
 
     args = parser.parse_args()

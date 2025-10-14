@@ -57,7 +57,9 @@ class MaxRMLinearGAM(LinearGAM):
             Sample weights.
             if None, defaults to array of ones
         risk : string, optional (default="mse")
-            Risk function (values in ["mse", "nrw", "reg"])
+            Risk function (values in ["mse", "nrw", "reg", "reward", "regret"])
+            Note: reward and regret are included just for compatibility
+                and yield the same result as nrw and reg, respectively
         sols_erm : array-like, shape (n_samples,)
             Fitted values with empirical risk minimization
         solver : str, optional (default="ECOS")
@@ -74,8 +76,10 @@ class MaxRMLinearGAM(LinearGAM):
         gam.fit(X, y, env=env, weights=weights, solver='ECOS')
         yhat = gam.predict(Xnew)
         """
-        if risk not in ["mse", "nrw", "reg"]:
-            raise ValueError("risk must be one of ['mse', 'nrw', 'reg']")
+        if risk not in ["mse", "nrw", "reg", "reward", "regret"]:
+            raise ValueError(
+                "risk must be one of ['mse', 'nrw', 'reg', 'reward', 'regret']"
+            )
         if risk == "reg" and sols_erm is None:
             raise ValueError("if risk is 'reg', sols_erm must be provided")
 
@@ -149,9 +153,9 @@ class MaxRMLinearGAM(LinearGAM):
             pred_e = cp.matmul(Xe, beta)
             residual = cp.multiply(sqrt_we, ye - pred_e)
             left = cp.sum_squares(residual)
-            if risk == "nrw":
+            if risk == "nrw" or risk == "reward":
                 left -= cp.sum_squares(cp.multiply(sqrt_we, ye))
-            elif risk == "reg":
+            elif risk == "reg" or risk == "regret":
                 sols_erm_e = sols_erm[mask]
                 left -= cp.sum_squares(cp.multiply(sqrt_we, ye - sols_erm_e))
             constraints.append(left / we_sum <= t)
