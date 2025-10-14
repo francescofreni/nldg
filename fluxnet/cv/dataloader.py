@@ -55,13 +55,17 @@ def get_fold_df(
     remove_missing=False,
     seed=42,
     model_name="rf",
+    add_lonlat=False,
 ):
     df_out = df.copy()
 
     # drop columns
-    df_out.drop(
-        columns=["time", "longitude", "latitude", "year"], inplace=True
-    )
+    if add_lonlat:
+        df_out.drop(columns=["time", "year"], inplace=True)
+    else:
+        df_out.drop(
+            columns=["time", "longitude", "latitude", "year"], inplace=True
+        )
     if "date" in df.columns:
         df_out.drop(columns="date", inplace=True)
 

@@ -339,6 +339,11 @@ if __name__ == "__main__":
         default=20,
         help="Number of jobs used for rf and xgb (default: 20).",
     )
+    parser.add_argument(
+        "--add_lonlat",
+        action="store_true",
+        help="Add longitude and latitude coordinates to the experiment",
+    )
 
     args = parser.parse_args()
     path = args.path
@@ -351,6 +356,7 @@ if __name__ == "__main__":
     fold_size = args.fold_size
     cv = args.cv
     n_jobs = args.n_jobs
+    add_lonlat = args.add_lonlat
 
     # TODO: implement cv with MaxRM-AM
     if model_name == "gam" and method == "maxrm" and cv:
@@ -398,6 +404,7 @@ if __name__ == "__main__":
                 remove_missing=True,
                 seed=seed,
                 model_name=model_name,
+                add_lonlat=add_lonlat,
             )
         else:
             xtrain, ytrain, xtest, ytest, train_ids, test_ids = get_fold_df(
@@ -408,6 +415,7 @@ if __name__ == "__main__":
                 remove_missing=True,
                 seed=seed,
                 model_name=model_name,
+                add_lonlat=add_lonlat,
             )
         if xtrain is None:
             continue
