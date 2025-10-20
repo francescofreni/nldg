@@ -4,14 +4,23 @@ import logging
 import os
 import numpy as np
 import pandas as pd
-from adaXT.random_forest import RandomForest
 from dataloader import generate_fold_info, get_fold_df
 from eval import evaluate_fold
 from nldg.utils import max_mse, max_regret, min_reward
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
 
+# models
+from adaXT.random_forest import RandomForest
+from sklearn.linear_model import LinearRegression, Ridge
+from xgboost import XGBRegressor
+from nldg.lr import MaggingLR
+from tqdm import tqdm
+from pygam import LinearGAM, s, l
+from nldg.gam import MaxRMLinearGAM
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+SEED = 42
 
 # Set up root logger (only once)
 logging.basicConfig(
@@ -24,7 +33,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def get_model(model_name, params={}):
+def get_model(model_name, params=None):
     """
     Returns a model instance based on the model name and parameters.
 
@@ -32,48 +41,90 @@ def get_model(model_name, params={}):
         model_name (str): The name of the model to instantiate.
         params (dict): Parameters to initialize the model.
     """
+    if params is None:
+        params = {}
     if model_name == "rf":
         return RandomForest(**params)
+    elif model_name == "xgb":
+        return XGBRegressor(**params)
     elif model_name == "lr":
         return LinearRegression()
+    elif model_name == "ridge":
+        return Ridge(**params)
+    elif model_name == "maximin":
+        return MaggingLR()
+    elif model_name == "gam":
+        return LinearGAM(**params)
     else:
         raise NotImplementedError(f"Model `{model_name}` not implemented.")
 
 
-def get_default_params(model_name, agg, with_max_depth):
+def get_default_params(model_name, n_jobs=20):
     """
     Returns default parameters for the specified model.
 
     Args:
         model_name (str): The name of the model.
-        agg (str): Dataset used.
-        with_max_depth (bool): If True, set maximum depth for trees.
+        n_jobs (int): The number of CPU cores to use.
     """
     params = {}
     if model_name == "rf":
-        if (
-            agg
-            in [
-                "daily-50-2017",
-            ]
-            and with_max_depth
-        ):
-            params = {
-                "forest_type": "Regression",
-                "n_estimators": 20,
-                "min_samples_leaf": 30,
-                "max_depth": 8,
-                "seed": 42,
-                "n_jobs": 20,
-            }
-        else:
-            params = {
-                "forest_type": "Regression",
-                "n_estimators": 60,
-                "min_samples_leaf": 10,
-                "seed": 42,
-                "n_jobs": 20,
-            }
+        # defualt RF parameters in sklearn
+        params = {
+            "forest_type": "Regression",
+            "n_estimators": 100,
+            # # commented out because they are the default values
+            # "max_depth": None,
+            # "min_samples_leaf": 1,
+            # "max_features": 'sqrt',
+            "seed": SEED,
+            "n_jobs": n_jobs,
+        }
+        # # ('cv-params')
+        # params = {
+        #     "forest_type": "Regression",
+        #     "n_estimators": 20,
+        #     "max_depth": 8,
+        #     "min_samples_leaf": 30,
+        #     "max_features": 1.0,
+        #     "seed": SEED,
+        #     "n_jobs": n_jobs,
+        # }
+        # # original params ('new-params')
+        # params = {
+        #     "forest_type": "Regression",
+        #     "n_estimators": 60,
+        #     "min_samples_leaf": 10,
+        #     "seed": SEED,
+        #     "n_jobs": 20,
+        # }
+    elif model_name == "xgb":
+        # params = {
+        #     "objective": "reg:squarederror",
+        #     "n_estimators": 100,
+        #     "max_depth": 5,
+        #     "learning_rate": 0.1,
+        #     "subsample": 1.0,
+        #     "colsample_bytree": 1.0,
+        #     "random_state": SEED,
+        #     "n_jobs": n_jobs,
+        #     "verbosity": 0,
+        # }
+        params = {
+            "objective": "reg:squarederror",
+            # "n_estimators": 100,
+            # "max_depth": 5,
+            # "learning_rate": 0.1,
+            # "subsample": 1.0,
+            # "colsample_bytree": 1.0,
+            "random_state": SEED,
+            "n_jobs": n_jobs,
+            # "verbosity": 0,
+        }
+    elif model_name == "ridge":
+        params = {"alpha": 0.1}
+    elif model_name == "gam":
+        params = {"fit_intercept": True}
     return params
 
 
@@ -122,7 +173,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--model_name",
         type=str,
-        choices=["rf", "lr"],
+        choices=["rf", "lr", "xgb", "ridge", "maximin", "gam"],
         default="rf",
         help="Model to use for the experiment",
     )
@@ -181,6 +232,13 @@ if __name__ == "__main__":
         action="store_true",
         help="Report additional metrics, e.g. per-training-site risk (default: False).",
     )
+    parser.add_argument(
+        "--target",
+        type=str,
+        default="GPP",
+        help="Target variable to predict (default: 'GPP').",
+        choices=["GPP", "NEE"],
+    )
 
     args = parser.parse_args()
     path = args.path
@@ -199,34 +257,38 @@ if __name__ == "__main__":
     with_max_depth = args.with_max_depth
     fit_residuals = args.fit_residuals
     additional_metrics = args.additional_metrics
+    target = args.target
 
+    if start != 0 or stop is not None:
+        raise NotImplementedError(
+            "Currently, only start=0 and stop=None are supported."
+        )
+
+    if method == "erm" and risk != "mse":
+        raise ValueError("`risk` must be 'mse' when `method` is 'erm'.")
+    
     if exp_name is None:
-        if model_name == "rf":
-            if method == "erm":
-                exp_name = f"{agg}_{setting}_RF_start{start}_stop{stop}"
-            else:
-                if risk == "mse":
-                    exp_name = f"{agg}_{setting}_MaxRM-RF(posthoc-mse)_start{start}_stop{stop}"
-                elif risk == "reward":
-                    exp_name = f"{agg}_{setting}_MaxRM-RF(posthoc-nrw)_start{start}_stop{stop}"
-                else:
-                    exp_name = f"{agg}_{setting}_MaxRM-RF(posthoc-reg)_start{start}_stop{stop}"
-        else:
-            exp_name = f"{agg}_{setting}_{model_name}_start{start}_stop{stop}"
+        exp_name = f"{agg}_{setting}_{target}_{model_name}_{method}_{risk}"
+    else:
+        # make a folder with the name of the experiment
+        os.makedirs(os.path.join(BASE_DIR, "results", exp_name), exist_ok=True)
+        exp_name = f"{exp_name}/{agg}_{setting}_{target}_{model_name}_{method}_{risk}"
 
     # Get model parameters
     if params is not None and os.path.exists(params):
         params = pd.read_csv(params)
         params = params.to_dict(orient="records")[0]
     else:
-        params = get_default_params(model_name, agg, with_max_depth)
+        params = get_default_params(model_name, n_jobs=20)
 
     # Load data
     data_path = os.path.join(path, agg + ".csv")
     logging.info("Loading data...")
     df = pd.read_csv(data_path, index_col=0).reset_index(drop=True)
+    df = df.dropna(subset=[target])
 
     # Set-up groups
+    min_samples_per_env = 150 if setting == "insite" else None
     groups = generate_fold_info(df, setting, start, stop, seed=seed)
     results = []
 
@@ -234,9 +296,14 @@ if __name__ == "__main__":
     for group_id, group in enumerate(groups):
         logging.info(f"Running group: {group}...")
         xtrain, ytrain, xtest, ytest, train_ids, test_ids = get_fold_df(
-            df, setting, group, cv=cv, remove_missing=True
+            df, setting, group, cv=cv, remove_missing=True, target=target,
+            min_samples=min_samples_per_env
         )
-        if xtrain is None:
+        if xtrain is None or xtrain.shape[0] < 100:
+            logging.warning(f"* SKIPPING {group}: not enough training data")
+            continue
+        if xtest is None or xtest.shape[0] < 100:
+            logging.warning(f"* SKIPPING {group}: not enough test data")
             continue
 
         train_ids_int = train_ids.astype("category").cat.codes
@@ -352,6 +419,7 @@ if __name__ == "__main__":
             sols_erm_full = yfitted_lr + sols_erm
 
             if setting not in ["l5so", "logo"]:
+                # TODO!
                 res = evaluate_fold(res_test, ypred, verbose=True, digits=3)
                 res["group"] = group
             else:
@@ -363,10 +431,13 @@ if __name__ == "__main__":
                 #     "group": group_id,
                 #     "max_nrw_test": max_nrw_test,
                 # }
-                max_mse_test = max_mse(ytest, ypred_full, test_ids_int)
+                mse_all, max_mse_test = max_mse(
+                    ytest, ypred_full, test_ids_int, ret_ind=True)
                 res = {
                     "max_mse_test": max_mse_test,
                     "max_rmse_test": np.sqrt(max_mse_test),
+                    "avg_mse_test": np.mean(mse_all),
+                    "avg_rmse_test": np.mean(np.sqrt(mse_all)),
                     "group": group_id,
                 }
             if model_name == "rf":
@@ -452,16 +523,25 @@ if __name__ == "__main__":
                     yfitted = model.predict(xtrain)
                     yfitted /= 1e8
                     sols_erm /= 1e8
-            if setting not in ["l5so", "logo"]:
-                res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
-                res["group"] = group
-            else:
-                max_mse_test = max_mse(ytest, ypred, test_ids_int)
-                res = {
-                    "max_mse_test": max_mse_test,
-                    "max_rmse_test": np.sqrt(max_mse_test),
-                    "group": group_id,
-                }
+            # if setting not in ["l5so", "logo"]:
+            #     # TODO!
+            #     res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
+            #     res["group"] = group
+            # else:
+            # print(test_ids_int)
+            mse_envs, max_mse_test = max_mse(
+                ytest, ypred, test_ids_int, ret_ind=True)
+            # print(mse_envs)
+            # raise
+            res = {
+                "max_mse_test": max_mse_test,
+                "max_rmse_test": np.sqrt(max_mse_test),
+                "avg_mse_test": np.mean(mse_envs),
+                "avg_rmse_test": np.mean(np.sqrt(mse_envs)),
+                "group": group_id,
+            }
+            if setting in ['insite', 'insite-random']:
+                res["site_id"] = group
             if model_name == "rf":
                 res["max_mse_train"] = max_mse(ytrain, yfitted, train_ids_int)
                 res["max_nrw_train"] = -min_reward(

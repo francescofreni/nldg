@@ -45,7 +45,9 @@ def latex_table_best_per_group(
     df,
     metric,
     better="lower",
-    column_order=("RF", "MaxRM-RF(mse)", "MaxRM-RF(nrw)", "MaxRM-RF(reg)"),
+    column_order=("lr", "gam", "xgb", "rf", 
+                  "maxGAM_mse", "maxGAM_reward", "maxGAM_regret",
+                  "maxRF_mse", "maxRF_reward", "maxRF_regret"),
 ):
     metric_df = df[df["metric"] == metric].copy()
     table_df = metric_df.pivot(index="group", columns="model", values="value")
@@ -96,8 +98,8 @@ def count_no_worse_than_rf(
     df,
     metric,
     better="lower",
-    methods=("MaxRM-RF(mse)", "MaxRM-RF(nrw)", "MaxRM-RF(reg)"),
-    ref="RF",
+    methods=("maxRF_mse", "maxRF_reward", "maxRF_regret"),
+    ref="rf",
 ):
     metric_df = df[df["metric"] == metric].copy()
     table = metric_df.pivot(index="group", columns="model", values="value")
@@ -141,6 +143,8 @@ if __name__ == "__main__":
     parser.add_argument("--stop", type=int, default=None)
     parser.add_argument("--cv", action="store_true")
     parser.add_argument("--metric", type=str, default="rmse")
+    parser.add_argument("--target", type=str, default="GPP")
+    parser.add_argument("--exp_name", type=str, default=None)
 
     path = parser.parse_args().path
     override = parser.parse_args().override
@@ -150,19 +154,29 @@ if __name__ == "__main__":
     stop = parser.parse_args().stop
     cv = parser.parse_args().cv
     metric = parser.parse_args().metric
+    target = parser.parse_args().target
+    exp_name = parser.parse_args().exp_name
 
     # Find any files of the form results/{agg}_{setting}*
     results_dir = os.path.join(BASE_DIR, "results")
+    if exp_name is not None:
+        results_dir = os.path.join(results_dir, exp_name)
+    prefix = f"{agg}_{setting}_{target}"
+    print(f"Looking for results with prefix: {prefix}")
     results_files = [
-        f for f in os.listdir(results_dir) if f.startswith(f"{agg}_{setting}")
+        f for f in os.listdir(results_dir) if f.startswith(prefix)
     ]  # need to add cv here
+    print(results_files)
 
     # divide the results files into models
     groups = {}
     for filename in results_files:
         parts = filename.split("_")
-        if len(parts) > 2:  # Ensure there are at least three parts
-            model_name = parts[2]  # Extract the third part (model_name)
+        if len(parts) > 3:  # Ensure there are at least four parts
+            model_name = parts[3]  # Extract the fourth part (model_name)
+            if (model_name in ["gam", "rf"])and parts[4] == "maxrm":
+                model_name = "maxRF_" if model_name == "rf" else "maxGAM_"
+                model_name += parts[5][:-4]  # e.g., maxRF_mse
             groups.setdefault(model_name, []).append(filename)
 
     # Load data
@@ -173,7 +187,7 @@ if __name__ == "__main__":
             df = pd.read_csv(os.path.join(results_dir, f))
             model_data.append(df)
         model_data = pd.concat(model_data, ignore_index=True)
-        model_name = model_name.replace("posthoc-", "")
+        # model_name = model_name.replace("posthoc-", "")
         model_data["model"] = model_name
         all_results.append(model_data)
 
@@ -189,10 +203,11 @@ if __name__ == "__main__":
         ["model", "group"], as_index=False
     ).first()
 
-    if setting in ["l5so", "logo"]:
-        metrics = ["max_mse_test", "max_rmse_test"]
-    else:
-        metrics = ["mse", "rmse", "r2_score", "relative_error", "mae", "nse"]
+    metrics = ["max_mse_test", "max_rmse_test", "avg_mse_test", "avg_rmse_test"]
+    # if setting in ["l5so", "logo"]:
+        # metrics = ["max_mse_test", "max_rmse_test"]
+    # else:
+    #     metrics = ["mse", "rmse", "r2_score", "relative_error", "mae", "nse"]
     plot_df = all_results.melt(
         id_vars=["model", "group"],
         value_vars=metrics,
@@ -207,15 +222,40 @@ if __name__ == "__main__":
         "mae",
         "max_mse_test",
         "max_rmse_test",
+        "avg_mse_test",
+        "avg_rmse_test",
     ]:
         better = "lower"
     else:
         better = "upper"
     print(latex_table_best_per_group(plot_df, metric=metric, better=better))
 
-    totals, res = count_no_worse_than_rf(plot_df, metric, better)
+    for ref in ["rf", "lr", "xgb", "gam"]: #, "maxGAM_mse", "maxGAM_reward", "maxGAM_regret"]:
+        totals, res = count_no_worse_than_rf(plot_df, metric, better, ref=ref)
+        summary_lines = [
+            f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}\\%$) no worse than {ref}"
+            for m, v in res.items()
+        ]
+        latex_summary = (
+            "\\begin{itemize}\n" + "\n".join(summary_lines) + "\n\\end{itemize}"
+        )
+        print(latex_summary)
+
+    totals, res = count_no_worse_than_rf(plot_df, metric, better, ref='lr', 
+                                         methods=("maxGAM_mse", "maxGAM_reward", "maxGAM_regret"))   
     summary_lines = [
-        f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}\\%$) no worse than RF"
+        f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}\\%$) no worse than lr"
+        for m, v in res.items()
+    ]
+    latex_summary = (
+        "\\begin{itemize}\n" + "\n".join(summary_lines) + "\n\\end{itemize}"
+    )
+    print(latex_summary)
+
+    totals, res = count_no_worse_than_rf(plot_df, metric, better, ref='lr', 
+                                         methods=("rf", "xgb", "gam"))   
+    summary_lines = [
+        f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}\\%$) no worse than lr"
         for m, v in res.items()
     ]
     latex_summary = (
