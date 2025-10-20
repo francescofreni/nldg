@@ -8,12 +8,14 @@ from nldg.utils import set_all_seeds
 import matplotlib.pyplot as plt
 from nldg.rf import MaggingRF
 from adaXT.random_forest import RandomForest
+from tqdm import tqdm
 
 N_ESTIMATORS = 50
 MIN_SAMPLES_LEAF = 30
 RANDOM_STATE = 42
 N_PER_ENV = 400
 NOISE_STD = 0.5
+N_SIM = 50
 
 
 class DataContainer:
@@ -272,16 +274,19 @@ def plot_results(data, X_sorted, Y_rf, Y_maxrmrf, Y_magging, Y_gdro):
     # plt.show()
 
 
-if __name__ == "__main__":
-    data = DataContainer(n=N_PER_ENV, noise_std=NOISE_STD)
-    data.generate_funcs_list(L=3)
-    data.generate_data(seed=RANDOM_STATE)
+def f_opt(x):
+    return np.where(x <= 0, 1.25 * x, 2.25 * x)
+
+
+def one_sim_step(seed, ret_ise=True):
+    data.generate_data(seed=seed)
 
     Xtr = np.concatenate(data.X_sources_list)
     Ytr = np.concatenate(data.Y_sources_list)
     Etr = np.concatenate(data.E_sources_list)
     Xtr_sorted = np.sort(data.X_sources_list[0], axis=0)
 
+    # RF
     rf = RandomForest(
         "Regression",
         n_estimators=N_ESTIMATORS,
@@ -290,10 +295,16 @@ if __name__ == "__main__":
     )
     rf.fit(Xtr, Ytr)
     preds_rf = rf.predict(Xtr_sorted)
+    preds_rf_grid = rf.predict(x_grid)
+    ise_rf = np.sum((preds_rf_grid - preds_opt) ** 2) * delta
 
+    # MaxRM-RF
     rf.modify_predictions_trees(Etr)
     preds_maxrmrf = rf.predict(Xtr_sorted)
+    preds_maxrmrf_grid = rf.predict(x_grid)
+    ise_maxrmrf = np.sum((preds_maxrmrf_grid - preds_opt) ** 2) * delta
 
+    # Magging-RF
     rf_magging = MaggingRF(
         n_estimators=N_ESTIMATORS,
         min_samples_leaf=MIN_SAMPLES_LEAF,
@@ -302,10 +313,55 @@ if __name__ == "__main__":
     )
     _ = rf_magging.fit(Xtr, Ytr, Etr)
     preds_magging = rf_magging.predict(Xtr_sorted)
+    preds_magging_grid = rf_magging.predict(x_grid)
+    ise_magging = np.sum((preds_magging_grid - preds_opt) ** 2) * delta
 
+    # Group DRO
     gdro = GroupDRO(data, hidden_dims=[64], seed=RANDOM_STATE)
     gdro.fit(epochs=1000, lr_model=0.01, eta=0.01, weight_decay=0.01)
     preds_gdro = gdro.predict(Xtr_sorted)
+    preds_gdro_grid = gdro.predict(x_grid)
+    ise_gdro = np.sum((preds_gdro_grid - preds_opt) ** 2) * delta
+
+    if ret_ise:
+        return ise_rf, ise_maxrmrf, ise_magging, ise_gdro
+    else:
+        return Xtr_sorted, preds_rf, preds_maxrmrf, preds_magging, preds_gdro
+
+
+if __name__ == "__main__":
+    x_min, x_max = -4, 4
+    n_grid = 100
+    x_grid = np.linspace(-4, 4, n_grid)
+    delta = (x_max - x_min) / n_grid
+    preds_opt = f_opt(x_grid).ravel()
+
+    data = DataContainer(n=N_PER_ENV, noise_std=NOISE_STD)
+    data.generate_funcs_list(L=3)
+    ise = np.zeros((N_SIM, 4))
+
+    for i in tqdm(range(N_SIM)):
+        ise[i, 0], ise[i, 1], ise[i, 2], ise[i, 3] = one_sim_step(
+            seed=RANDOM_STATE + i
+        )
+
+    names = ["RF", "MaxRM-RF(mse)", "RF(magging)", "GroupDRO-NN(mse)"]
+    means = ise.mean(axis=0)
+    stds = ise.std(axis=0, ddof=1)
+    z = 1.96
+    halfwidth = z * stds / np.sqrt(N_SIM)
+    print("\nMean ISE (±95% CI):")
+    for name, m, h in zip(names, means, halfwidth):
+        print(f"{name:>16}: {m:.6f}  [{(m - h):.6f}, {(m + h):.6f}]")
+
+    # Repeat to make the plot
+    (
+        Xtr_sorted,
+        preds_rf,
+        preds_maxrmrf,
+        preds_magging,
+        preds_gdro,
+    ) = one_sim_step(seed=RANDOM_STATE, ret_ise=False)
 
     plot_results(
         data, Xtr_sorted, preds_rf, preds_maxrmrf, preds_magging, preds_gdro
