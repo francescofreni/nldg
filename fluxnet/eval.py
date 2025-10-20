@@ -252,6 +252,17 @@ if __name__ == "__main__":
     )
     print(latex_summary)
 
+    totals, res = count_no_worse_than_rf(plot_df, metric, better, ref='gam', 
+                                         methods=("maxGAM_mse", "maxGAM_reward", "maxGAM_regret"))   
+    summary_lines = [
+        f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}\\%$) no worse than gam"
+        for m, v in res.items()
+    ]
+    latex_summary = (
+        "\\begin{itemize}\n" + "\n".join(summary_lines) + "\n\\end{itemize}"
+    )
+    print(latex_summary)
+
     totals, res = count_no_worse_than_rf(plot_df, metric, better, ref='lr', 
                                          methods=("rf", "xgb", "gam"))   
     summary_lines = [
