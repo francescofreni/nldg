@@ -24,8 +24,8 @@ veg_types = [
 ]
 
 # Column groupings
-flux_cols = ["GPP", "longitude", "latitude"]
-flux_cols_qc = ["GPP_qc"]
+flux_cols = ["GPP", "NEE", "longitude", "latitude"]
+flux_cols_qc = ["GPP_qc", "NEE_qc"]
 meteo_cols = [
     "Tair",
     "vpd",
@@ -64,12 +64,10 @@ def read_file(filename, columns, columns_qc=None):
 
 
 def initialize_dataframe(site, path):
-    # TODO: add `target` argument, so that we can for example, predict NEE instead of GPP
-
     # Read data
     df_f = read_file(
         os.path.join(path, site + "_flux.nc"), flux_cols + flux_cols_qc
-    ).dropna(subset=["GPP"])
+    ).dropna(subset=flux_cols, how="any")
     df_m = read_file(
         os.path.join(path, site + "_meteo.nc"), meteo_cols + meteo_cols_qc
     )
@@ -95,7 +93,7 @@ def initialize_dataframe(site, path):
     df = (
         df.drop(columns=qc_cols)
         .dropna(subset=meteo_cols_processed + rs_cols, how="all")
-        .dropna(subset=["GPP"])
+        .dropna(subset=flux_cols, how="any")
     )
 
     # Extract and process time information
@@ -110,6 +108,18 @@ def initialize_dataframe(site, path):
         df["hour"] = df["time"].dt.hour
     else:
         raise ValueError("Time column not found in dataframe")
+    
+    # NDWI should be between -1 and 1 (allow some margin)
+    df.loc[df.NDWI_band7 < -1.1, 'NDWI_band7'] = np.nan
+    df.loc[df.NDWI_band7 > 1.1, 'NDWI_band7'] = np.nan
+
+    # NIRv should be between 0 and 1 (allow some margin)
+    df.loc[df.NIRv < -0.2, 'NIRv'] = np.nan
+    df.loc[df.NIRv > 1.2, 'NIRv'] = np.nan
+
+    # EVI should be between -1 and 1, but theoretically can be between +/- 2.5
+    df.loc[df.EVI < -2.5, 'EVI'] = np.nan
+    df.loc[df.EVI > 2.5, 'EVI'] = np.nan
 
     # Drop rows with NaN in the target variable
     df = df.reset_index(drop=True)
@@ -121,7 +131,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--path", type=str, default=os.path.join(BASE_DIR, "data")
     )
-    parser.add_argument("--override", type=bool, default=False)
+    parser.add_argument("--override", action="store_true", default=False)
     parser.add_argument("--agg", type=str, default="all")
     path = parser.parse_args().path
     override = parser.parse_args().override
