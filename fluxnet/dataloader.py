@@ -28,6 +28,10 @@ logger = logging.getLogger(__name__)
 def generate_fold_info(df, setting, start=0, stop=None, fold_size=5, seed=42):
     if setting in ["insite", "insite-random", "loso"]:
         sites = df["site_id"].dropna().unique()
+        if setting in ["insite", "insite-random"]:
+            # only keep sites with at least 8 years of data
+            site_years = df.groupby("site_id")["year"].nunique()
+            sites = site_years[site_years >= 8].index.values
         sites = sorted(sites)
         if stop is None:
             stop = len(sites)
@@ -77,6 +81,7 @@ def get_fold_df(
     remove_missing=False,
     astorch=False,
     num=False,
+    min_samples=None,
 ):
     # Get the correct data
     if setting == "insite" or setting == "insite-random":
@@ -84,13 +89,10 @@ def get_fold_df(
     elif setting in ["logo", "loso", "l5so"]:
         df_out = df.copy()
 
-    # drop columns
-    df_out.drop(
-        columns=["time", "longitude", "latitude", "year"], inplace=True
-    )
-    if "date" in df.columns:
-        df_out.drop(columns="date", inplace=True)
+    # drop rows where target is missing
+    df_out = df_out.dropna(subset=[target])
 
+    # create time features
     df_out["season"] = df_out["season"].astype(int)
     df_out = pd.get_dummies(
         df_out, columns=["season"], prefix="season", dtype=np.float64
@@ -116,15 +118,33 @@ def get_fold_df(
                 f"* Dropped {nstart-nout}/{nstart} ({(nstart-nout)/nstart * 100:.2f}%) rows due to missingness"
             )
 
+    # drop columns, but keep year info for splitting
+    df_out.drop(
+        columns=["time", "longitude", "latitude"], inplace=True
+    )
+    if "date" in df.columns:
+        df_out.drop(columns="date", inplace=True)
+
     # split into train/test
     if setting == "insite":
         # split it chronologically
-        n_train = int(df_out.shape[0] * 0.8)
-        train = df_out.iloc[:n_train]
-        test = df_out.iloc[n_train:]
+        site_years = df_out["year"].value_counts().sort_index()
+        site_years = site_years.index[site_years >= min_samples]
+        if len(site_years) < 8:
+            logger.warning(
+                f"* SKIPPING {group}: only {len(site_years)} years with >= {min_samples} samples"
+            )
+            return None, None, None, None, None, None
+        unique_years = np.sort(site_years)
+        train_years, test_years = unique_years[:4], unique_years[4:8]
+        train = df_out.loc[df_out["year"].isin(train_years)].copy()
+        test = df_out.loc[df_out["year"].isin(test_years)].copy()
     elif setting == "insite-random":
         # split it randomly
-        n_train = int(df_out.shape[0] * 0.8)
+        raise NotImplementedError("insite-random not implemented yet")
+        unique_years = np.sort(df_out["year"].unique())
+        df_out = df_out.loc[df_out["year"].isin(unique_years[:8])].copy()
+        n_train = int(df_out.shape[0] * 0.5)
         train = df_out.sample(n=n_train, random_state=1)
         test = df_out.drop(train.index)
     # elif setting == "logo":
@@ -148,14 +168,14 @@ def get_fold_df(
             return None, None, None, None, None, None
     del df_out
 
-    # drop outliers
-    q1, q99 = train["GPP"].quantile([0.01, 0.99])
-    ndrop = np.mean((train["GPP"] < q1) | (train["GPP"] > q99))
-    logger.info(f"* Dropping {ndrop*100:.2f}% training outliers")
-    train = train.loc[(train["GPP"] > q1) & (train["GPP"] < q99)]
-    ndrop_test = np.mean((test["GPP"] < q1) | (test["GPP"] > q99))
-    logger.info(f"* Dropping {ndrop_test*100:.2f}% test outliers")
-    test = test.loc[(test["GPP"] > q1) & (test["GPP"] < q99)]
+    # # drop outliers
+    # q1, q99 = train[target].quantile([0.01, 0.99])
+    # ndrop = np.mean((train[target] < q1) | (train[target] > q99))
+    # logger.info(f"* Dropping {ndrop*100:.2f}% training outliers")
+    # train = train.loc[(train[target] > q1) & (train[target] < q99)]
+    # ndrop_test = np.mean((test[target] < q1) | (test[target] > q99))
+    # logger.info(f"* Dropping {ndrop_test*100:.2f}% test outliers")
+    # test = test.loc[(test[target] > q1) & (test[target] < q99)]
 
     # # Standardization
     # to_standardize = [
@@ -177,12 +197,13 @@ def get_fold_df(
     # test.loc[:, [target]] = y_scaler.transform(test[[target]])
 
     # clean up
-    train_ids = train["site_id"]
-    test_ids = test["site_id"].copy()
-    train.drop(columns="site_id", inplace=True)
-    test.drop(columns="site_id", inplace=True)
+    env_col = "year" if setting in ["insite", "insite-random"] else "site_id"
+    train_ids = train[env_col]
+    test_ids = test[env_col].copy()
+    train.drop(columns=["site_id", "year"], inplace=True)
+    test.drop(columns=["site_id", "year"], inplace=True)
 
-    xcols = train.columns != target
+    xcols = ~train.columns.isin(['GPP', 'ET'])
     ycol = train.columns == target
 
     # split into x,y
