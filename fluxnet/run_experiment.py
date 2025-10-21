@@ -112,14 +112,8 @@ def get_default_params(model_name, n_jobs=20):
         # }
         params = {
             "objective": "reg:squarederror",
-            # "n_estimators": 100,
-            # "max_depth": 5,
-            # "learning_rate": 0.1,
-            # "subsample": 1.0,
-            # "colsample_bytree": 1.0,
             "random_state": SEED,
             "n_jobs": n_jobs,
-            # "verbosity": 0,
         }
     elif model_name == "ridge":
         params = {"alpha": 0.1}

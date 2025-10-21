@@ -9,6 +9,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument(
     "--target",
     type=str,
+    default="GPP",
     help="Target variable to predict (e.g., GPP, ET)",
 )
 argparser.add_argument(
@@ -48,15 +49,17 @@ for x in ["rf", "gam"]:
 
 # Run all experiments
 for model, method, risk in args:
+    # Construct filename to check for existing results
     filename = f"{agg}_insite_{target}_{model}_{method}_{risk}.csv"
+    if exp_name is not None:
+        filename = f"{exp_name}/" + filename
     if not override:
         if os.path.exists(
-            os.path.join("results", exp_name if exp_name else "", filename)
+            os.path.join("results", filename)
         ):
             print(f"Skipping existing result: {filename}")
             continue
-    if exp_name is not None:
-        filename = f"{exp_name}/" + filename
+    # Build command to run experiment
     cmd = [
         "python", "run_experiment.py",
         "--setting", "insite",

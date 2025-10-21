@@ -130,9 +130,10 @@ def get_fold_df(
         # split it chronologically
         site_years = df_out["year"].value_counts().sort_index()
         site_years = site_years.index[site_years >= min_samples]
-        if len(site_years) < 8:
+        n_years = len(site_years)
+        if n_years < 8:
             logger.warning(
-                f"* SKIPPING {group}: only {len(site_years)} years with >= {min_samples} samples"
+                f"* SKIPPING {group}: only {n_years} years with >= {min_samples} samples"
             )
             return None, None, None, None, None, None
         unique_years = np.sort(site_years)
