@@ -76,6 +76,7 @@ def get_default_params(model_name, n_jobs=20):
             "n_estimators": 100,
             "seed": SEED,
             "n_jobs": n_jobs,
+            "min_samples_leaf": 30,
         }
         # params = {
         #     "forest_type": "Regression",
@@ -355,6 +356,7 @@ if __name__ == "__main__":
     n_jobs = args.n_jobs
     target = args.target
     exp_name = args.exp_name
+    cv = False
 
     # TODO: implement cv with MaxRM-AM
     if model_name == "gam" and method == "maxrm" and cv:
@@ -389,7 +391,7 @@ if __name__ == "__main__":
             df, setting, fold_size=fold_size, seed=seed
         )
     else:
-        groups = generate_fold_info(df, setting, seed=seed)[:5]
+        groups = generate_fold_info(df, setting, seed=seed)
     results = []
 
     # Run experiment
@@ -486,6 +488,7 @@ if __name__ == "__main__":
                 n_jobs=n_jobs,
             )
             if not success:
+                logging.error(f"SKIPPING {group}: Error in modify_predictions_trees")
                 continue
 
         # Evaluate model
