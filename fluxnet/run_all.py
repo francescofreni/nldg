@@ -29,14 +29,21 @@ argparser.add_argument(
     action="store_true",
     help="Override existing results",
 )
+argparser.add_argument(
+    "--n_jobs",
+    type=int,
+    default=20,
+    help="Number of parallel jobs (default: 20)",
+)
 args = argparser.parse_args()
 target = args.target
 agg = args.agg
 exp_name = args.exp_name
 override = args.override
+n_jobs = args.n_jobs
 
 # Define models and methods
-models = ["lr", "xgb", "rf"] # "gam", 
+models = ["lr", "xgb", "rf", "gam"]
 risks = ["erm", "mse"]
 
 # First set of args
@@ -67,7 +74,8 @@ for model, method, risk in args:
         "--target", target,
         "--model_name", model,
         "--method", method,
-        "--risk", risk
+        "--risk", risk,
+        "--n_jobs", str(n_jobs),
     ]
     if exp_name is not None:
         cmd += ["--exp_name", exp_name]
