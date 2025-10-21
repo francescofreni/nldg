@@ -107,7 +107,7 @@ def count_no_worse_than_rf(
     table = table.reindex(columns=cols)
     table = table.dropna(subset=[ref])
 
-    tol = 1e-20
+    tol = 0.0
     if better == "lower":
         comp = lambda a, b: (a - b) <= tol
     else:  # "upper"
@@ -129,6 +129,113 @@ def count_no_worse_than_rf(
 
     return totals, results
 
+
+def plot_method1_vs_method2(
+    df,
+    metric,
+    target,
+    method1="rf",
+    method2="maxRF_mse",
+    exp_name=None
+):
+    dir_path = "results" 
+    if exp_name is not None:
+        dir_path = os.path.join(dir_path, exp_name)
+    dir_path = os.path.join(dir_path, "plots")
+    try:
+        os.makedirs(dir_path, exist_ok=True)
+        print("Created directory:", os.path.abspath(dir_path))
+    except Exception as e:
+        print("Failed to create directory:", dir_path)
+        print("Error:", e)
+    suffix = f"_{method1}_vs_{method2}_{metric}_{target}.png"
+
+    title = f"{method1} vs {method2} on {target}:\n"
+    if metric == "max_rmse_test":
+        title += "Worst-case test RMSE per site"
+    elif metric == "avg_rmse_test":
+        title += "Average test RMSE per site"
+    else:
+        title += f"{metric}"
+
+    filename = os.path.join(dir_path, "boxplot"+suffix)    
+    table = df[(df["metric"] == metric) & df["model"].isin([method1, method2])].copy()
+    plt.figure()
+    sns.boxplot(x="model", y="value", data=table)
+    plt.ylabel(metric)
+    plt.title(title)
+    plt.savefig(filename)
+    plt.close()
+
+    # similar plot, but line plots connecting the two methods per group
+    filename = os.path.join(dir_path, "lineplot"+suffix)
+    plt.figure()
+    for group in table["group"].unique():
+        group_data = table[table["group"] == group]
+        plt.plot(
+            group_data["model"],
+            group_data["value"],
+            marker="o",
+            color="tab:blue",
+            alpha=0.5,
+        )
+    plt.ylabel(metric)
+    plt.title(title)
+    plt.savefig(filename)
+    plt.close()
+
+
+def plot_differences(
+    df,
+    metric,
+    target,
+    method1="rf",
+    ref=["maxRF_mse", "maxRF_reward", "maxRF_regret"],
+    exp_name=None
+):
+    table = df[(df["metric"] == metric) & df["model"].isin([method1] + ref)].copy()
+    plot_table = table.pivot(index="group", columns="model", values="value")
+    for r in ref:
+        plot_table[r] -= plot_table[method1]
+    plot_df = plot_table[ref].melt(
+        var_name="method", value_name="difference"
+    )
+    dir_path = "results" 
+    if exp_name is not None:
+        dir_path = os.path.join(dir_path, exp_name)
+    dir_path = os.path.join(dir_path, "plots")
+    try:
+        os.makedirs(dir_path, exist_ok=True)
+        print("Created directory:", os.path.abspath(dir_path))
+    except Exception as e:
+        print("Failed to create directory:", dir_path)
+        print("Error:", e)
+    suffix = f"diff_plot_{method1}_vs_{metric}_{target}.png"
+
+    title = f"{method1} vs other methods on {target}:\n"
+    if metric == "max_rmse_test":
+        title += "Worst-case test RMSE per site"
+    elif metric == "avg_rmse_test":
+        title += "Average test RMSE per site"
+    else:
+        title += f"{metric}"
+    filename = os.path.join(dir_path, suffix)    
+    plt.figure()
+    sns.boxplot(
+        x="method", y="difference", data=plot_df,
+        boxprops=dict(facecolor="#64B5F6"),
+        medianprops=dict(color="#1561D2", linewidth=2),
+        showfliers=False
+    )
+    plt.ylabel(f"Difference in {metric}\n(positive means {method1} better)")
+    plt.xlabel("Method")
+    plt.axhline(0, color="black", linestyle="--")
+    plt.title(title)
+    plt.savefig(filename)
+    plt.close()
+
+
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -227,7 +334,7 @@ if __name__ == "__main__":
         better = "lower"
     else:
         better = "upper"
-    # print(latex_table_best_per_group(plot_df, metric=metric, better=better))
+    print(latex_table_best_per_group(plot_df, metric=metric, better=better))
 
     for ref in ["rf", "lr", "xgb", "gam"]: #, "maxGAM_mse", "maxGAM_reward", "maxGAM_regret"]:
         totals, res = count_no_worse_than_rf(plot_df, metric, better, ref=ref)
@@ -272,6 +379,27 @@ if __name__ == "__main__":
         "\\begin{itemize}\n" + "\n".join(summary_lines) + "\n\\end{itemize}"
     )
     print(latex_summary)
+
+    # for method2 in ["maxRF_mse", "maxRF_reward", "maxRF_regret"]:
+    #     plot_method1_vs_method2(
+    #         plot_df,
+    #         metric,
+    #         target,
+    #         method1="rf",
+    #         method2=method2,
+    #         exp_name=exp_name,
+    #     )
+
+    plot_differences(
+        plot_df,
+        metric,
+        target,
+        method1="rf",
+        ref=["lr", "maxRF_mse", "maxRF_reward", "maxRF_regret"],
+        exp_name=exp_name,
+    )
+
+    
 
     # # Plot the results
     # sns.boxplot(x="model", y="rmse", data=all_results)
