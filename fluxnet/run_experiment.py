@@ -271,7 +271,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--agg",
         type=str,
-        choices=["daily-50-2017", "daily-US-2021", "daily"],
+        choices=["daily-50-2017", "daily-US-2021", "daily", "raw"],
         default="daily-50-2017",
         help="Data aggregation level",
     )
@@ -355,6 +355,7 @@ if __name__ == "__main__":
     n_jobs = args.n_jobs
     target = args.target
     exp_name = args.exp_name
+    cv=False
 
     # TODO: implement cv with MaxRM-AM
     if model_name == "gam" and method == "maxrm" and cv:
@@ -389,7 +390,7 @@ if __name__ == "__main__":
             df, setting, fold_size=fold_size, seed=seed
         )
     else:
-        groups = generate_fold_info(df, setting, seed=seed)[:5]
+        groups = generate_fold_info(df, setting, seed=seed)[:3]
     results = []
 
     # Run experiment
