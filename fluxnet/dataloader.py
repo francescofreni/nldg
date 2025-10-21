@@ -200,10 +200,10 @@ def get_fold_df(
     env_col = "year" if setting in ["insite", "insite-random"] else "site_id"
     train_ids = train[env_col]
     test_ids = test[env_col].copy()
-    train.drop(columns=["site_id", "year"], inplace=True)
-    test.drop(columns=["site_id", "year"], inplace=True)
+    train = train.drop(columns=["site_id", "year"]).astype(np.float64)
+    test = test.drop(columns=["site_id", "year"]).astype(np.float64) 
 
-    xcols = ~train.columns.isin(['GPP', 'ET'])
+    xcols = ~train.columns.isin(['GPP', 'NEE'])
     ycol = train.columns == target
 
     # split into x,y
