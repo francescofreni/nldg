@@ -103,16 +103,15 @@ def count_no_worse_than_rf(
 ):
     metric_df = df[df["metric"] == metric].copy()
     table = metric_df.pivot(index="group", columns="model", values="value")
-
     cols = [ref] + [m for m in methods if m in table.columns]
     table = table.reindex(columns=cols)
-
     table = table.dropna(subset=[ref])
 
+    tol = 1e-20
     if better == "lower":
-        comp = lambda a, b: a <= b
+        comp = lambda a, b: (a - b) <= tol
     else:  # "upper"
-        comp = lambda a, b: a >= b
+        comp = lambda a, b: (a - b) >= -tol
 
     totals = table.shape[0]
     results = {}
@@ -228,7 +227,7 @@ if __name__ == "__main__":
         better = "lower"
     else:
         better = "upper"
-    print(latex_table_best_per_group(plot_df, metric=metric, better=better))
+    # print(latex_table_best_per_group(plot_df, metric=metric, better=better))
 
     for ref in ["rf", "lr", "xgb", "gam"]: #, "maxGAM_mse", "maxGAM_reward", "maxGAM_regret"]:
         totals, res = count_no_worse_than_rf(plot_df, metric, better, ref=ref)
@@ -245,6 +244,17 @@ if __name__ == "__main__":
                                          methods=("maxGAM_mse", "maxGAM_reward", "maxGAM_regret"))   
     summary_lines = [
         f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}\\%$) no worse than lr"
+        for m, v in res.items()
+    ]
+    latex_summary = (
+        "\\begin{itemize}\n" + "\n".join(summary_lines) + "\n\\end{itemize}"
+    )
+    print(latex_summary)
+
+    totals, res = count_no_worse_than_rf(plot_df, metric, better, ref='gam', 
+                                         methods=("maxGAM_mse", "maxGAM_reward", "maxGAM_regret"))   
+    summary_lines = [
+        f"\\item {m}: ${v['count']}/{v['denom']}$ (${v['pct'] * 100:.1f}\\%$) no worse than gam"
         for m, v in res.items()
     ]
     latex_summary = (

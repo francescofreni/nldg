@@ -70,7 +70,7 @@ for model, method, risk in args:
         "--risk", risk
     ]
     if exp_name is not None:
-        cmd += ["--experiment_name", exp_name]
+        cmd += ["--exp_name", exp_name]
     print("Running:", " ".join(cmd))
     # run and stream output in real-time; stop all on first error
     proc = subprocess.Popen(
