@@ -17,6 +17,7 @@ from pygam import LinearGAM, s, l
 from nldg.gam import MaxRMLinearGAM
 from functools import reduce
 from operator import add
+from sklearn.metrics import mean_squared_error
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PARAMS_GRID = {
@@ -560,9 +561,12 @@ if __name__ == "__main__":
             res["group"] = group
         else:
             max_mse_test = max_mse(ytest, ypred, test_ids_int)
+            avg_mse_test = mean_squared_error(ytest, ypred)
             res = {
                 "max_mse_test": max_mse_test,
                 "max_rmse_test": np.sqrt(max_mse_test),
+                "avg_mse_test": avg_mse_test,
+                "avg_rmse_test": np.sqrt(avg_mse_test),
                 "group": group_id,
             }
             print(max_mse_test)
