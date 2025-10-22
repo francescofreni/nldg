@@ -284,7 +284,8 @@ if __name__ == "__main__":
             "logo",
             "loso",
             "l5so",
-            "insite"
+            "insite",
+           "insite-monthly",
         ],
         default="loso",
         help="Experiment setting",
@@ -385,7 +386,12 @@ if __name__ == "__main__":
     df = df.dropna(subset=[target])
 
     # Set-up groups
-    min_samples_per_env = 150 if setting == "insite" else None
+    min_samples_per_env = None
+    if setting in ["insite", "insite-random"]:
+        min_samples_per_env = 150
+    elif setting == "insite-monthly":
+        min_samples_per_env = 20
+
     if setting == "in-sites-grouped":
         groups = generate_fold_info(
             df, setting, fold_size=fold_size, seed=seed
@@ -498,12 +504,12 @@ if __name__ == "__main__":
             res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
             res["group"] = group
         else:
-            mse_all, max_mse_test = max_mse(ytest, ypred, test_ids_int, ret_ind=True)
+            max_mse_test, pool_mse_test = max_mse(ytest, ypred, test_ids_int, ret_avg=True)
             res = {
                 "max_mse_test": max_mse_test,
                 "max_rmse_test": np.sqrt(max_mse_test),
-                "avg_mse_test": np.mean(mse_all),
-                "avg_rmse_test": np.mean(np.sqrt(mse_all)),
+                "avg_mse_test": pool_mse_test,
+                "avg_rmse_test": np.sqrt(pool_mse_test),
                 "group": group_id,
             }
             print(max_mse_test)

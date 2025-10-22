@@ -395,7 +395,7 @@ if __name__ == "__main__":
         metric,
         target,
         method1="rf",
-        ref=["lr", "maxRF_mse", "maxRF_reward", "maxRF_regret"],
+        ref=["lr", "xgb", "maxRF_mse", "maxRF_reward", "maxRF_regret"],
         exp_name=exp_name,
     )
 
