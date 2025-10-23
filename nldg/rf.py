@@ -2,6 +2,7 @@ import numpy as np
 from sklearn.ensemble import RandomForestRegressor
 from adaXT.random_forest import RandomForest
 from scipy.optimize import minimize
+import cvxpy as cp
 
 
 # =======
@@ -22,17 +23,29 @@ class MaggingRF:
         min_samples_split: float | int = 2,
         min_samples_leaf: float | int = 1,
         backend: str = "adaXT",
+        risk: str = "nrw",
+        sols_erm: np.ndarray | None = None,
+        solver: str | None = None,
     ) -> None:
         """
         Initialize the class instance.
 
         Args:
             For default parameters, see documentation of `sklearn.ensemble.RandomForestRegressor`.
-            backend: Backend to use for fitting the forests.
+            backend : Backend to use for fitting the forests.
                 Possible values are {"sklearn", "adaXT"}
+            risk : Risk definition (default "nrw")
+                Possible values are {"mse", "nrw", "reg"}
+            sols_erm : Solutions with ERM (default None)
+                Must be provided if risk is "reg"
+            solver : Solver to use (default None)
         """
         if backend not in ["sklearn", "adaXT"]:
             raise ValueError("backend must be one of 'sklearn', 'adaXT'.")
+        if risk not in ["mse", "nrw", "reg"]:
+            raise ValueError("risk must be one of 'mse', 'nrw', 'reg'.")
+        if sols_erm is None and risk == "reg":
+            raise ValueError("sols_erm must be provided if risk is 'reg'.")
         self.n_estimators = n_estimators
         self.random_state = random_state
         self.max_depth = max_depth
@@ -41,6 +54,9 @@ class MaggingRF:
         self.min_samples_leaf = min_samples_leaf
         self.weights_magging = None
         self.backend = backend
+        self.risk = risk
+        self.sols_erm = sols_erm
+        self.solver = solver
         self.model_list = []
 
     def get_weights(self) -> np.ndarray | None:
@@ -65,14 +81,7 @@ class MaggingRF:
         Returns:
             wfitted: Weighted fitted values.
         """
-
-        def objective(w: np.ndarray, F: np.ndarray) -> float:
-            return np.dot(w.T, np.dot(F.T, F).dot(w))
-
         n_envs = len(np.unique(E_train))
-        winit = np.array([1 / n_envs] * n_envs)
-        constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
-        bounds = [[0, 1] for _ in range(n_envs)]
 
         fitted_envs = []
         for env in np.unique(E_train):
@@ -105,14 +114,52 @@ class MaggingRF:
             fitted_envs.append(rfm.predict(X_train))
         fitted_envs = np.column_stack(fitted_envs)
 
-        wmag = minimize(
-            objective,
-            winit,
-            args=(fitted_envs,),
-            bounds=bounds,
-            constraints=constraints,
-        ).x
-        self.weights_magging = wmag
+        if self.risk == "nrw":
+
+            def objective(w: np.ndarray, F: np.ndarray) -> float:
+                return np.dot(w.T, np.dot(F.T, F).dot(w))
+
+            winit = np.array([1 / n_envs] * n_envs)
+            constraints = {"type": "eq", "fun": lambda w: np.sum(w) - 1}
+            bounds = [[0, 1] for _ in range(n_envs)]
+            wmag = minimize(
+                objective,
+                winit,
+                args=(fitted_envs,),
+                bounds=bounds,
+                constraints=constraints,
+            ).x
+            self.weights_magging = wmag
+        else:
+            if self.risk == "mse":
+                z = cp.Variable(nonneg=True)
+            else:
+                z = cp.Variable()
+            wmag = cp.Variable(3, nonneg=True)
+            constraints = []
+            for e, env in enumerate(np.unique(E_train)):
+                mask = E_train == env
+                n_e = np.sum(mask)
+                Xtr_e = X_train[mask]
+                Ytr_e = Y_train[mask]
+                fitted_models = []
+                for k, env_k in enumerate(np.unique(E_train)):
+                    fitted_models.append(self.model_list[k].predict(Xtr_e))
+                fitted_models = np.column_stack(fitted_models)
+                left = cp.sum_squares(Ytr_e - fitted_models @ wmag)
+                if self.risk == "reg":
+                    sols_erm_e = self.sols_erm[mask]
+                    left -= cp.sum_squares(Ytr_e - sols_erm_e)
+                constraints.append(left / n_e <= z)
+            constraints.append(cp.sum(wmag) == 1)
+
+            objective = cp.Minimize(z)
+            problem = cp.Problem(objective, constraints)
+            problem.solve(solver=self.solver)
+
+            wmag = wmag.value
+            self.weights_magging = wmag
+
         wfitted = np.dot(wmag, fitted_envs.T)
 
         return wfitted
