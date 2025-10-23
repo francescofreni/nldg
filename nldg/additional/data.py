@@ -4,11 +4,17 @@ import numpy as np
 
 class DataContainer:
     def __init__(
-        self, n, N, change_X_distr=False, risk="mse", unbalanced_envs=False
+        self,
+        n,
+        N,
+        d=5,
+        change_X_distr=False,
+        risk="mse",
+        unbalanced_envs=False,
     ):
         self.n = n  # number of samples in each source domain
         self.N = N  # number of samples in the target domain
-        self.d = 5  # number of features
+        self.d = d  # number of features
         self.L = None  # number of source domains
 
         self.X_sources_list = []  # list of source covariate matrices
@@ -16,15 +22,9 @@ class DataContainer:
         self.E_sources_list = []  # list of source environment labels
 
         self.X_target = None  # target covariate matrix
-        self.X_target_list = (
-            []
-        )  # list of repeated target covariate matrix (just to make predictions)
-        self.Y_target_potential_list = (
-            []
-        )  # list of potential target outcome vectors
-        self.E_target_potential_list = (
-            []
-        )  # list of potential target environment labels
+        self.X_target_list = []  # list of repeated target covariate matrix (just to make predictions)
+        self.Y_target_potential_list = []  # list of potential target outcome vectors
+        self.E_target_potential_list = []  # list of potential target environment labels
 
         self.f_funcs = []  # list of source conditional outcome functions
         self.mu0 = None  # target covariate distribution mean, used when generating data
