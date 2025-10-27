@@ -76,6 +76,7 @@ def get_default_params(model_name, n_jobs=20):
             "n_estimators": 100,
             "seed": SEED,
             "n_jobs": n_jobs,
+            "min_samples_leaf": 30,
         }
         # params = {
         #     "forest_type": "Regression",
@@ -487,6 +488,8 @@ if __name__ == "__main__":
                 n_jobs=n_jobs,
             )
             if not success:
+                logging.error(f"SKIPPING {group}: Error in modify_predictions_trees")
+                print("!!!!!!!!!!!!!!!")
                 continue
 
         # Evaluate model
@@ -496,15 +499,22 @@ if __name__ == "__main__":
             res = evaluate_fold(ytest, ypred, verbose=True, digits=3)
             res["group"] = group
         else:
-            mse_all, max_mse_test = max_mse(ytest, ypred, test_ids_int, ret_ind=True)
+            mse_all, _ = max_mse(ytest, ypred, test_ids, ret_ind=True)
+            assert len(mse_all) == len(np.unique(test_ids))
             res = {
-                "max_mse_test": max_mse_test,
-                "max_rmse_test": np.sqrt(max_mse_test),
-                "avg_mse_test": np.mean(mse_all),
-                "avg_rmse_test": np.mean(np.sqrt(mse_all)),
-                "group": group_id,
+                'group': [group_id for _ in range(len(mse_all))],
+                'id': np.unique(test_ids),
+                'mse_test': mse_all,
             }
-            print(max_mse_test)
+            # mse_all, max_mse_test = max_mse(ytest, ypred, test_ids_int, ret_ind=True)
+            # res = {
+            #     "max_mse_test": max_mse_test,
+            #     "max_rmse_test": np.sqrt(max_mse_test),
+            #     "avg_mse_test": np.mean(mse_all),
+            #     "avg_rmse_test": np.mean(np.sqrt(mse_all)),
+            #     "group": group_id,
+            # }
+
         if model_name in ["rf", "gam"]:
             yfitted = model.predict(xtrain)
             yfitted /= SCALE
