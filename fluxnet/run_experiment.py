@@ -284,7 +284,8 @@ if __name__ == "__main__":
             "logo",
             "loso",
             "l5so",
-            "insite"
+            "insite",
+           "insite-monthly",
         ],
         default="loso",
         help="Experiment setting",
@@ -356,7 +357,7 @@ if __name__ == "__main__":
     n_jobs = args.n_jobs
     target = args.target
     exp_name = args.exp_name
-    cv=False
+    cv = False
 
     # TODO: implement cv with MaxRM-AM
     if model_name == "gam" and method == "maxrm" and cv:
@@ -385,13 +386,18 @@ if __name__ == "__main__":
     df = df.dropna(subset=[target])
 
     # Set-up groups
-    min_samples_per_env = 150 if setting == "insite" else None
+    min_samples_per_env = None
+    if setting in ["insite", "insite-random"]:
+        min_samples_per_env = 150
+    elif setting == "insite-monthly":
+        min_samples_per_env = 20
+
     if setting == "in-sites-grouped":
         groups = generate_fold_info(
             df, setting, fold_size=fold_size, seed=seed
         )
     else:
-        groups = generate_fold_info(df, setting, seed=seed)[:3]
+        groups = generate_fold_info(df, setting, seed=seed)
     results = []
 
     # Run experiment
@@ -501,9 +507,13 @@ if __name__ == "__main__":
         else:
             mse_all, _ = max_mse(ytest, ypred, test_ids, ret_ind=True)
             assert len(mse_all) == len(np.unique(test_ids))
+            num_per_group = []
+            for env in test_ids.unique():
+                num_per_group.append((test_ids == env).sum())
             res = {
                 'group': [group_id for _ in range(len(mse_all))],
                 'id': np.unique(test_ids),
+                'id_size': num_per_group,
                 'mse_test': mse_all,
             }
             # mse_all, max_mse_test = max_mse(ytest, ypred, test_ids_int, ret_ind=True)

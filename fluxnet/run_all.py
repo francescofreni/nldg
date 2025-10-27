@@ -9,6 +9,7 @@ argparser = argparse.ArgumentParser()
 argparser.add_argument(
     "--target",
     type=str,
+    default="GPP",
     help="Target variable to predict (e.g., GPP, ET)",
 )
 argparser.add_argument(
@@ -34,39 +35,48 @@ argparser.add_argument(
     default=20,
     help="Number of parallel jobs (default: 20)",
 )
+argparser.add_argument(
+    "--setting",
+    type=str,
+    default="insite",
+    help="Experiment setting (default: insite)",
+)
 args = argparser.parse_args()
 target = args.target
 agg = args.agg
+setting = args.setting
 exp_name = args.exp_name
 override = args.override
 n_jobs = args.n_jobs
 
 # Define models and methods
-models = ["lr", "xgb", "rf", "gam"]
+models = ["lr", "xgb", "rf"] #, "gam"
 risks = ["erm", "mse"]
 
 # First set of args
 args = [(x, "erm", "mse") for x in models]
 
 # Add second set
-for x in ["rf", "gam"]:
+for x in ["rf"]: #, "gam"
     for y in ["mse", "regret", "reward"]:
         args.append((x, "maxrm", y))
 
 # Run all experiments
 for model, method, risk in args:
-    filename = f"{agg}_insite_{target}_{model}_{method}_{risk}.csv"
+    # Construct filename to check for existing results
+    filename = f"{agg}_{setting}_{target}_{model}_{method}_{risk}.csv"
+    if exp_name is not None:
+        filename = f"{exp_name}/" + filename
     if not override:
         if os.path.exists(
-            os.path.join("results", exp_name if exp_name else "", filename)
+            os.path.join("results", filename)
         ):
             print(f"Skipping existing result: {filename}")
             continue
-    if exp_name is not None:
-        filename = f"{exp_name}/" + filename
+    # Build command to run experiment
     cmd = [
         "python", "run_experiment.py",
-        "--setting", "insite",
+        "--setting", setting,
         "--agg", agg,
         "--target", target,
         "--model_name", model,

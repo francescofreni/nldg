@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 
 
 def generate_fold_info(df, setting, start=0, stop=None, fold_size=5, seed=42):
-    if setting in ["insite", "insite-random", "loso"]:
+    if setting in ["insite", "insite-random", "insite-monthly", "loso"]:
         sites = df["site_id"].dropna().unique()
         if setting in ["insite", "insite-random"]:
             # only keep sites with at least 8 years of data
@@ -84,7 +84,7 @@ def get_fold_df(
     min_samples=None,
 ):
     # Get the correct data
-    if setting == "insite" or setting == "insite-random":
+    if setting in ["insite", "insite-random", "insite-monthly"]:
         df_out = df.loc[df["site_id"] == group].copy()
     elif setting in ["logo", "loso", "l5so"]:
         df_out = df.copy()
@@ -101,7 +101,7 @@ def get_fold_df(
     df_out["month_cos"] = np.cos(2 * np.pi * df_out["month"] / 12)
     df_out["hour_sin"] = np.sin(2 * np.pi * df_out["hour"] / 24)
     df_out["hour_cos"] = np.cos(2 * np.pi * df_out["hour"] / 24)
-    df_out.drop(columns=["month", "hour"], inplace=True)
+    # df_out.drop(columns=["month", "hour"], inplace=True)
 
     # drop missing
     if any(df_out.isna().mean() == 1):
@@ -118,9 +118,9 @@ def get_fold_df(
                 f"* Dropped {nstart-nout}/{nstart} ({(nstart-nout)/nstart * 100:.2f}%) rows due to missingness"
             )
 
-    # drop columns, but keep year info for splitting
+    # drop columns
     df_out.drop(
-        columns=["time", "longitude", "latitude"], inplace=True
+        columns=["time", "longitude", "latitude", "hour"], inplace=True
     )
     if "date" in df.columns:
         df_out.drop(columns="date", inplace=True)
@@ -130,15 +130,30 @@ def get_fold_df(
         # split it chronologically
         site_years = df_out["year"].value_counts().sort_index()
         site_years = site_years.index[site_years >= min_samples]
-        if len(site_years) < 8:
+        n_years = len(site_years)
+        if n_years < 8:
             logger.warning(
-                f"* SKIPPING {group}: only {len(site_years)} years with >= {min_samples} samples"
+                f"* SKIPPING {group}: only {n_years} years with >= {min_samples} samples"
             )
             return None, None, None, None, None, None
         unique_years = np.sort(site_years)
         train_years, test_years = unique_years[:4], unique_years[4:8]
         train = df_out.loc[df_out["year"].isin(train_years)].copy()
         test = df_out.loc[df_out["year"].isin(test_years)].copy()
+    elif setting == "insite-monthly":
+        df_out["year_month"] = df_out["year"].astype(str) + "-" + df_out["month"].astype(str)
+        site_months = df_out["year_month"].value_counts().sort_index()
+        site_months = site_months.index[site_months >= min_samples]
+        n_months = len(site_months)
+        if n_months < 48:
+            logger.warning(
+                f"* SKIPPING {group}: only {n_months} year/months with >= {min_samples} samples"
+            )
+            return None, None, None, None, None, None
+        unique_months = np.sort(site_months)
+        train_months, test_months = unique_months[:24], unique_months[24:48]
+        train = df_out.loc[df_out["year_month"].isin(train_months)].copy()
+        test = df_out.loc[df_out["year_month"].isin(test_months)].copy()
     elif setting == "insite-random":
         # split it randomly
         raise NotImplementedError("insite-random not implemented yet")
@@ -197,11 +212,19 @@ def get_fold_df(
     # test.loc[:, [target]] = y_scaler.transform(test[[target]])
 
     # clean up
-    env_col = "year" if setting in ["insite", "insite-random"] else "site_id"
+    env_col = "site_id"
+    if setting in ["insite", "insite-random"]:
+        env_col = "year"
+    elif setting == "insite-monthly":
+        env_col = "year_month"
     train_ids = train[env_col]
     test_ids = test[env_col].copy()
-    train = train.drop(columns=["site_id", "year"]).astype(np.float64)
-    test = test.drop(columns=["site_id", "year"]).astype(np.float64) 
+
+    if "year_month" in train.columns:
+        train = train.drop(columns=["year_month"])
+        test = test.drop(columns=["year_month"])
+    train = train.drop(columns=["site_id", "year", "month"]).astype(np.float64)
+    test = test.drop(columns=["site_id", "year", "month"]).astype(np.float64) 
 
     xcols = ~train.columns.isin(['GPP', 'NEE'])
     ycol = train.columns == target
