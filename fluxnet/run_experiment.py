@@ -510,12 +510,13 @@ if __name__ == "__main__":
             num_per_group = []
             for env in test_ids.unique():
                 num_per_group.append((test_ids == env).sum())
-            res = {
-                'group': [group_id for _ in range(len(mse_all))],
-                'id': np.unique(test_ids),
-                'id_size': num_per_group,
+            res = pd.DataFrame({
+                'group': [group for _ in range(len(mse_all))],
+                'group_id': [group_id for _ in range(len(mse_all))],
+                'test_env': np.unique(test_ids),
+                'test_env_size': num_per_group,
                 'mse_test': mse_all,
-            }
+            })
             # mse_all, max_mse_test = max_mse(ytest, ypred, test_ids_int, ret_ind=True)
             # res = {
             #     "max_mse_test": max_mse_test,
@@ -537,7 +538,7 @@ if __name__ == "__main__":
         results.append(res)
 
     # Save results
-    results_df = pd.DataFrame(results)
+    results_df = pd.concat(results, ignore_index=True)
     results_dir = os.path.join(BASE_DIR, "results")
     os.makedirs(results_dir, exist_ok=True)
     path = os.path.join(results_dir, f"{exp_name}.csv")
