@@ -18,20 +18,20 @@ SEED = 42
 COLORS = {
     "RF": "#5790FC",
     "MaxRM-RF": "#F89C20",
-    "W-RF-1": "#964A8B",
-    "W-RF-2": "#FF61A6",
-    "W-MaxRM-RF-1": "#28A745",
-    "W-MaxRM-RF-2": "#F00000",
+    "W-RF-1": "#FF61A6",
+    "WRF": "#964A8B",
+    "W-MaxRM-RF-1": "#F00000",
+    "MaxRM-WRF": "#28A745",
 }
 
 NUM_COVARIATES = 10
-CHANGE_X_DISTR = False
+CHANGE_X_DISTR = True
 UNBALANCED_ENVS = False
 risk_label = "nrw"
 N_JOBS = 12
 
 # number of environments
-Ls = [3, 4, 5, 6, 7, 8, 9]
+Ls = [3, 4, 5, 6, 7, 8, 9, 10]
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
@@ -108,7 +108,7 @@ def plot_maxrisk_vs_nenvs(
     plt.savefig(
         os.path.join(
             OUT_DIR,
-            f"{loss_type}_comparison_weights_MaxRM.pdf",
+            f"{loss_type}_comparison_weights_MaxRM_changeXdistr{str(change_X_distr)}.pdf",
         ),
         dpi=300,
         bbox_inches="tight",
@@ -387,9 +387,11 @@ if __name__ == "__main__":
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
         results[L][f"W-RF-1({risk_label})"] = max_risks[:, 2].tolist()
-        results[L][f"W-RF-2({risk_label})"] = max_risks[:, 3].tolist()
+        results[L][f"Weighted RF({risk_label})"] = max_risks[:, 3].tolist()
         results[L][f"W-MaxRM-RF-1({risk_label})"] = max_risks[:, 4].tolist()
-        results[L][f"W-MaxRM-RF-2({risk_label})"] = max_risks[:, 5].tolist()
+        results[L][f"Weighted MaxRM-RF({risk_label})"] = max_risks[
+            :, 5
+        ].tolist()
 
         results_insample[L]["RF"] = max_risks_insample[:, 0].tolist()
         results_insample[L][f"MaxRM-RF({risk_label})"] = max_risks_insample[
@@ -398,15 +400,21 @@ if __name__ == "__main__":
         results_insample[L][f"W-RF-1({risk_label})"] = max_risks_insample[
             :, 2
         ].tolist()
-        results_insample[L][f"W-RF-2({risk_label})"] = max_risks_insample[
+        results_insample[L][f"Weighted RF({risk_label})"] = max_risks_insample[
             :, 3
         ].tolist()
         results_insample[L][f"W-MaxRM-RF-1({risk_label})"] = (
             max_risks_insample[:, 4].tolist()
         )
-        results_insample[L][f"W-MaxRM-RF-2({risk_label})"] = (
+        results_insample[L][f"Weighted MaxRM-RF({risk_label})"] = (
             max_risks_insample[:, 5].tolist()
         )
+
+    np.save(f"results_changeXdistr_{CHANGE_X_DISTR}.npy", results)
+    np.save(
+        f"results_insample_changeXdistr_{CHANGE_X_DISTR}.npy",
+        results_insample,
+    )
 
     print(np.mean(rank_of_best_trees_wrf1))
     print(np.mean(rank_of_best_trees_wrf2))
@@ -433,3 +441,24 @@ if __name__ == "__main__":
         change_X_distr=CHANGE_X_DISTR,
         unbalanced_envs=UNBALANCED_ENVS,
     )
+
+results = np.load(
+    f"results_changeXdistr_{str(CHANGE_X_DISTR)}.npy", allow_pickle=True
+).item()
+
+rename_map = {
+    "RF": "RF",
+    "MaxRM-RF(nrw)": "MaxRM-RF(nrw)",
+    "W-RF-1(nrw)": "exclude",
+    "Weighted RF(nrw)": "WRF(nrw)",
+    "W-MaxRM-RF-1(nrw)": "exclude",
+    "Weighted MaxRM-RF(nrw)": "MaxRM-WRF(nrw)",
+}
+
+# create a new dict with renamed inner keys
+results = {
+    outer_k: {
+        rename_map.get(inner_k, inner_k): v for inner_k, v in inner_v.items()
+    }
+    for outer_k, inner_v in results.items()
+}
