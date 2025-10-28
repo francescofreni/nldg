@@ -49,7 +49,7 @@ def sample_gp_function(x_grid):
 
 
 def make_dataset(f, env_id, n_obs):
-    if COVARIATE_SHIFT != "no":
+    if CHANGE_X_DISTR != "no":
         if env_id == 0:
             X = RNG.uniform(0, 2, size=(n_obs, 1))
         elif env_id == 1:
@@ -166,7 +166,7 @@ def plot_tricontour(diff_map, metric):
 
 
 def sample_X_from_env(env_id, n_obs, rng):
-    if COVARIATE_SHIFT != "no":
+    if CHANGE_X_DISTR != "no":
         if env_id == 0:
             X = rng.uniform(0, 2, size=(n_obs, 1))
         elif env_id == 1:
@@ -199,19 +199,19 @@ if __name__ == "__main__":
         description="Run sanity-check experiment for generalization guarantee."
     )
     parser.add_argument(
-        "--covariate_shift",
+        "--change_X_distr",
         type=str,
         default="no",
         choices=["no", "different", "mixture"],
         help="Different setting for covariate shift (default: 'no').",
     )
     args = parser.parse_args()
-    COVARIATE_SHIFT = args.covariate_shift
+    CHANGE_X_DISTR = args.change_X_distr
 
     # Generate training data
-    if COVARIATE_SHIFT != "no":
-        OUT_DIR = os.path.join(OUT_DIR, "covariate_shift")
-        if COVARIATE_SHIFT == "different":
+    if CHANGE_X_DISTR != "no":
+        OUT_DIR = os.path.join(OUT_DIR, "change_X_distr")
+        if CHANGE_X_DISTR == "different":
             OUT_DIR = os.path.join(OUT_DIR, "different")
             os.makedirs(OUT_DIR, exist_ok=True)
         else:
@@ -320,16 +320,16 @@ if __name__ == "__main__":
         max_regret_tr_list.append(max_regret_tr)
 
         # Test environment
-        if COVARIATE_SHIFT == "different":
+        if CHANGE_X_DISTR == "different":
             mu, sigma = 0.25, 0.5
             a, b = 0, 2
             a_trans, b_trans = (a - mu) / sigma, (b - mu) / sigma
             rv = truncnorm(a_trans, b_trans, loc=mu, scale=sigma)
             X_te = rv.rvs(size=(N_TEST, 1), random_state=SEED)
-        elif COVARIATE_SHIFT == "no":
+        elif CHANGE_X_DISTR == "no":
             X_te = RNG.uniform(-1, 1, size=(N_TEST, 1))
 
-        if COVARIATE_SHIFT != "mixture":
+        if CHANGE_X_DISTR != "mixture":
             eps_te = RNG.normal(0, SIGMA_EPS, size=N_TEST)
             preds_mse = rf_mse.predict(X_te)
             preds_negrew = rf_negrew.predict(X_te)
@@ -342,7 +342,7 @@ if __name__ == "__main__":
             q3 = 1 - q1 - q2
             q = [q1, q2, q3]
 
-            if COVARIATE_SHIFT == "mixture":
+            if CHANGE_X_DISTR == "mixture":
                 X_te = sample_X_from_mixture(q, N_TEST, RNG)
                 eps_te = RNG.normal(0, SIGMA_EPS, size=N_TEST)
                 preds_mse = rf_mse.predict(X_te)

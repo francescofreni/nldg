@@ -1,4 +1,4 @@
-<h1>MaxRM Random Forest: Minimizing the Maximum Risk Across Heterogeneous Environments</h1>
+<h1>MaxRM Random Forest</h1>
 <p>
 <img src="https://img.shields.io/badge/python-≥3.10-blue" alt="Python >= 3.10">
 <a href="https://github.com/python/mypy"><img src="https://img.shields.io/badge/mypy-checked-2b507e" alt="Checked with mypy"></a>
@@ -46,21 +46,31 @@ The code in `notebooks/demo_rf.ipynb` and `notebooks/demo_ss.ipynb` demonstrates
 ## 📁 Directory Structure
 ```plaintext
 .
-├── data                                # Processed data
+├── data                                # Processed data (for California housing)
 |
 ├── experiments 
-│   ├── bcd_test_runtime.py             # Comparison between BCD and default variants
-│   ├── ca_housing_analysis.py          # California housing experiment
-│   ├── ca_housing_data_import.py       # Script to import data
-│   ├── ca_housing_hyperparameters.py   # California housing - varying hyperparameters
+│   ├── additional
+│   |   ├── comparison_drol.py          # Comparison with DRoL (Appendix F.2)
+│   |   ├── comparison_gdro.py          # Comparison with group DRO (Section 6.1.2)
+│   |   ├── comparison_intro.py         # Produce the plot in the introduction (Figure 1)
+│   |   ├── comparison_magging.ipynb    # Comparison with magging (Appendix B)
+│   |   ├── datasets_comparison.py      # Comparison between MaxRM-RF and RF on different datasets (Appendix F.4)
+│   |   └── tree_rf_comparison.py       # Comparison between MaxRM-RF and MaxRM-RT (Appendix F.3)
+│   ├── bcd_test_runtime.py             # Comparison between BCD and default variants (Appendix F.5.2)
+│   ├── ca_housing_analysis.py          # California housing experiment (Section 6.2.1)
+│   ├── ca_housing_data_import.py       # Script to import California housing data
+│   ├── ca_housing_hyperparameters.py   # California housing - varying hyperparameters (Appendix F.6)
 │   ├── parallel_test_runtime.py        # Experiment to check the effect of parallelization
-│   ├── sim_diff_methods.py             # Comparing different variants of MaxRM Random Forest
+│   ├── sim_diff_methods.py             # Comparing different variants of MaxRM Random Forest (Section 6.1.1)
 │   ├── sim_gen_gap.py                  # Verifying generalization guarantees
 │   ├── sim_mse_degeneration.py         # MSE fails with heteroskedastic noise
-│   ├── sim_smoothsplines.py            # Comparing MaxRM Smoothing Splines with standard SS
+│   ├── sim_smoothsplines.py            # Comparing MaxRM Smoothing Splines with standard SS (Appendix F.1)
 │   └── utils.py                        # Helper functions
 |
 ├── fluxnet
+│   ├── cv
+│   |   ├── dataloader.py               # Creates train and test splits
+│   |   └── run_experiment.py           # Run the fluxnet experiment with CV (final version) (Section 6.2.2)
 │   ├── data                            # Raw data
 │   ├── data_cleaned                    # Aggregated datasets after preprocessing 
 │   ├── results                         # Experimental results
@@ -68,7 +78,8 @@ The code in `notebooks/demo_rf.ipynb` and `notebooks/demo_ss.ipynb` demonstrates
 │   ├── dataloader.py                   # Creates train and test splits
 │   ├── eval.py                         # Evaluation metrics
 │   ├── preprocessing.py                # Preprocessing raw data
-│   └── run_experiment.py               # Run the fluxnet experiment
+│   ├── run_experiment.py               # Run the fluxnet experiment
+│   └── run_experiment_distance.py      # Run the fluxnet experiment with distance to convex hull
 |
 ├── nldg           
 │   ├── nn.py                           # Neural Network class
@@ -85,6 +96,9 @@ The code in `notebooks/demo_rf.ipynb` and `notebooks/demo_ss.ipynb` demonstrates
 |
 └── results
     ├── figures                         # Saved figures
+    ├── output_additional               # Saved results additional experiment
+    |   ├── comparison_drol             # Saved results - comparison with DRoL
+    |   └── comparison_gdro             # Saved results - comparison with group DRO
     ├── output_ca_housing               # Saved results California Housing experiment
     |   └── hyperparameters             # Saved results varying hyperparameters experiment
     └── output_simulation
@@ -97,59 +111,35 @@ The code in `notebooks/demo_rf.ipynb` and `notebooks/demo_ss.ipynb` demonstrates
 
 ## 🧪 Running experiments
 
-### Simulated data
+### Section 1
+```bash
+python experiments/additional/comparison_intro.py
+```
+The results are saved in `results/figures/`.
 
-#### 1) Comparing different MaxRM Random Forest implementations
+### Section 6.1.1 + Appendix F.5.1
 ```bash
 python experiments/sim_diff_methods.py
 ```
+The results are saved in `results/output_simulation/sim_diff_methods/`.
 
-#### 2) Comparing MaxRM Smoothing Splines against standard Smoothing Splines
+### Section 6.1.2
 ```bash
-python experiments/sim_smoothsplines.py
+python experiments/additional/comparison_gdro.py --risk "reward"
 ```
+You can also set `n_jobs`. Add `--change_X_distr` if you want the test covariate distribution to be different from that of the training environments
 
-#### 3) Generalization Guarantees
-```bash
-python experiments/sim_gen_gap.py
-```
-With covariate shift:
-```bash
-python experiments/sim_gen_gap.py --covariate_shift "different"
-```
-You can also replace `"different"` with `"mixture"`.
+The results are saved in `results/output_additional/comparison_gdro/`.
 
-#### 4) Generalization Guarantee fails with MSE objective and heteroskedastic noise
-```bash
-python experiments/sim_mse_degeneration.py
-```
-
-#### 5) Runtime parallelization experiment (only if $50$+ cores are available!)
-```bash
-python experiments/parallel_test_runtime.py
-```
-
-### California Housing
-
-#### 1) Runtime BCD algorithm
-```bash
-python experiments/bcd_test_runtime.py
-```
-
-#### 2) Main experiment
+### Section 6.2.1
 ```bash
 python experiments/ca_housing_data_import.py
 python experiments/ca_housing_analysis.py
 ```
+The results are saved in `results/output_ca_housing/`.
 
-#### 3) Varying hyperparameters
-```bash
-python experiments/ca_housing_data_import.py
-python experiments/ca_housing_hyperparameters.py
-```
-
-### FLUXNET
-See https://github.com/anyafries/fluxnet_bench for more details.
+### Section 6.2.2
+See https://pad.gwdg.de/s/yuCtk9fj5 for more details.
 
 The data needs to be copied in the folder `fluxnet/data`. To obtain the cleaned raw, daily and seasonal datasets, run the following:
 ```bash
@@ -161,24 +151,93 @@ python fluxnet/create_subset_daily.py --nsites 50 --year 2017
 ```
 The resulting dataset will show up in `fluxnet/data_cleaned`.
 
-To run the experiments under the LOSO setting (only if $20$+ cores are available!):
+To run the experiments under the L5SO setting (only if $20$+ cores are available!):
 ```bash
-python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf"
-python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf" --method "maxrm" --risk "mse"
-python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf" --method "maxrm" --risk "reward"
-python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "loso" --model_name "rf" --method "maxrm" --risk "regret"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "mse"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "reward"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "rf" --method "maxrm" --risk "regret"
 ```
-To use the L-5-SO and LOGO settings, replace `"loso"` with `"l5so"` and `"logo"`, respectively. The results will be available at `fluxnet/results`. 
+To use the LOGO strategy, replace `"l5so"` with `"logo"`. 
 
-To get a LaTeX table summarizing the results, run:
+To use linear regression, run:
 ```bash
-python fluxnet/eval.py --agg "daily-50-2017" --setting "loso" --metric "mse"
+python fluxnet/run_experiment.py --agg "daily-50-2017" --setting "l5so" --model_name "lr"
 ```
-For the results with the L-5-SO and LOGO settings, replace `"loso"` with `"l5so"` and `"logo"`, respectively, and `"mse"` with `"max_mse_test"`.
+The results will be available at `fluxnet/results`. 
 
-[//]: # (## 📚 Documentation)
 
-[//]: # ()
-[//]: # (As of now, the code does not have explicit documentation, but the code is heavily commented and should be easy to understand. )
+### Appendix B
+See `experiment/additional/comparison_magging.ipynb`.
 
-[//]: # (The code is also automatically formatted using `black`, linted with `ruff`, and type-checked with `mypy`.)
+
+### Appendix F.1
+```bash
+python experiments/sim_smoothsplines.py
+```
+The results are saved in `results/output_simulation/sim_smoothsplines/`.
+
+
+### Appendix F.2
+```bash
+python experiments/additional/comparison_drol.py --risk "reward"
+```
+You can also set `n_jobs`. Add `--change_X_distr` if you want the test covariate distribution to be different from that of the training environments
+
+The results are saved in `results/output_additional/comparison_drol/`.
+
+
+### Appendix F.3
+```bash
+python experiments/additional/tree_rf_comparison.py
+```
+The results are saved in `results/output_additional/`.
+
+
+### Appendix F.4
+```bash
+python experiments/additional/datasets_comparison.py
+```
+The results are saved in `results/output_additional/`.
+
+
+### Appendix F.5.2
+```bash
+python experiments/bcd_test_runtime.py
+```
+The results are saved in `results/figures/`.
+
+
+### Appendix F.6
+```bash
+python experiments/ca_housing_data_import.py
+python experiments/ca_housing_hyperparameters.py
+```
+The results are saved in `results/output_ca_housing/hyperparameters/`.
+
+
+### Miscellanea
+
+#### Generalization Guarantees
+```bash
+python experiments/sim_gen_gap.py
+```
+With change in covariate distribution:
+```bash
+python experiments/sim_gen_gap.py --change_X_distr "different"
+```
+You can also replace `"different"` with `"mixture"`.
+
+The results are saved in `results/output_simulation/sim_gen_gap`.
+
+#### Verifying that the guarantee does not hold for the MSE with heteroskedastic noise
+```bash
+python experiments/sim_mse_degeneration.py
+```
+The results are saved in `results/output_simulation/sim_mse_degeneration`.
+
+#### Runtime parallelization experiment (only if $50$+ cores are available!)
+```bash
+python experiments/parallel_test_runtime.py
+```
+The results are saved in `results/figures/`.
