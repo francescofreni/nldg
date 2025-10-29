@@ -1,0 +1,169 @@
+"""
+DataContainer for GP-based DGP (inspired by analyses/DGP_GP.py)
+
+code structure modified from https://github.com/zywang0701/DRoL/blob/main/methods/data.py
+
+current behavior:
+- Uses an additive GP model: f(X) = sum_j beta_j * g_j(X_j),
+  where each g_j is an independent 1D GP draw on [-X_supp, X_supp].
+- Source and target X are sampled i.i.d. Uniform([-X_supp, X_supp]^d).
+- Noise epsilon ~ N(0, sigma_eps^2) is added to outputs.
+"""
+
+import numpy as np
+from typing import Callable
+from sklearn.gaussian_process.kernels import RBF, ConstantKernel
+
+
+class DataContainer:
+    def __init__(
+        self,
+        n: int,
+        N: int,
+        change_X_distr: bool = False,
+        risk: str = "mse",
+        d: int = 5,
+    ) -> None:
+        self.n = n  # number of samples per source environment
+        self.N = N  # number of samples in the target domain
+        self.d = d  # number of features
+        self.n_E = None  # number of source environments
+
+        # storage for generated data
+        self.X_sources_list = []
+        self.Y_sources_list = []
+        self.E_sources_list = []
+
+        self.X_target = None
+        self.X_target_list = []
+        self.Y_target_potential_list = []
+        self.E_target_potential_list = []
+
+        # list of source conditional outcome functions
+        self.f_funcs = []
+
+        # flags and risk
+        self.change_X_distr = change_X_distr
+        self.risk = risk
+
+        # X distribution support
+        self.X_supp = 1.0
+
+        # noise stddev and GP hyperparams
+        self.sigma_eps = 0.1
+        self.gp_length_scale = 0.5
+        self.gp_amplitude = 1.0
+        self.n_grid = 1000  # grid size for GP function sampling
+
+    # -----------------------------
+    # public API
+    # -----------------------------
+    def generate_funcs_list(self, n_E: int, seed: int | None = None) -> None:
+        np.random.seed(seed)
+        self.n_E = n_E
+        self.f_funcs = [
+            self._sample_additive_gp_function() for _ in range(n_E)
+        ]
+
+    def generate_data(self, seed: int | None = None) -> None:
+        np.random.seed(seed)
+        self._reset_lists()
+
+        # ------- Generate Source Data -------
+        for env_idx in range(self.n_E or 0):
+            X = self._sample_X_source(self.n)
+            eps = np.random.normal(0.0, self.sigma_eps, size=self.n)
+            Y = self.f_funcs[env_idx](X) + eps
+            self.E_sources_list.append(np.full(self.n, env_idx, dtype=int))
+
+            self.X_sources_list.append(X)
+            self.Y_sources_list.append(Y)
+
+        # ------- Generate Target Data -------
+        self.X_target = self._sample_X_target(self.N)
+        for env_idx in range(self.n_E or 0):
+            eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
+            Y_target = self.f_funcs[env_idx](self.X_target) + eps_t
+            self.X_target_list.append(self.X_target)
+            self.Y_target_potential_list.append(Y_target)
+            self.E_target_potential_list.append(
+                np.full(self.N, env_idx, dtype=int)
+            )
+
+    # -----------------------------
+    # internal funcs
+    # -----------------------------
+    def _reset_lists(self) -> None:
+        self.X_sources_list = []
+        self.Y_sources_list = []
+        self.E_sources_list = []
+        self.X_target_list = []
+        self.Y_target_potential_list = []
+        self.E_target_potential_list = []
+
+    def _sample_X_source(self, n: int) -> np.ndarray:
+        # Uniform on [-X_supp, X_supp]^d
+        low = -self.X_supp
+        high = self.X_supp
+        return np.random.uniform(low, high, size=(n, self.d))
+
+    def _sample_X_target(self, N: int) -> np.ndarray:
+        # For now identical to source; later, modify if change_X_distr is True
+        # e.g., if self.change_X_distr: use a different support
+        # or a different distribution entirely.
+        low = -self.X_supp
+        high = self.X_supp
+        return np.random.uniform(low, high, size=(N, self.d))
+
+    # -----------------------------
+    # GP helpers
+    # -----------------------------
+    def _rbf_kernel(self, x_grid: np.ndarray) -> np.ndarray:
+        kernel = ConstantKernel(self.gp_amplitude) * RBF(
+            length_scale=self.gp_length_scale
+        )
+        K = kernel(x_grid, x_grid)
+
+        return K
+
+    def _sample_gp_function_1d(self) -> Callable[[np.ndarray], np.ndarray]:
+        """Draw a 1D GP function on a grid and return an interpolator."""
+
+        # grid for kernel computation
+        x_grid = np.linspace(-self.X_supp, self.X_supp, self.n_grid).reshape(
+            -1, 1
+        )
+
+        K = self._rbf_kernel(x_grid)
+
+        f_vals = np.random.multivariate_normal(
+            mean=np.zeros(self.n_grid), cov=K
+        )
+
+        def g(x: np.ndarray) -> np.ndarray:
+            x = np.asarray(x).reshape(-1)
+            return np.interp(x.ravel(), x_grid.ravel(), f_vals)
+
+        return g
+
+    def _sample_additive_gp_function(
+        self,
+    ) -> Callable[[np.ndarray], np.ndarray]:
+        """f(X) = sum_j beta_j * g_j(X[:, j])
+        with independent GP components g_j.
+        """
+        g_list = [self._sample_gp_function_1d() for _ in range(self.d)]
+
+        beta = np.random.uniform(0.0, 1.0, size=(self.d,))
+
+        def f_nd(X: np.ndarray) -> np.ndarray:
+            X = np.asarray(X, dtype=float)
+            if X.ndim == 1:
+                X = X[None, :]
+            out = np.zeros(X.shape[0])
+            for j in range(self.d):
+                out += beta[j] * g_list[j](X[:, j])
+            return out
+
+        f_nd.beta = beta
+        return f_nd
