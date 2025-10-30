@@ -19,7 +19,7 @@ class DataContainer:
         self.n = n  # number of samples per source environment
         self.N = N  # number of samples in the target domain
         self.d = d  # number of features
-        self.n_E = None  # number of source environments
+        self.L = None  # number of source environments
 
         # storage for generated data
         self.X_sources_list = []
@@ -55,10 +55,10 @@ class DataContainer:
     # -----------------------------
     # public API
     # -----------------------------
-    def generate_funcs_list(self, n_E: int, seed: int | None = None) -> None:
+    def generate_funcs_list(self, L: int, seed: int | None = None) -> None:
         np.random.seed(seed)
-        self.n_E = n_E
-        base_funcs = [self._sample_additive_gp_function() for _ in range(n_E)]
+        self.L = L
+        base_funcs = [self._sample_additive_gp_function() for _ in range(L)]
 
         if self.common_core_func:
             self.f_funcs = [self._wrap_with_core(g_fn) for g_fn in base_funcs]
@@ -71,10 +71,10 @@ class DataContainer:
 
         if self.change_X_distr:
             # Initialize environment-specific X distribution parameters
-            self._init_env_x_params(self.n_E)
+            self._init_env_x_params(self.L)
 
         # ------- Generate Source Data -------
-        for env_idx in range(self.n_E or 0):
+        for env_idx in range(self.L or 0):
             X = self._sample_X_source_env(env_idx, self.n)
 
             eps = np.random.normal(0.0, self.sigma_eps, size=self.n)
@@ -87,8 +87,8 @@ class DataContainer:
         # ------- Generate Target Data (mode: convex_mixture_P or same)
 
         if self.target_mode == "same":
-            eye_weights = np.eye(self.n_E)
-            for env_idx in range(self.n_E):
+            eye_weights = np.eye(self.L)
+            for env_idx in range(self.L):
                 X_target = self._sample_X_source_env(env_idx, self.N)
 
                 eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
@@ -103,11 +103,11 @@ class DataContainer:
 
         elif self.target_mode == "convex_mixture_P":
             # For each test env, draw q, then sample (X,Y) via env draws
-            Q = np.random.dirichlet(alpha=np.ones(self.n_E), size=self.n_E)
-            for env_idx in range(self.n_E):
+            Q = np.random.dirichlet(alpha=np.ones(self.L), size=self.L)
+            for env_idx in range(self.L):
                 q = Q[env_idx]
                 # sample latent training env index per sample
-                env_choices = np.random.choice(self.n_E, size=self.N, p=q)
+                env_choices = np.random.choice(self.L, size=self.N, p=q)
                 X_list = []
                 Y_list = []
                 for e in env_choices:
@@ -155,7 +155,7 @@ class DataContainer:
             return X
         return self._sample_X_source(n)
 
-    def _init_env_x_params(self, n_E: int) -> None:
+    def _init_env_x_params(self, L: int) -> None:
         """Create per-environment Beta(alpha, beta) params for X if enabled.
 
         Alpha and beta are sampled uniformly from [1, 2] per environment and
@@ -163,7 +163,7 @@ class DataContainer:
         convex_mixture_P can resample from the same marginals later.
         """
         self.env_x_params = []
-        for _ in range(n_E):
+        for _ in range(L):
             alpha = np.random.uniform(1.0, 2.0)
             beta = np.random.uniform(1.0, 2.0)
             self.env_x_params.append({"alpha": alpha, "beta": beta})
