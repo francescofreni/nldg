@@ -28,6 +28,7 @@ CHANGE_X_DISTR = True
 UNBALANCED_ENVS = False
 risk_label = "nrw"
 N_JOBS = 20
+COMMON_CORE_FUNC = False
 
 # number of environments
 Ls = [3, 4, 5, 6, 7, 8, 9, 10]
@@ -107,7 +108,7 @@ def plot_maxrisk_vs_nenvs(
     plt.savefig(
         os.path.join(
             OUT_DIR,
-            f"{loss_type}_comparison_weights_MaxRM_changeXdistr{str(change_X_distr)}.pdf",
+            f"{loss_type}_comparison_weights_MaxRM_changeXdistr{str(change_X_distr)}_commonCoreFunc{str(COMMON_CORE_FUNC)}.pdf",
         ),
         dpi=300,
         bbox_inches="tight",
@@ -362,9 +363,12 @@ if __name__ == "__main__":
             :, 4
         ].tolist()
 
-    np.save(f"results_changeXdistr_{CHANGE_X_DISTR}.npy", results)
     np.save(
-        f"results_insample_changeXdistr_{CHANGE_X_DISTR}.npy",
+        f"results_changeXdistr_{CHANGE_X_DISTR}_commonCoreFunc_{COMMON_CORE_FUNC}.npy",
+        results,
+    )
+    np.save(
+        f"results_insample_changeXdistr_{CHANGE_X_DISTR}_commonCoreFunc_{COMMON_CORE_FUNC}.npy",
         results_insample,
     )
 
