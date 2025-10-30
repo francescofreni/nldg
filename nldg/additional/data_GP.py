@@ -14,10 +14,15 @@ target envs:
 - We create n_E test envs; for each test env e we sample weights
     q^(e) uniformly on the simplex (Dirichlet with alpha=1) and define
     f_test^(e) = sum_i q_i^(e) f_i. Target outcomes use these mixtures.
- 
+
  config:
- - target_mode: "mixture" (default) uses the convex combinations above.
-     Set to "same" to reuse the training functions for the test envs.
+ - target_mode:
+     "convex_mixture_f" (default): convex mixtures of functions f_i, only works
+        if change_X_distr == False.
+     "convex_mixture_P": mixtures at the distribution level P(X,Y):
+        sample env e ~ Categorical(q), then X ~ P_e(X),
+        then Y = f_e(X) + noise.
+     "same": reuse the training functions for the test envs.
 """
 
 import numpy as np
@@ -33,7 +38,7 @@ class DataContainer:
         change_X_distr: bool = False,
         risk: str = "mse",
         d: int = 5,
-        target_mode: str = "mixture",
+        target_mode: str = "convex_mixture_P",
     ) -> None:
         self.n = n  # number of samples per source environment
         self.N = N  # number of samples in the target domain
@@ -58,9 +63,14 @@ class DataContainer:
         self.change_X_distr = change_X_distr
         self.risk = risk
         self.target_mode = target_mode
-        if self.target_mode not in ("mixture", "same"):
+        if self.target_mode not in (
+            "convex_mixture_f",
+            "convex_mixture_P",
+            "same",
+        ):
             raise ValueError(
-                "target_mode must be 'mixture' or 'same'"
+                "target_mode must be 'convex_mixture_f',\n"
+                "'convex_mixture_P', or 'same'"
             )
 
         # X distribution support
@@ -88,7 +98,10 @@ class DataContainer:
 
         # ------- Generate Source Data -------
         for env_idx in range(self.n_E or 0):
-            X = self._sample_X_source(self.n)
+            if self.change_X_distr:
+                X = self._sample_X_source_env(env_idx, self.n)
+            else:
+                X = self._sample_X_source(self.n)
             eps = np.random.normal(0.0, self.sigma_eps, size=self.n)
             Y = self.f_funcs[env_idx](X) + eps
             self.E_sources_list.append(np.full(self.n, env_idx, dtype=int))
@@ -96,31 +109,71 @@ class DataContainer:
             self.X_sources_list.append(X)
             self.Y_sources_list.append(Y)
 
-        # ------- Generate Target Data (convex combos of training funcs)
-        self.X_target = self._sample_X_target(self.N)
-        # Precompute f_i(X_target) for all training functions
-        F_stack = np.vstack(
-            [self.f_funcs[i](self.X_target) for i in range(self.n_E)]
-        )  # shape (n_E, N)
-
-        # Sample n_E Dirichlet weight vectors (uniform on simplex)
-        if self.target_mode == "mixture":
+        # ------- Generate Target Data (mode: convex_mixture_f,
+        #           convex_mixture_P, or same)
+        if self.target_mode == "convex_mixture_f":
+            print("Generating target data with convex_mixture_f mode.")
+            # Shared X_target, mix function values
+            self.X_target = self._sample_X_target(self.N)
+            F_stack = np.vstack(
+                [self.f_funcs[i](self.X_target) for i in range(self.n_E)]
+            )  # (n_E, N)
             Q = np.random.dirichlet(alpha=np.ones(self.n_E), size=self.n_E)
+            for env_idx in range(self.n_E):
+                q = Q[env_idx]
+                y_mean = q @ F_stack
+                eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
+                Y_target = y_mean + eps_t
+
+                self.X_target_list.append(self.X_target)
+                self.Y_target_potential_list.append(Y_target)
+                self.E_target_potential_list.append(
+                    np.full(self.N, env_idx, dtype=int)
+                )
+                self.Q_target_list.append(q)
+
         elif self.target_mode == "same":
-            Q = np.eye(self.n_E)
+            print("Generating target data with same mode.")
+            # Shared X_target, reuse functions directly
+            self.X_target = self._sample_X_target(self.N)
+            eye_weights = np.eye(self.n_E)
+            for env_idx in range(self.n_E):
+                eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
+                Y_target = self.f_funcs[env_idx](self.X_target) + eps_t
 
-        for env_idx in range(self.n_E):
-            q = Q[env_idx]
-            y_mean = q @ F_stack  # (N,)
-            eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
-            Y_target = y_mean + eps_t
+                self.X_target_list.append(self.X_target)
+                self.Y_target_potential_list.append(Y_target)
+                self.E_target_potential_list.append(
+                    np.full(self.N, env_idx, dtype=int)
+                )
+                self.Q_target_list.append(eye_weights[env_idx])
 
-            self.X_target_list.append(self.X_target)
-            self.Y_target_potential_list.append(Y_target)
-            self.E_target_potential_list.append(
-                np.full(self.N, env_idx, dtype=int)
-            )
-            self.Q_target_list.append(q)
+        elif self.target_mode == "convex_mixture_P":
+            print("Generating target data with convex_mixture_P mode.")
+            # For each test env, draw q, then sample (X,Y) via env draws
+            Q = np.random.dirichlet(alpha=np.ones(self.n_E), size=self.n_E)
+            for env_idx in range(self.n_E):
+                q = Q[env_idx]
+                # sample latent training env index per sample
+                env_choices = np.random.choice(self.n_E, size=self.N, p=q)
+                X_list = []
+                Y_list = []
+                for e in env_choices:
+                    Xe = self._sample_X_source_env(int(e), 1)
+                    ye = self.f_funcs[int(e)](Xe) + np.random.normal(
+                        0.0, self.sigma_eps, size=1
+                    )
+                    X_list.append(Xe[0])
+                    Y_list.append(ye[0])
+                X_target_e = np.vstack(X_list)
+                Y_target_e = np.array(Y_list)
+
+                self.X_target_list.append(X_target_e)
+                self.Y_target_potential_list.append(Y_target_e)
+                self.E_target_potential_list.append(
+                    np.full(self.N, env_idx, dtype=int)
+                )
+                self.Q_target_list.append(q)
 
     # -----------------------------
     # internal funcs
@@ -133,6 +186,14 @@ class DataContainer:
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
         self.Q_target_list = []
+
+    def _sample_X_source_env(self, env_idx: int, n: int) -> np.ndarray:
+        """Sample X from the training environment-specific distribution.
+
+        Extension point: override or modify to allow different X distributions
+        per training environment in the future.
+        """
+        return self._sample_X_source(n)
 
     def _sample_X_source(self, n: int) -> np.ndarray:
         # Uniform on [-X_supp, X_supp]^d
