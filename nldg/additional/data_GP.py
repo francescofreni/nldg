@@ -50,7 +50,6 @@ class DataContainer:
         self.Y_sources_list = []
         self.E_sources_list = []
 
-        self.X_target = None
         self.X_target_list = []
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
@@ -64,13 +63,11 @@ class DataContainer:
         self.risk = risk
         self.target_mode = target_mode
         if self.target_mode not in (
-            "convex_mixture_f",
             "convex_mixture_P",
             "same",
         ):
             raise ValueError(
-                "target_mode must be 'convex_mixture_f',\n"
-                "'convex_mixture_P', or 'same'"
+                "target_mode must be 'convex_mixture_P' or 'same'"
             )
 
         # X distribution support
@@ -81,6 +78,9 @@ class DataContainer:
         self.gp_length_scale = 0.5
         self.gp_amplitude = 1.0
         self.n_grid = 1000  # grid size for GP function sampling
+        # per-environment X distribution params (used when change_X_distr)
+        # List of dicts with keys 'alpha', 'beta'
+        self.env_x_params = None
 
     # -----------------------------
     # public API
@@ -96,12 +96,14 @@ class DataContainer:
         np.random.seed(seed)
         self._reset_lists()
 
+        if self.change_X_distr:
+            # Initialize environment-specific X distribution parameters
+            self._init_env_x_params(self.n_E)
+
         # ------- Generate Source Data -------
         for env_idx in range(self.n_E or 0):
-            if self.change_X_distr:
-                X = self._sample_X_source_env(env_idx, self.n)
-            else:
-                X = self._sample_X_source(self.n)
+            X = self._sample_X_source_env(env_idx, self.n)
+
             eps = np.random.normal(0.0, self.sigma_eps, size=self.n)
             Y = self.f_funcs[env_idx](X) + eps
             self.E_sources_list.append(np.full(self.n, env_idx, dtype=int))
@@ -109,39 +111,17 @@ class DataContainer:
             self.X_sources_list.append(X)
             self.Y_sources_list.append(Y)
 
-        # ------- Generate Target Data (mode: convex_mixture_f,
-        #           convex_mixture_P, or same)
-        if self.target_mode == "convex_mixture_f":
-            print("Generating target data with convex_mixture_f mode.")
-            # Shared X_target, mix function values
-            self.X_target = self._sample_X_target(self.N)
-            F_stack = np.vstack(
-                [self.f_funcs[i](self.X_target) for i in range(self.n_E)]
-            )  # (n_E, N)
-            Q = np.random.dirichlet(alpha=np.ones(self.n_E), size=self.n_E)
-            for env_idx in range(self.n_E):
-                q = Q[env_idx]
-                y_mean = q @ F_stack
-                eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
-                Y_target = y_mean + eps_t
+        # ------- Generate Target Data (mode: convex_mixture_P or same)
 
-                self.X_target_list.append(self.X_target)
-                self.Y_target_potential_list.append(Y_target)
-                self.E_target_potential_list.append(
-                    np.full(self.N, env_idx, dtype=int)
-                )
-                self.Q_target_list.append(q)
-
-        elif self.target_mode == "same":
-            print("Generating target data with same mode.")
-            # Shared X_target, reuse functions directly
-            self.X_target = self._sample_X_target(self.N)
+        if self.target_mode == "same":
             eye_weights = np.eye(self.n_E)
             for env_idx in range(self.n_E):
-                eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
-                Y_target = self.f_funcs[env_idx](self.X_target) + eps_t
+                X_target = self._sample_X_source_env(env_idx, self.N)
 
-                self.X_target_list.append(self.X_target)
+                eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
+                Y_target = self.f_funcs[env_idx](X_target) + eps_t
+
+                self.X_target_list.append(X_target)
                 self.Y_target_potential_list.append(Y_target)
                 self.E_target_potential_list.append(
                     np.full(self.N, env_idx, dtype=int)
@@ -149,7 +129,6 @@ class DataContainer:
                 self.Q_target_list.append(eye_weights[env_idx])
 
         elif self.target_mode == "convex_mixture_P":
-            print("Generating target data with convex_mixture_P mode.")
             # For each test env, draw q, then sample (X,Y) via env draws
             Q = np.random.dirichlet(alpha=np.ones(self.n_E), size=self.n_E)
             for env_idx in range(self.n_E):
@@ -193,21 +172,34 @@ class DataContainer:
         Extension point: override or modify to allow different X distributions
         per training environment in the future.
         """
+        if self.change_X_distr and self.env_x_params is not None:
+            params = self.env_x_params[int(env_idx)]
+            alpha = params["alpha"]
+            beta = params["beta"]
+            # Draw per-feature Beta and map to [-X_supp, X_supp]
+            U = np.random.beta(alpha, beta, size=(n, self.d))
+            X = (2.0 * U - 1.0) * self.X_supp
+            return X
         return self._sample_X_source(n)
+
+    def _init_env_x_params(self, n_E: int) -> None:
+        """Create per-environment Beta(alpha, beta) params for X if enabled.
+
+        Alpha and beta are sampled uniformly from [1, 2] per environment and
+        applied to all features independently. Values are stored so that
+        convex_mixture_P can resample from the same marginals later.
+        """
+        self.env_x_params = []
+        for _ in range(n_E):
+            alpha = np.random.uniform(1.0, 2.0)
+            beta = np.random.uniform(1.0, 2.0)
+            self.env_x_params.append({"alpha": alpha, "beta": beta})
 
     def _sample_X_source(self, n: int) -> np.ndarray:
         # Uniform on [-X_supp, X_supp]^d
         low = -self.X_supp
         high = self.X_supp
         return np.random.uniform(low, high, size=(n, self.d))
-
-    def _sample_X_target(self, N: int) -> np.ndarray:
-        # For now identical to source; later, modify if change_X_distr is True
-        # e.g., if self.change_X_distr: use a different support
-        # or a different distribution entirely.
-        low = -self.X_supp
-        high = self.X_supp
-        return np.random.uniform(low, high, size=(N, self.d))
 
     # -----------------------------
     # GP helpers
