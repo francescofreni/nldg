@@ -6,8 +6,18 @@ code structure modified from https://github.com/zywang0701/DRoL/blob/main/method
 current behavior:
 - Uses an additive GP model: f(X) = sum_j beta_j * g_j(X_j),
   where each g_j is an independent 1D GP draw on [-X_supp, X_supp].
-- Source and target X are sampled i.i.d. Uniform([-X_supp, X_supp]^d).
+- Source X are sampled i.i.d. Uniform([-X_supp, X_supp]^d).
 - Noise epsilon ~ N(0, sigma_eps^2) is added to outputs.
+
+target envs:
+- For n_E training envs we draw functions f_i.
+- We create n_E test envs; for each test env e we sample weights
+    q^(e) uniformly on the simplex (Dirichlet with alpha=1) and define
+    f_test^(e) = sum_i q_i^(e) f_i. Target outcomes use these mixtures.
+ 
+ config:
+ - target_mode: "mixture" (default) uses the convex combinations above.
+     Set to "same" to reuse the training functions for the test envs.
 """
 
 import numpy as np
@@ -23,6 +33,7 @@ class DataContainer:
         change_X_distr: bool = False,
         risk: str = "mse",
         d: int = 5,
+        target_mode: str = "mixture",
     ) -> None:
         self.n = n  # number of samples per source environment
         self.N = N  # number of samples in the target domain
@@ -38,6 +49,7 @@ class DataContainer:
         self.X_target_list = []
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
+        self.Q_target_list = []  # convex weights per test environment
 
         # list of source conditional outcome functions
         self.f_funcs = []
@@ -45,6 +57,11 @@ class DataContainer:
         # flags and risk
         self.change_X_distr = change_X_distr
         self.risk = risk
+        self.target_mode = target_mode
+        if self.target_mode not in ("mixture", "same"):
+            raise ValueError(
+                "target_mode must be 'mixture' or 'same'"
+            )
 
         # X distribution support
         self.X_supp = 1.0
@@ -79,16 +96,31 @@ class DataContainer:
             self.X_sources_list.append(X)
             self.Y_sources_list.append(Y)
 
-        # ------- Generate Target Data -------
+        # ------- Generate Target Data (convex combos of training funcs)
         self.X_target = self._sample_X_target(self.N)
-        for env_idx in range(self.n_E or 0):
+        # Precompute f_i(X_target) for all training functions
+        F_stack = np.vstack(
+            [self.f_funcs[i](self.X_target) for i in range(self.n_E)]
+        )  # shape (n_E, N)
+
+        # Sample n_E Dirichlet weight vectors (uniform on simplex)
+        if self.target_mode == "mixture":
+            Q = np.random.dirichlet(alpha=np.ones(self.n_E), size=self.n_E)
+        elif self.target_mode == "same":
+            Q = np.eye(self.n_E)
+
+        for env_idx in range(self.n_E):
+            q = Q[env_idx]
+            y_mean = q @ F_stack  # (N,)
             eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
-            Y_target = self.f_funcs[env_idx](self.X_target) + eps_t
+            Y_target = y_mean + eps_t
+
             self.X_target_list.append(self.X_target)
             self.Y_target_potential_list.append(Y_target)
             self.E_target_potential_list.append(
                 np.full(self.N, env_idx, dtype=int)
             )
+            self.Q_target_list.append(q)
 
     # -----------------------------
     # internal funcs
@@ -100,6 +132,7 @@ class DataContainer:
         self.X_target_list = []
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
+        self.Q_target_list = []
 
     def _sample_X_source(self, n: int) -> np.ndarray:
         # Uniform on [-X_supp, X_supp]^d
