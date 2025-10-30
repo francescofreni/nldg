@@ -5,7 +5,6 @@ from adaXT.random_forest import RandomForest
 from nldg.additional.data_GP import DataContainer
 from nldg.utils import min_reward
 from tqdm import tqdm
-from experiments.additional.comparison_gdro import plot_maxrisk_vs_nenvs
 from sklearn.model_selection import train_test_split
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
@@ -18,10 +17,8 @@ SEED = 42
 COLORS = {
     "RF": "#5790FC",
     "MaxRM-RF": "#F89C20",
-    "W-RF-1": "#FF61A6",
-    "WRF": "#964A8B",
-    "W-MaxRM-RF-1": "#F00000",
-    "MaxRM-WRF": "#28A745",
+    "Weighted RF": "#964A8B",
+    "Weighted MaxRM-RF": "#28A745",
 }
 
 NUM_COVARIATES = 10
@@ -127,14 +124,10 @@ def rank_of_best_tree(randomforest, Xte, Yte, Ete, weights):
 
 
 if __name__ == "__main__":
-    num_of_zero_weights_wrf1 = []
     num_of_zero_weights_wrf2 = []
-    num_of_zero_weights_maxrmf1 = []
     num_of_zero_weights_maxrmf2 = []
 
-    rank_of_best_trees_wrf1 = []
     rank_of_best_trees_wrf2 = []
-    rank_of_best_trees_maxrmf1 = []
     rank_of_best_trees_maxrmf2 = []
 
     results = {L: {} for L in Ls}
@@ -160,8 +153,8 @@ if __name__ == "__main__":
             )
 
         data.generate_funcs_list(n_E=L, seed=SEED)
-        max_risks = np.zeros((N_SIM, 6))
-        max_risks_insample = np.zeros((N_SIM, 6))
+        max_risks = np.zeros((N_SIM, 4))
+        max_risks_insample = np.zeros((N_SIM, 4))
 
         for sim in tqdm(range(N_SIM), leave=False):
             data.generate_data(seed=sim)
@@ -196,27 +189,6 @@ if __name__ == "__main__":
             pred_rf_insample = pred_trees_rf_insample.mean(axis=1)
             # ---------------------------------------------------------------
 
-            # W-RF-1 --------------------------------------------------------
-            pred_wrf1, weights_wrf1 = rf.refine_weights(
-                X_val=Xtr,
-                Y_val=Ytr,
-                E_val=Etr,
-                X=Xte,
-                risk=risk_label,
-            )
-
-            # in-sample predictions
-            pred_wrf1_insample = pred_trees_rf_insample @ weights_wrf1.value
-
-            # number of zero weights
-            num_of_zero_weights_wrf1.append(np.sum(weights_wrf1.value == 0.0))
-
-            # rank of best tree
-            rank_of_best_trees_wrf1.append(
-                rank_of_best_tree(rf, Xte, Yte, Ete, weights_wrf1)
-            )
-            # ---------------------------------------------------------------
-
             # MaxRM-RF ------------------------------------------------------
             solvers = ["ECOS", "SCS"]
             success = False
@@ -244,32 +216,6 @@ if __name__ == "__main__":
 
             # in-sample predictions
             pred_maxrmrf_insample = rf.predict(Xtr)
-            # ---------------------------------------------------------------
-
-            # W-MaxRM-RF-1 --------------------------------------------------
-            pred_w_maxrmf_1, weights_w_maxrmf_1 = rf.refine_weights(
-                X_val=Xtr,
-                Y_val=Ytr,
-                E_val=Etr,
-                X=Xte,
-                risk=risk_label,
-            )
-
-            # in-sample predictions
-            pred_w_maxrmf_1_insample = (
-                np.column_stack([tree.predict(Xtr) for tree in rf.trees])
-                @ weights_w_maxrmf_1.value
-            )
-
-            # number of zero weights
-            num_of_zero_weights_maxrmf1.append(
-                np.sum(weights_w_maxrmf_1.value == 0.0)
-            )
-
-            # rank of best tree
-            rank_of_best_trees_maxrmf1.append(
-                rank_of_best_tree(rf, Xte, Yte, Ete, weights_w_maxrmf_1)
-            )
             # ---------------------------------------------------------------
 
             # W-RF-2 --------------------------------------------------------
@@ -359,10 +305,8 @@ if __name__ == "__main__":
             # Evaluate the maximum risk
             max_risks[sim, 0] = -min_reward(Yte, pred_rf, Ete)
             max_risks[sim, 1] = -min_reward(Yte, pred_maxrmrf, Ete)
-            max_risks[sim, 2] = -min_reward(Yte, pred_wrf1, Ete)
-            max_risks[sim, 3] = -min_reward(Yte, pred_wrf2, Ete)
-            max_risks[sim, 4] = -min_reward(Yte, pred_w_maxrmf_1, Ete)
-            max_risks[sim, 5] = -min_reward(Yte, pred_w_maxrmf_2, Ete)
+            max_risks[sim, 2] = -min_reward(Yte, pred_wrf2, Ete)
+            max_risks[sim, 3] = -min_reward(Yte, pred_w_maxrmf_2, Ete)
 
             # in-sample risks
             max_risks_insample[sim, 0] = -min_reward(
@@ -372,42 +316,28 @@ if __name__ == "__main__":
                 Ytr, pred_maxrmrf_insample, Etr
             )
             max_risks_insample[sim, 2] = -min_reward(
-                Ytr, pred_wrf1_insample, Etr
-            )
-            max_risks_insample[sim, 3] = -min_reward(
                 Ytr, pred_wrf2_insample, Etr
             )
-            max_risks_insample[sim, 4] = -min_reward(
-                Ytr, pred_w_maxrmf_1_insample, Etr
-            )
-            max_risks_insample[sim, 5] = -min_reward(
+            max_risks_insample[sim, 3] = -min_reward(
                 Ytr, pred_w_maxrmf_2_insample, Etr
             )
 
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
-        results[L][f"W-RF-1({risk_label})"] = max_risks[:, 2].tolist()
-        results[L][f"Weighted RF({risk_label})"] = max_risks[:, 3].tolist()
-        results[L][f"W-MaxRM-RF-1({risk_label})"] = max_risks[:, 4].tolist()
+        results[L][f"Weighted RF({risk_label})"] = max_risks[:, 2].tolist()
         results[L][f"Weighted MaxRM-RF({risk_label})"] = max_risks[
-            :, 5
+            :, 3
         ].tolist()
 
         results_insample[L]["RF"] = max_risks_insample[:, 0].tolist()
         results_insample[L][f"MaxRM-RF({risk_label})"] = max_risks_insample[
             :, 1
         ].tolist()
-        results_insample[L][f"W-RF-1({risk_label})"] = max_risks_insample[
+        results_insample[L][f"Weighted RF({risk_label})"] = max_risks_insample[
             :, 2
         ].tolist()
-        results_insample[L][f"Weighted RF({risk_label})"] = max_risks_insample[
-            :, 3
-        ].tolist()
-        results_insample[L][f"W-MaxRM-RF-1({risk_label})"] = (
-            max_risks_insample[:, 4].tolist()
-        )
         results_insample[L][f"Weighted MaxRM-RF({risk_label})"] = (
-            max_risks_insample[:, 5].tolist()
+            max_risks_insample[:, 3].tolist()
         )
 
     np.save(f"results_changeXdistr_{CHANGE_X_DISTR}.npy", results)
@@ -416,14 +346,10 @@ if __name__ == "__main__":
         results_insample,
     )
 
-    print(np.mean(rank_of_best_trees_wrf1))
     print(np.mean(rank_of_best_trees_wrf2))
-    print(np.mean(rank_of_best_trees_maxrmf1))
     print(np.mean(rank_of_best_trees_maxrmf2))
 
-    print(np.mean(num_of_zero_weights_wrf1))
     print(np.mean(num_of_zero_weights_wrf2))
-    print(np.mean(num_of_zero_weights_maxrmf1))
     print(np.mean(num_of_zero_weights_maxrmf2))
 
     plot_maxrisk_vs_nenvs(
