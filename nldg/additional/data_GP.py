@@ -1,29 +1,4 @@
-"""
-DataContainer for GP-based DGP (inspired by analyses/DGP_GP.py)
-
-code structure modified from https://github.com/zywang0701/DRoL/blob/main/methods/data.py
-
-current behavior:
-- Uses an additive GP model: f(X) = sum_j beta_j * g_j(X_j),
-  where each g_j is an independent 1D GP draw on [-X_supp, X_supp].
-- Source X are sampled i.i.d. Uniform([-X_supp, X_supp]^d).
-- Noise epsilon ~ N(0, sigma_eps^2) is added to outputs.
-
-target envs:
-- For n_E training envs we draw functions f_i.
-- We create n_E test envs; for each test env e we sample weights
-    q^(e) uniformly on the simplex (Dirichlet with alpha=1) and define
-    f_test^(e) = sum_i q_i^(e) f_i. Target outcomes use these mixtures.
-
- config:
- - target_mode:
-     "convex_mixture_f" (default): convex mixtures of functions f_i, only works
-        if change_X_distr == False.
-     "convex_mixture_P": mixtures at the distribution level P(X,Y):
-        sample env e ~ Categorical(q), then X ~ P_e(X),
-        then Y = f_e(X) + noise.
-     "same": reuse the training functions for the test envs.
-"""
+# code structure modified from https://github.com/zywang0701/DRoL/blob/main/methods/data.py
 
 import numpy as np
 from typing import Callable
@@ -39,6 +14,7 @@ class DataContainer:
         risk: str = "mse",
         d: int = 5,
         target_mode: str = "convex_mixture_P",
+        common_core_func: bool = False,
     ) -> None:
         self.n = n  # number of samples per source environment
         self.N = N  # number of samples in the target domain
@@ -62,13 +38,7 @@ class DataContainer:
         self.change_X_distr = change_X_distr
         self.risk = risk
         self.target_mode = target_mode
-        if self.target_mode not in (
-            "convex_mixture_P",
-            "same",
-        ):
-            raise ValueError(
-                "target_mode must be 'convex_mixture_P' or 'same'"
-            )
+        self.common_core_func = common_core_func
 
         # X distribution support
         self.X_supp = 1.0
@@ -88,9 +58,12 @@ class DataContainer:
     def generate_funcs_list(self, n_E: int, seed: int | None = None) -> None:
         np.random.seed(seed)
         self.n_E = n_E
-        self.f_funcs = [
-            self._sample_additive_gp_function() for _ in range(n_E)
-        ]
+        base_funcs = [self._sample_additive_gp_function() for _ in range(n_E)]
+
+        if self.common_core_func:
+            self.f_funcs = [self._wrap_with_core(g_fn) for g_fn in base_funcs]
+        else:
+            self.f_funcs = base_funcs
 
     def generate_data(self, seed: int | None = None) -> None:
         np.random.seed(seed)
@@ -200,6 +173,20 @@ class DataContainer:
         low = -self.X_supp
         high = self.X_supp
         return np.random.uniform(low, high, size=(n, self.d))
+
+    def _core_func(self, X: np.ndarray) -> np.ndarray:
+        X = np.asarray(X, dtype=float)
+        if X.ndim == 1:
+            X = X[None, :]
+        return 1.5 * np.sum(np.abs(X), axis=1)
+
+    def _wrap_with_core(
+        self, g_fn: Callable[[np.ndarray], np.ndarray]
+    ) -> Callable[[np.ndarray], np.ndarray]:
+        def f_wrapped(X: np.ndarray) -> np.ndarray:
+            return self._core_func(X) + g_fn(X)
+
+        return f_wrapped
 
     # -----------------------------
     # GP helpers
