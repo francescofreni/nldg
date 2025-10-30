@@ -4,13 +4,14 @@ import numpy as np
 from adaXT.random_forest import RandomForest
 from nldg.additional.data_GP import DataContainer
 from nldg.utils import min_reward
+from nldg.additional.gdro import GroupDRO
 from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 
 
-N_SIM = 10
+N_SIM = 15
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 5
 SEED = 42
@@ -19,16 +20,17 @@ COLORS = {
     "MaxRM-RF": "#F89C20",
     "Weighted RF": "#964A8B",
     "Weighted MaxRM-RF": "#28A745",
+    "GroupDRO-NN": "#D62728",
 }
 
 NUM_COVARIATES = 10
-CHANGE_X_DISTR = False
+CHANGE_X_DISTR = True
 UNBALANCED_ENVS = False
 risk_label = "nrw"
-N_JOBS = 12
+N_JOBS = 20
 
 # number of environments
-Ls = [3, 5, 7, 9]
+Ls = [3, 4, 5, 6, 7, 8, 9, 10]
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
@@ -141,6 +143,7 @@ if __name__ == "__main__":
                 d=NUM_COVARIATES,
                 change_X_distr=CHANGE_X_DISTR,
                 risk="reward",
+                target_mode="convex_mixture_P",
             )
         else:
             data = DataContainer(
@@ -152,9 +155,9 @@ if __name__ == "__main__":
                 unbalanced_envs=UNBALANCED_ENVS,
             )
 
-        data.generate_funcs_list(n_E=L, seed=SEED)
-        max_risks = np.zeros((N_SIM, 4))
-        max_risks_insample = np.zeros((N_SIM, 4))
+        data.generate_funcs_list(L=L, seed=SEED)
+        max_risks = np.zeros((N_SIM, 5))
+        max_risks_insample = np.zeros((N_SIM, 5))
 
         for sim in tqdm(range(N_SIM), leave=False):
             data.generate_data(seed=sim)
@@ -187,6 +190,17 @@ if __name__ == "__main__":
                 [tree.predict(Xtr) for tree in rf.trees]
             )
             pred_rf_insample = pred_trees_rf_insample.mean(axis=1)
+            # ---------------------------------------------------------------
+
+            # GroupDRO-NN ---------------------------------------------------
+            gdro = GroupDRO(
+                data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk="reward"
+            )
+            gdro.fit(epochs=500)
+            pred_gdro = gdro.predict(Xte)
+
+            # in-sample predictions
+            pred_gdro_insample = gdro.predict(Xtr)
             # ---------------------------------------------------------------
 
             # MaxRM-RF ------------------------------------------------------
@@ -307,6 +321,7 @@ if __name__ == "__main__":
             max_risks[sim, 1] = -min_reward(Yte, pred_maxrmrf, Ete)
             max_risks[sim, 2] = -min_reward(Yte, pred_wrf2, Ete)
             max_risks[sim, 3] = -min_reward(Yte, pred_w_maxrmf_2, Ete)
+            max_risks[sim, 4] = -min_reward(Yte, pred_gdro, Ete)
 
             # in-sample risks
             max_risks_insample[sim, 0] = -min_reward(
@@ -321,6 +336,9 @@ if __name__ == "__main__":
             max_risks_insample[sim, 3] = -min_reward(
                 Ytr, pred_w_maxrmf_2_insample, Etr
             )
+            max_risks_insample[sim, 4] = -min_reward(
+                Ytr, pred_gdro_insample, Etr
+            )
 
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
@@ -328,6 +346,7 @@ if __name__ == "__main__":
         results[L][f"Weighted MaxRM-RF({risk_label})"] = max_risks[
             :, 3
         ].tolist()
+        results[L][f"GroupDRO-NN({risk_label})"] = max_risks[:, 4].tolist()
 
         results_insample[L]["RF"] = max_risks_insample[:, 0].tolist()
         results_insample[L][f"MaxRM-RF({risk_label})"] = max_risks_insample[
@@ -339,6 +358,9 @@ if __name__ == "__main__":
         results_insample[L][f"Weighted MaxRM-RF({risk_label})"] = (
             max_risks_insample[:, 3].tolist()
         )
+        results_insample[L][f"GroupDRO-NN({risk_label})"] = max_risks_insample[
+            :, 4
+        ].tolist()
 
     np.save(f"results_changeXdistr_{CHANGE_X_DISTR}.npy", results)
     np.save(
