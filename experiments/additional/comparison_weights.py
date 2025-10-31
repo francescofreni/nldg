@@ -115,7 +115,6 @@ def plot_maxrisk_vs_nenvs(
 
 if __name__ == "__main__":
     results = {L: {} for L in Ls}
-    results_insample = {L: {} for L in Ls}
 
     for L in tqdm(Ls):
         data = DataContainer(
@@ -129,7 +128,6 @@ if __name__ == "__main__":
 
         data.generate_funcs_list(L=L, seed=SEED)
         max_risks = np.zeros((N_SIM, 5))
-        max_risks_insample = np.zeros((N_SIM, 5))
 
         for sim in tqdm(range(N_SIM), leave=False):
             data.generate_data(seed=sim)
@@ -157,11 +155,6 @@ if __name__ == "__main__":
             rf.fit(Xtr, Ytr)
             pred_rf = rf.predict(Xte)
 
-            # in-sample predictions
-            pred_trees_rf_insample = np.column_stack(
-                [tree.predict(Xtr) for tree in rf.trees]
-            )
-            pred_rf_insample = pred_trees_rf_insample.mean(axis=1)
             # ---------------------------------------------------------------
 
             # GroupDRO-NN ---------------------------------------------------
@@ -171,8 +164,6 @@ if __name__ == "__main__":
             gdro.fit(epochs=500)
             pred_gdro = gdro.predict(Xte)
 
-            # in-sample predictions
-            pred_gdro_insample = gdro.predict(Xtr)
             # ---------------------------------------------------------------
 
             # MaxRM-RF ------------------------------------------------------
@@ -200,8 +191,6 @@ if __name__ == "__main__":
                 )
             pred_maxrmrf = rf.predict(Xte)
 
-            # in-sample predictions
-            pred_maxrmrf_insample = rf.predict(Xtr)
             # ---------------------------------------------------------------
 
             # W-RF-2 --------------------------------------------------------
@@ -222,12 +211,6 @@ if __name__ == "__main__":
                 E_val=Etr_w,
                 X=Xte,
                 risk=risk_label,
-            )
-
-            # in-sample predictions
-            pred_wrf2_insample = (
-                np.column_stack([tree.predict(Xtr) for tree in rf_t.trees])
-                @ weights_wrf2.value
             )
 
             # ---------------------------------------------------------------
@@ -264,12 +247,6 @@ if __name__ == "__main__":
                 risk=risk_label,
             )
 
-            # in-sample predictions
-            pred_w_maxrmf_2_insample = (
-                np.column_stack([tree.predict(Xtr) for tree in rf_t.trees])
-                @ weights_w_maxrmf_2.value
-            )
-
             # ---------------------------------------------------------------
 
             # Evaluate the maximum risk
@@ -279,23 +256,6 @@ if __name__ == "__main__":
             max_risks[sim, 3] = -min_reward(Yte, pred_w_maxrmf_2, Ete)
             max_risks[sim, 4] = -min_reward(Yte, pred_gdro, Ete)
 
-            # in-sample risks
-            max_risks_insample[sim, 0] = -min_reward(
-                Ytr, pred_rf_insample, Etr
-            )
-            max_risks_insample[sim, 1] = -min_reward(
-                Ytr, pred_maxrmrf_insample, Etr
-            )
-            max_risks_insample[sim, 2] = -min_reward(
-                Ytr, pred_wrf2_insample, Etr
-            )
-            max_risks_insample[sim, 3] = -min_reward(
-                Ytr, pred_w_maxrmf_2_insample, Etr
-            )
-            max_risks_insample[sim, 4] = -min_reward(
-                Ytr, pred_gdro_insample, Etr
-            )
-
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
         results[L][f"Weighted RF({risk_label})"] = max_risks[:, 2].tolist()
@@ -304,39 +264,14 @@ if __name__ == "__main__":
         ].tolist()
         results[L][f"GroupDRO-NN({risk_label})"] = max_risks[:, 4].tolist()
 
-        results_insample[L]["RF"] = max_risks_insample[:, 0].tolist()
-        results_insample[L][f"MaxRM-RF({risk_label})"] = max_risks_insample[
-            :, 1
-        ].tolist()
-        results_insample[L][f"Weighted RF({risk_label})"] = max_risks_insample[
-            :, 2
-        ].tolist()
-        results_insample[L][f"Weighted MaxRM-RF({risk_label})"] = (
-            max_risks_insample[:, 3].tolist()
-        )
-        results_insample[L][f"GroupDRO-NN({risk_label})"] = max_risks_insample[
-            :, 4
-        ].tolist()
-
     np.save(
         f"results_changeXdistr_{CHANGE_X_DISTR}_commonCoreFunc_{COMMON_CORE_FUNC}.npy",
         results,
-    )
-    np.save(
-        f"results_insample_changeXdistr_{CHANGE_X_DISTR}_commonCoreFunc_{COMMON_CORE_FUNC}.npy",
-        results_insample,
     )
 
     plot_maxrisk_vs_nenvs(
         results,
         risk_label=risk_label,
         loss_type="out-of-sample",
-        change_X_distr=CHANGE_X_DISTR,
-    )
-
-    plot_maxrisk_vs_nenvs(
-        results_insample,
-        risk_label=risk_label,
-        loss_type="in-sample",
         change_X_distr=CHANGE_X_DISTR,
     )
