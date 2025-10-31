@@ -58,6 +58,7 @@ class DataContainer:
     def generate_funcs_list(self, L: int, seed: int | None = None) -> None:
         np.random.seed(seed)
         self.L = L
+        self.f_funcs = []
         base_funcs = [self._sample_additive_gp_function() for _ in range(L)]
 
         if self.common_core_func:

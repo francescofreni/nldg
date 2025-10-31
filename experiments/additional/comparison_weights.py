@@ -22,7 +22,7 @@ COLORS = {
     "GroupDRO-NN": "#D62728",
 }
 
-NUM_COVARIATES = 10
+NUM_COVARIATES = 5
 CHANGE_X_DISTR = False
 risk = "regret"  # "mse", "reward", "regret"
 risk_label = "reg"  # "mse", "nrw", "reg"
@@ -126,10 +126,11 @@ if __name__ == "__main__":
             common_core_func=COMMON_CORE_FUNC,
         )
 
-        data.generate_funcs_list(L=L, seed=SEED)
         max_risks = np.zeros((N_SIM, 3))
 
         for sim in tqdm(range(N_SIM), leave=False):
+            # resample functions for each simulation
+            data.generate_funcs_list(L=L, seed=SEED)
             data.generate_data(seed=sim)
 
             Xtr = np.vstack(data.X_sources_list)
