@@ -25,7 +25,6 @@ COLORS = {
 
 NUM_COVARIATES = 10
 CHANGE_X_DISTR = True
-UNBALANCED_ENVS = False
 risk_label = "nrw"
 N_JOBS = 20
 COMMON_CORE_FUNC = False
@@ -47,7 +46,6 @@ def plot_maxrisk_vs_nenvs(
     risk_label: str = "mse",
     loss_type: str = "out-of-sample",
     change_X_distr: bool = False,
-    unbalanced_envs: bool = False,
 ) -> None:
     methods = []
     for L in results:
@@ -115,46 +113,19 @@ def plot_maxrisk_vs_nenvs(
     )
 
 
-def rank_of_best_tree(randomforest, Xte, Yte, Ete, weights):
-    """Compute the rank of the weight of the best out-of-sample tree."""
-    pred_rf_trees = [tree.predict(Xte) for tree in randomforest.trees]
-    rewards = np.array([-min_reward(Yte, pred, Ete) for pred in pred_rf_trees])
-
-    # find rank of the weight of best out-of-sample tree
-    idx = np.argmin(rewards)
-    ranks = weights.value.argsort()[::-1].argsort() + 1
-    return ranks[idx]
-
-
 if __name__ == "__main__":
-    num_of_zero_weights_wrf2 = []
-    num_of_zero_weights_maxrmf2 = []
-
-    rank_of_best_trees_wrf2 = []
-    rank_of_best_trees_maxrmf2 = []
-
     results = {L: {} for L in Ls}
     results_insample = {L: {} for L in Ls}
 
     for L in tqdm(Ls):
-        if not UNBALANCED_ENVS:
-            data = DataContainer(
-                n=2000,
-                N=2000,
-                d=NUM_COVARIATES,
-                change_X_distr=CHANGE_X_DISTR,
-                risk="reward",
-                target_mode="convex_mixture_P",
-            )
-        else:
-            data = DataContainer(
-                n=1000,
-                N=1000,
-                d=NUM_COVARIATES,
-                change_X_distr=CHANGE_X_DISTR,
-                risk="reward",
-                unbalanced_envs=UNBALANCED_ENVS,
-            )
+        data = DataContainer(
+            n=2000,
+            N=2000,
+            d=NUM_COVARIATES,
+            change_X_distr=CHANGE_X_DISTR,
+            risk="reward",
+            target_mode="convex_mixture_P",
+        )
 
         data.generate_funcs_list(L=L, seed=SEED)
         max_risks = np.zeros((N_SIM, 5))
@@ -259,13 +230,6 @@ if __name__ == "__main__":
                 @ weights_wrf2.value
             )
 
-            # number of zero weights
-            num_of_zero_weights_wrf2.append(np.sum(weights_wrf2.value == 0.0))
-
-            # rank of best tree
-            rank_of_best_trees_wrf2.append(
-                rank_of_best_tree(rf_t, Xte, Yte, Ete, weights_wrf2)
-            )
             # ---------------------------------------------------------------
 
             # W-MaxRM-RF-2 --------------------------------------------------
@@ -306,15 +270,6 @@ if __name__ == "__main__":
                 @ weights_w_maxrmf_2.value
             )
 
-            # number of zero weights
-            num_of_zero_weights_maxrmf2.append(
-                np.sum(weights_w_maxrmf_2.value == 0.0)
-            )
-
-            # rank of best tree
-            rank_of_best_trees_maxrmf2.append(
-                rank_of_best_tree(rf_t, Xte, Yte, Ete, weights_w_maxrmf_2)
-            )
             # ---------------------------------------------------------------
 
             # Evaluate the maximum risk
@@ -372,18 +327,11 @@ if __name__ == "__main__":
         results_insample,
     )
 
-    print(np.mean(rank_of_best_trees_wrf2))
-    print(np.mean(rank_of_best_trees_maxrmf2))
-
-    print(np.mean(num_of_zero_weights_wrf2))
-    print(np.mean(num_of_zero_weights_maxrmf2))
-
     plot_maxrisk_vs_nenvs(
         results,
         risk_label=risk_label,
         loss_type="out-of-sample",
         change_X_distr=CHANGE_X_DISTR,
-        unbalanced_envs=UNBALANCED_ENVS,
     )
 
     plot_maxrisk_vs_nenvs(
@@ -391,5 +339,4 @@ if __name__ == "__main__":
         risk_label=risk_label,
         loss_type="in-sample",
         change_X_distr=CHANGE_X_DISTR,
-        unbalanced_envs=UNBALANCED_ENVS,
     )
