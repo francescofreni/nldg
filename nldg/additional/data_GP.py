@@ -66,9 +66,14 @@ class DataContainer:
         else:
             self.f_funcs = base_funcs
 
-    def generate_data(self, seed: int | None = None) -> None:
+    def generate_data(
+        self, seed: int | None = None, reuse_Q: bool = False
+    ) -> None:
         np.random.seed(seed)
         self._reset_lists()
+
+        if (not reuse_Q) and self.target_mode != "convex_mixture_P":
+            self.Q_target_list = []
 
         if self.change_X_distr:
             # Initialize environment-specific X distribution parameters
@@ -104,7 +109,13 @@ class DataContainer:
 
         elif self.target_mode == "convex_mixture_P":
             # For each test env, draw q, then sample (X,Y) via env draws
-            Q = np.random.dirichlet(alpha=np.ones(self.L), size=self.L)
+            if reuse_Q and len(self.Q_target_list) == self.L:
+                Q = np.array(self.Q_target_list)
+            else:
+                Q = np.random.dirichlet(alpha=np.ones(self.L), size=self.L)
+
+            self.Q_target_list = Q.tolist()
+
             for env_idx in range(self.L):
                 q = Q[env_idx]
                 # sample latent training env index per sample
@@ -126,7 +137,6 @@ class DataContainer:
                 self.E_target_potential_list.append(
                     np.full(self.N, env_idx, dtype=int)
                 )
-                self.Q_target_list.append(q)
 
     # -----------------------------
     # internal funcs
@@ -138,7 +148,6 @@ class DataContainer:
         self.X_target_list = []
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
-        self.Q_target_list = []
 
     def _sample_X_source_env(self, env_idx: int, n: int) -> np.ndarray:
         """Sample X from the training environment-specific distribution.

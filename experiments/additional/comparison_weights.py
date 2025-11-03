@@ -10,7 +10,7 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 
 
-N_SIM = 25
+N_SIM = 30
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 5
 SEED = 42
@@ -22,15 +22,17 @@ COLORS = {
     "GroupDRO-NN": "#D62728",
 }
 
+TARGET_MODE = "convex_mixture_P"  # "convex_mixture_P", "same"
+
 NUM_COVARIATES = 5
 CHANGE_X_DISTR = False
 risk = "regret"  # "mse", "reward", "regret"
 risk_label = "reg"  # "mse", "nrw", "reg"
-N_JOBS = 20
+N_JOBS = 12
 COMMON_CORE_FUNC = False
 
 # number of environments
-Ls = [3, 4, 5, 6, 7, 8, 9, 10]
+Ls = [3, 6, 9]
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
@@ -44,7 +46,6 @@ os.makedirs(OUT_DIR, exist_ok=True)
 def plot_maxrisk_vs_nenvs(
     results: dict[int, dict[str, float]],
     risk_label: str = "mse",
-    change_X_distr: bool = False,
 ) -> None:
     methods = []
     for L in results:
@@ -105,7 +106,7 @@ def plot_maxrisk_vs_nenvs(
     plt.savefig(
         os.path.join(
             OUT_DIR,
-            f"{risk_label}_comparison_weights_MaxRM_changeXdistr{str(change_X_distr)}_commonCoreFunc{str(COMMON_CORE_FUNC)}.pdf",
+            f"{risk_label}_changeXdistr{str(CHANGE_X_DISTR)}_targetMode{TARGET_MODE}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.pdf",
         ),
         dpi=300,
         bbox_inches="tight",
@@ -122,7 +123,7 @@ if __name__ == "__main__":
             d=NUM_COVARIATES,
             change_X_distr=CHANGE_X_DISTR,
             risk=risk,
-            target_mode="convex_mixture_P",
+            target_mode=TARGET_MODE,
             common_core_func=COMMON_CORE_FUNC,
         )
 
@@ -130,7 +131,7 @@ if __name__ == "__main__":
 
         for sim in tqdm(range(N_SIM), leave=False):
             # resample functions for each simulation
-            data.generate_funcs_list(L=L, seed=SEED)
+            data.generate_funcs_list(L=L, seed=sim)
             data.generate_data(seed=sim)
 
             Xtr = np.vstack(data.X_sources_list)
@@ -164,6 +165,27 @@ if __name__ == "__main__":
                     mask_te = Ete == env
                     pred_erm[mask_te] = rf_e.predict(Xte[mask_te])
 
+                if TARGET_MODE == "convex_mixture_P":
+                    # generate more test data with same mixing weights Q
+                    data.generate_data(seed=sim + 1000, reuse_Q=True)
+                    Xval = np.vstack(data.X_target_list)
+                    Yval = np.concatenate(data.Y_target_potential_list)
+                    Eval = np.concatenate(data.E_target_potential_list)
+
+                    # re-compute pred_erm on validation set
+                    # (same distribution as test)
+                    pred_erm = np.zeros(len(Ete))
+                    for env in np.unique(Eval):
+                        rf_e = RandomForest(
+                            "Regression",
+                            n_estimators=N_ESTIMATORS,
+                            min_samples_leaf=MIN_SAMPLES_LEAF,
+                            seed=SEED,
+                            n_jobs=N_JOBS,
+                        )
+                        rf_e.fit(Xval[Eval == env], Yval[Eval == env])
+                        pred_erm[Ete == env] = rf_e.predict(Xte[Ete == env])
+
             # RF ------------------------------------------------------------
             rf = RandomForest(
                 "Regression",
@@ -183,9 +205,6 @@ if __name__ == "__main__":
             )
             gdro.fit(epochs=500)
             pred_gdro = gdro.predict(Xte)
-
-            if risk == "regret":
-                pred_erm_gdro = gdro.predict_per_group(Xte, Ete)
 
             # ---------------------------------------------------------------
 
@@ -234,21 +253,18 @@ if __name__ == "__main__":
                 max_risks[sim, 1] = max_regret(
                     Yte, pred_maxrmrf, pred_erm, Ete
                 )
-                max_risks[sim, 2] = max_regret(
-                    Yte, pred_gdro, pred_erm_gdro, Ete
-                )
+                max_risks[sim, 2] = max_regret(Yte, pred_gdro, pred_erm, Ete)
 
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
         results[L][f"GroupDRO-NN({risk_label})"] = max_risks[:, 2].tolist()
 
     np.save(
-        f"({risk_label})_results_changeXdistr_{CHANGE_X_DISTR}_commonCoreFunc_{COMMON_CORE_FUNC}.npy",
+        f"{risk_label}_changeXdistr{str(CHANGE_X_DISTR)}_targetMode{TARGET_MODE}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
         results,
     )
 
     plot_maxrisk_vs_nenvs(
         results,
         risk_label=risk_label,
-        change_X_distr=CHANGE_X_DISTR,
     )
