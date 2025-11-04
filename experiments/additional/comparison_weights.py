@@ -25,7 +25,7 @@ COLORS = {
 TARGET_MODE = "convex_mixture_P"  # "convex_mixture_P", "same"
 
 NUM_COVARIATES = 5
-CHANGE_X_DISTR = False
+CHANGE_X_DISTR = True
 risk = "regret"  # "mse", "reward", "regret"
 risk_label = "reg"  # "mse", "nrw", "reg"
 N_JOBS = 12
@@ -219,7 +219,7 @@ if __name__ == "__main__":
                 try:
                     rf.modify_predictions_trees(
                         Etr,
-                        method="reward",
+                        method=risk,
                         **kwargs,
                         solver=solver,
                     )
@@ -230,7 +230,7 @@ if __name__ == "__main__":
             if not success:
                 rf.modify_predictions_trees(
                     Etr,
-                    method="reward",
+                    method=risk,
                     **kwargs,
                     opt_method="extragradient",
                 )
