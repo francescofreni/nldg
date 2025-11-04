@@ -167,7 +167,7 @@ if __name__ == "__main__":
 
                 if TARGET_MODE == "convex_mixture_P":
                     # generate more test data with same mixing weights Q
-                    data.generate_data(seed=sim + 1000, reuse_Q=True)
+                    data.generate_data(seed=sim + 1000, reuse_params=True)
                     Xval = np.vstack(data.X_target_list)
                     Yval = np.concatenate(data.Y_target_potential_list)
                     Eval = np.concatenate(data.E_target_potential_list)

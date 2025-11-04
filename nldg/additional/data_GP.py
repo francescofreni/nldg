@@ -50,7 +50,7 @@ class DataContainer:
         self.n_grid = 1000  # grid size for GP function sampling
         # per-environment X distribution params (used when change_X_distr)
         # List of dicts with keys 'alpha', 'beta'
-        self.env_x_params = None
+        self.env_x_params = []
 
     # -----------------------------
     # public API
@@ -67,15 +67,16 @@ class DataContainer:
             self.f_funcs = base_funcs
 
     def generate_data(
-        self, seed: int | None = None, reuse_Q: bool = False
+        self, seed: int | None = None, reuse_params: bool = False
     ) -> None:
         np.random.seed(seed)
         self._reset_lists()
 
-        if (not reuse_Q) and self.target_mode != "convex_mixture_P":
+        if not reuse_params:
             self.Q_target_list = []
+            self.env_x_params = []
 
-        if self.change_X_distr:
+        if self.change_X_distr and len(self.env_x_params) == 0:
             # Initialize environment-specific X distribution parameters
             self._init_env_x_params(self.L)
 
@@ -109,7 +110,7 @@ class DataContainer:
 
         elif self.target_mode == "convex_mixture_P":
             # For each test env, draw q, then sample (X,Y) via env draws
-            if reuse_Q and len(self.Q_target_list) == self.L:
+            if reuse_params and len(self.Q_target_list) == self.L:
                 Q = np.array(self.Q_target_list)
             else:
                 Q = np.random.dirichlet(alpha=np.ones(self.L), size=self.L)
