@@ -42,7 +42,7 @@ class DataContainer:
         self.env_x_params = []
 
         # noise stddev and GP hyperparams
-        self.sigma_eps = 0.1
+        self.sigma_eps = 0.25
         self.gp_length_scale = 0.5
         self.gp_variance = 1.0
         self.t = 1e-7  # jitter for numerical stability
