@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 
 N_SIM = 3
 N_ESTIMATORS = 100
-MIN_SAMPLES_LEAF = 5
+MIN_SAMPLES_LEAF = 30
 SEED = 42
 COLORS = {
     "RF": "#5790FC",
