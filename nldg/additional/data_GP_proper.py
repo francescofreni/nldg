@@ -25,6 +25,7 @@ class DataContainer:
         self.E_sources_list = []
         self.f_sources_list = []
 
+        self.X_target = None
         self.X_target_list = []
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
@@ -64,10 +65,17 @@ class DataContainer:
             # initialize environment-specific X distribution parameters
             self._init_env_x_params()
 
+        if not self.change_X_distr:
+            self.X_target = self.sample_X_env(env_idx=0, n=self.N)
+
         for env_idx in range(self.L):
             # sample covariates for train/test
             X_tr = self.sample_X_env(env_idx, self.n)
-            X_te = self.sample_X_env(env_idx, self.N)
+
+            if self.change_X_distr:
+                X_te = self.sample_X_env(env_idx, self.N)
+            else:
+                X_te = self.X_target
 
             # sample GP functions and outcomes for train/test
             f_tr = self._sample_gp_new(X_tr)
@@ -98,6 +106,7 @@ class DataContainer:
         self.Y_sources_list = []
         self.E_sources_list = []
         self.f_sources_list = []
+        self.X_target = None
         self.X_target_list = []
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
