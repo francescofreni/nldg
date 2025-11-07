@@ -135,7 +135,7 @@ class MaggingRF:
                 z = cp.Variable(nonneg=True)
             else:
                 z = cp.Variable()
-            wmag = cp.Variable(3, nonneg=True)
+            wmag = cp.Variable(n_envs, nonneg=True)
             constraints = []
             for e, env in enumerate(np.unique(E_train)):
                 mask = E_train == env
