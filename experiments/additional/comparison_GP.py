@@ -26,6 +26,9 @@ COLORS = {
 
 NUM_COVARIATES = 5
 CHANGE_X_DISTR = True
+BETA_LOW = 1.0
+BETA_HIGH = 2.0
+
 risk = "regret"  # "mse", "reward", "regret"
 risk_label = "reg"  # "mse", "nrw", "reg"
 N_JOBS = 5
@@ -129,6 +132,8 @@ if __name__ == "__main__":
                 d=NUM_COVARIATES,
                 change_X_distr=CHANGE_X_DISTR,
                 risk=risk,
+                beta_low=BETA_LOW,
+                beta_high=BETA_HIGH,
             )
 
             # resample functions for each simulation

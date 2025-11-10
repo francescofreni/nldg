@@ -11,6 +11,8 @@ class DataContainer:
         d: int,
         change_X_distr: bool = False,
         risk: str = "mse",
+        beta_low: float = 1.0,
+        beta_high: float = 2.0,
     ) -> None:
         self.rng = np.random.default_rng()
 
@@ -33,6 +35,9 @@ class DataContainer:
 
         # flags and risk
         self.change_X_distr = change_X_distr
+        self.beta_low = beta_low
+        self.beta_high = beta_high
+
         self.risk = risk
 
         # X distribution support
@@ -185,8 +190,8 @@ class DataContainer:
         """
         self.env_x_params = []
         for _ in range(self.L):
-            alpha = self.rng.uniform(1.0, 2.0)
-            beta = self.rng.uniform(1.0, 2.0)
+            alpha = self.rng.uniform(self.beta_low, self.beta_high)
+            beta = self.rng.uniform(self.beta_low, self.beta_high)
             self.env_x_params.append({"alpha": alpha, "beta": beta})
 
     # -----------------------------
