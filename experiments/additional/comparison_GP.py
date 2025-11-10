@@ -12,7 +12,7 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 
 
-N_SIM = 50
+N_SIM = 100
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 30
 SEED = 42
@@ -26,8 +26,8 @@ COLORS = {
 
 NUM_COVARIATES = 5
 CHANGE_X_DISTR = True
-BETA_LOW = 1.0
-BETA_HIGH = 2.0
+BETA_LOW = 0.5
+BETA_HIGH = 2.5
 
 risk = "regret"  # "mse", "reward", "regret"
 risk_label = "reg"  # "mse", "nrw", "reg"
