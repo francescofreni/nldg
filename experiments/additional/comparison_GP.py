@@ -34,7 +34,7 @@ risk_label = "reg"  # "mse", "nrw", "reg"
 N_JOBS = 5
 
 # number of environments
-Ls = [3, 5, 7, 9]
+Ls = [3, 4, 5, 6, 7, 8, 9, 10]
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
@@ -214,7 +214,7 @@ if __name__ == "__main__":
                 min_samples_leaf=MIN_SAMPLES_LEAF,
                 random_state=i,
                 backend="adaXT",
-                risk="reg",
+                risk=risk_label,
                 sols_erm=fitted_erm,
             )
             fitted_magging = rf_magging.fit(Xtr, Ytr, Etr)
