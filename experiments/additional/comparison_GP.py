@@ -146,6 +146,9 @@ if __name__ == "__main__":
             Yte = np.concatenate(data.Y_target_potential_list)
             Ete = np.concatenate(data.E_target_potential_list)
 
+            fitted_erm = None
+            fitted_erm_trees = None
+            pred_erm = None
             if risk == "regret":
                 fitted_erm = np.zeros(len(Etr))
                 fitted_erm_trees = np.zeros((N_ESTIMATORS, len(Etr)))
@@ -212,7 +215,7 @@ if __name__ == "__main__":
             rf_magging = MaggingRF(
                 n_estimators=N_ESTIMATORS,
                 min_samples_leaf=MIN_SAMPLES_LEAF,
-                random_state=i,
+                random_state=SEED,
                 backend="adaXT",
                 risk=risk_label,
                 sols_erm=fitted_erm,
