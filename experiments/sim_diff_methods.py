@@ -188,7 +188,7 @@ if __name__ == "__main__":
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
             seed=i,
-            minmax_method="adafullopt",
+            minmax_method="fullopt",
             n_jobs=N_JOBS,
         )
         rf_global.fit(Xtr, Ytr, Etr)
@@ -212,7 +212,7 @@ if __name__ == "__main__":
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
             seed=i,
-            minmax_method="fullopt",
+            minmax_method="adafullopt",
             n_jobs=N_JOBS,
         )
         rf_global_nondfs.fit(Xtr, Ytr, Etr)
@@ -332,7 +332,7 @@ if __name__ == "__main__":
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
             seed=i,
-            minmax_method="adafullopt",
+            minmax_method="fullopt",
             n_jobs=N_JOBS,
         )
         rf_global_t.fit(Xtr_t, Ytr_t, Etr_t)
