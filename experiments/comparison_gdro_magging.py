@@ -35,7 +35,7 @@ N_JOBS = 5
 Ls = [3, 4, 5, 6, 7, 8, 9, 10]
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 OUT_DIR = os.path.join(RESULTS_DIR, "output_simulation")
 os.makedirs(OUT_DIR, exist_ok=True)
