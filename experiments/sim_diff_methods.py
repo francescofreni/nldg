@@ -4,7 +4,6 @@ import time
 from sklearn.metrics import mean_squared_error
 from sklearn.model_selection import train_test_split
 from nldg.utils import *
-from nldg.rf import MaggingRF
 from adaXT.random_forest import RandomForest
 from tqdm import tqdm
 from utils import *
@@ -37,8 +36,7 @@ if __name__ == "__main__":
         f"{NAME_RF}-posthoc-ow": [],
         f"{NAME_RF}-local-ow": [],
         f"{NAME_RF}-global-ow": [],
-        # "Magging (RF-based; NRW)": [],
-        # "Magging (RF-based; MSE)": [],
+        f"{NAME_RF}-global-NonDFS-ow": [],
         "RF": [],
     }
 
@@ -64,56 +62,6 @@ if __name__ == "__main__":
         Xte = np.array(dte.drop(columns=["E", "Y"]))
         Yte = np.array(dte["Y"])
         Ete = np.array(dte["E"])
-
-        # Magging (NRW) ---------------------------------------------
-        # start = time.perf_counter()
-        # rf_magging_nrw = MaggingRF(
-        #     n_estimators=N_ESTIMATORS,
-        #     min_samples_leaf=MIN_SAMPLES_LEAF,
-        #     random_state=i,
-        #     backend="adaXT",
-        #     risk="nrw",
-        # )
-        # rf_magging_nrw.fit(Xtr, Ytr, Etr)
-        # end = time.perf_counter()
-        # runtime_dict["Magging (RF-based; NRW)"].append(end - start)
-        # preds_magging_nrw = rf_magging_nrw.predict(Xte)
-        # mse_dict["Magging (RF-based; NRW)"].append(
-        #     mean_squared_error(Yte, preds_magging_nrw)
-        # )
-        # mse_envs_magging_nrw, maxmse_magging_nrw = max_mse(
-        #     Yte, preds_magging_nrw, Ete, ret_ind=True
-        # )
-        # mse_envs_dict["Magging (RF-based; NRW)"].append(mse_envs_magging_nrw)
-        # maxmse_dict["Magging (RF-based; NRW)"].append(maxmse_magging_nrw)
-        # -----------------------------------------------------------
-
-        # Magging (MSE) ---------------------------------------------
-        # start = time.perf_counter()
-        # rf_magging_mse = MaggingRF(
-        #     n_estimators=N_ESTIMATORS,
-        #     min_samples_leaf=MIN_SAMPLES_LEAF,
-        #     random_state=i,
-        #     backend="adaXT",
-        #     risk="mse",
-        # )
-        # rf_magging_mse.fit(Xtr, Ytr, Etr)
-        # end = time.perf_counter()
-        # runtime_dict["Magging (RF-based; MSE)"].append(end - start)
-        # preds_magging_mse = rf_magging_mse.predict(Xte)
-        # mse_dict["Magging (RF-based; MSE)"].append(
-        #     mean_squared_error(Yte, preds_magging_mse)
-        # )
-        # mse_envs_magging_mse, maxmse_magging_mse = max_mse(
-        #     Yte, preds_magging_mse, Ete, ret_ind=True
-        # )
-        # mse_envs_dict["Magging (RF-based; MSE)"].append(mse_envs_magging_mse)
-        # maxmse_dict["Magging (RF-based; MSE)"].append(maxmse_magging_mse)
-        # -----------------------------------------------------------
-
-        # Group DRO --------------------------------------------------
-        # TODO
-        # -----------------------------------------------------------
 
         # Default RF ------------------------------------------------
         start = time.perf_counter()
@@ -353,6 +301,42 @@ if __name__ == "__main__":
         )
         mse_envs_dict[f"{NAME_RF}-global-ow"].append(mse_envs_global_ow)
         maxmse_dict[f"{NAME_RF}-global-ow"].append(maxmse_global_ow)
+        # -----------------------------------------------------------
+
+        # MaxRM-RF-global-NonDFS-ow ---------------------------------
+        start = time.perf_counter()
+        rf_global_nondfs_t = RandomForest(
+            "MinMaxRegression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=i,
+            minmax_method="adafullopt",
+            n_jobs=N_JOBS,
+        )
+        rf_global_nondfs_t.fit(Xtr_t, Ytr_t, Etr_t)
+        preds_global_nondfs_ow, _ = rf_global_nondfs_t.refine_weights(
+            X_val=Xtr_w,
+            Y_val=Ytr_w,
+            E_val=Etr_w,
+            X=Xte,
+        )
+        end = time.perf_counter()
+        time_global_nondfs_ow = end - start
+        runtime_dict[f"{NAME_RF}-global-NonDFS-ow"].append(
+            time_global_nondfs_ow
+        )
+        mse_dict[f"{NAME_RF}-global-NonDFS-ow"].append(
+            mean_squared_error(Yte, preds_global_nondfs_ow)
+        )
+        mse_envs_global_nondfs_ow, maxmse_global_nondfs_ow = max_mse(
+            Yte, preds_global_nondfs_ow, Ete, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_RF}-global-NonDFS-ow"].append(
+            mse_envs_global_nondfs_ow
+        )
+        maxmse_dict[f"{NAME_RF}-global-NonDFS-ow"].append(
+            maxmse_global_nondfs_ow
+        )
         # -----------------------------------------------------------
 
     # Results
