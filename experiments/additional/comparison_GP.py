@@ -5,7 +5,6 @@ from adaXT.random_forest import RandomForest
 from nldg.additional.data_GP_proper import DataContainer
 from nldg.utils import min_reward, max_mse, max_regret
 from nldg.additional.gdro import GroupDRO
-from nldg.additional.drol import DRoL
 from nldg.rf import MaggingRF
 from tqdm import tqdm
 from matplotlib.ticker import MaxNLocator
@@ -19,7 +18,6 @@ SEED = 42
 COLORS = {
     "RF": "#5790FC",
     "MaxRM-RF": "#F89C20",
-    "DRoL": "#28A745",
     "GroupDRO-NN": "#D62728",
     "MaggingRF": "#0B1C07",
 }
@@ -29,8 +27,8 @@ CHANGE_X_DISTR = True
 BETA_LOW = 0.5
 BETA_HIGH = 2.5
 
-risk = "regret"  # "mse", "reward", "regret"
-risk_label = "reg"  # "mse", "nrw", "reg"
+risk = "mse"  # "mse", "reward", "regret"
+risk_label = "mse"  # "mse", "nrw", "reg"
 N_JOBS = 5
 
 # number of environments
@@ -119,10 +117,7 @@ if __name__ == "__main__":
     results = {L: {} for L in Ls}
 
     for L in tqdm(Ls):
-        if CHANGE_X_DISTR:
-            max_risks = np.zeros((N_SIM, 4))
-        else:
-            max_risks = np.zeros((N_SIM, 5))
+        max_risks = np.zeros((N_SIM, 4))
 
         for sim in tqdm(range(N_SIM), leave=False):
             data = DataContainer(
@@ -183,32 +178,6 @@ if __name__ == "__main__":
             )
             rf.fit(Xtr, Ytr)
             pred_rf = rf.predict(Xte)
-
-            # ---------------------------------------------------------------
-
-            # DRoL ----------------------------------------------------------
-            if not CHANGE_X_DISTR:
-                params = {
-                    "forest_type": "Regression",
-                    "n_estimators": N_ESTIMATORS,
-                    "min_samples_leaf": MIN_SAMPLES_LEAF,
-                    "seed": SEED,
-                    "n_jobs": N_JOBS,
-                }
-                sigma2 = np.ones(L)  # the noise term is N(0,1)
-
-                drol = DRoL(
-                    data, params, method=risk, sigma2=sigma2, seed=SEED
-                )
-
-                try:
-                    drol.fit(density_learner="logistic")
-                    _pred_drol, weights = drol.predict(
-                        bias_correct=True, priors=None
-                    )
-                    pred_drol = np.tile(_pred_drol, L)
-                except Exception as e:
-                    pred_drol = None
             # ---------------------------------------------------------------
 
             # Magging -------------------------------------------------------
@@ -230,7 +199,6 @@ if __name__ == "__main__":
             )
             gdro.fit(epochs=500)
             pred_gdro = gdro.predict(Xte)
-
             # ---------------------------------------------------------------
 
             # MaxRM-RF ------------------------------------------------------
@@ -260,7 +228,6 @@ if __name__ == "__main__":
                     opt_method="extragradient",
                 )
             pred_maxrmrf = rf.predict(Xte)
-
             # ---------------------------------------------------------------
 
             # Evaluate the maximum risk
@@ -270,21 +237,13 @@ if __name__ == "__main__":
                 max_risks[sim, 1] = max_mse(Yte, pred_maxrmrf, Ete)
                 max_risks[sim, 2] = max_mse(Yte, pred_gdro, Ete)
                 max_risks[sim, 3] = max_mse(Yte, pred_magging, Ete)
-                if not CHANGE_X_DISTR:
-                    if pred_drol is None:
-                        max_risks[sim, 4] = np.nan
-                    else:
-                        max_risks[sim, 4] = max_mse(Yte, pred_drol, Ete)
+
             elif risk == "reward":
                 max_risks[sim, 0] = -min_reward(Yte, pred_rf, Ete)
                 max_risks[sim, 1] = -min_reward(Yte, pred_maxrmrf, Ete)
                 max_risks[sim, 2] = -min_reward(Yte, pred_gdro, Ete)
                 max_risks[sim, 3] = -min_reward(Yte, pred_magging, Ete)
-                if not CHANGE_X_DISTR:
-                    if pred_drol is None:
-                        max_risks[sim, 4] = np.nan
-                    else:
-                        max_risks[sim, 4] = -min_reward(Yte, pred_drol, Ete)
+
             else:
                 max_risks[sim, 0] = max_regret(Yte, pred_rf, pred_erm, Ete)
                 max_risks[sim, 1] = max_regret(
@@ -294,21 +253,11 @@ if __name__ == "__main__":
                 max_risks[sim, 3] = max_regret(
                     Yte, pred_magging, pred_erm, Ete
                 )
-                if not CHANGE_X_DISTR:
-                    if pred_drol is None:
-                        max_risks[sim, 4] = np.nan
-                    else:
-                        max_risks[sim, 4] = max_regret(
-                            Yte, pred_drol, pred_erm, Ete
-                        )
 
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
         results[L][f"GroupDRO-NN({risk_label})"] = max_risks[:, 2].tolist()
         results[L][f"MaggingRF({risk_label})"] = max_risks[:, 3].tolist()
-
-        if not CHANGE_X_DISTR:
-            results[L][f"DRoL({risk_label})"] = max_risks[:, 4].tolist()
 
     np.save(
         f"{risk_label}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
