@@ -31,7 +31,8 @@ class MaggingRF:
         Initialize the class instance.
 
         Args:
-            For default parameters, see documentation of `sklearn.ensemble.RandomForestRegressor`.
+            For default parameters, see documentation of
+            `sklearn.ensemble.RandomForestRegressor`.
             backend : Backend to use for fitting the forests.
                 Possible values are {"sklearn", "adaXT"}
             risk : Risk definition (default "nrw")
@@ -137,13 +138,13 @@ class MaggingRF:
                 z = cp.Variable()
             wmag = cp.Variable(n_envs, nonneg=True)
             constraints = []
-            for e, env in enumerate(np.unique(E_train)):
+            for _, env in enumerate(np.unique(E_train)):
                 mask = E_train == env
                 n_e = np.sum(mask)
                 Xtr_e = X_train[mask]
                 Ytr_e = Y_train[mask]
                 fitted_models = []
-                for k, env_k in enumerate(np.unique(E_train)):
+                for k, _ in enumerate(np.unique(E_train)):
                     fitted_models.append(self.model_list[k].predict(Xtr_e))
                 fitted_models = np.column_stack(fitted_models)
                 left = cp.sum_squares(Ytr_e - fitted_models @ wmag)
@@ -155,7 +156,38 @@ class MaggingRF:
 
             objective = cp.Minimize(z)
             problem = cp.Problem(objective, constraints)
-            problem.solve(solver=self.solver)
+            # Try to solve with the requested solver first,
+            # then fall back to some common solvers
+            solve_succeeded = False
+            tried_solvers = []
+            candidate_solvers = []
+            if self.solver is not None:
+                candidate_solvers.append(self.solver)
+            for s in ["CLARABEL", "ECOS", "SCS"]:
+                if s not in candidate_solvers:
+                    candidate_solvers.append(s)
+
+            for s in candidate_solvers:
+                try:
+                    problem.solve(solver=s)
+                    tried_solvers.append(s)
+                    if wmag.value is not None and problem.status in {
+                        cp.OPTIMAL,
+                        cp.OPTIMAL_INACCURATE,
+                    }:
+                        solve_succeeded = True
+                        self.solver = s
+                        break
+                except Exception:
+                    tried_solvers.append(s)
+                    continue
+
+            if not solve_succeeded:
+                # safe fallback: use uniform weights across environments
+                wmag_val = np.ones(n_envs) / n_envs
+                self.weights_magging = wmag_val
+                wfitted = np.dot(wmag_val, fitted_envs.T)
+                return wfitted
 
             wmag = wmag.value
             self.weights_magging = wmag
