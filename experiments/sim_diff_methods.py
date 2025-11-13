@@ -353,10 +353,11 @@ if __name__ == "__main__":
         stderr = mse_df.std(axis=0, ddof=1) / np.sqrt(n)
         ci_lower = means - 1.96 * stderr
         ci_upper = means + 1.96 * stderr
+        half_width = (ci_upper - ci_lower) / 2
         f.write("MSE\n")
         for col in mse_df.columns:
             f.write(
-                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}], CI half-width = {half_width[col]:.4f}\n"
             )
         f.write("\n")
 
@@ -366,10 +367,11 @@ if __name__ == "__main__":
         stderr = maxmse_df.std(axis=0, ddof=1) / np.sqrt(n)
         ci_lower = means - 1.96 * stderr
         ci_upper = means + 1.96 * stderr
+        half_width = (ci_upper - ci_lower) / 2
         f.write("Max MSE\n")
         for col in maxmse_df.columns:
             f.write(
-                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}], CI half-width = {half_width[col]:.4f}\n"
             )
         f.write("\n")
 
@@ -379,10 +381,11 @@ if __name__ == "__main__":
         stderr = runtime_df.std(axis=0, ddof=1) / np.sqrt(n)
         ci_lower = means - 1.96 * stderr
         ci_upper = means + 1.96 * stderr
+        half_width = (ci_upper - ci_lower) / 2
         f.write("Runtime (seconds)\n")
         for col in runtime_df.columns:
             f.write(
-                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}], CI half-width = {half_width[col]:.4f}\n"
             )
 
     # plot_max_mse_boxplot(maxmse_df, saveplot=True, out_dir=OUT_DIR)
