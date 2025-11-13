@@ -18,8 +18,8 @@ SEED = 42
 COLORS = {
     "RF": "#5790FC",
     "MaxRM-RF": "#F89C20",
-    "GroupDRO-NN": "#D62728",
-    "MaggingRF": "#0B1C07",
+    "Group DRO": "#D62728",
+    "Magging": "#204A16",
 }
 
 NUM_COVARIATES = 5
@@ -256,8 +256,8 @@ if __name__ == "__main__":
 
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
-        results[L][f"GroupDRO-NN({risk_label})"] = max_risks[:, 2].tolist()
-        results[L][f"MaggingRF({risk_label})"] = max_risks[:, 3].tolist()
+        results[L][f"Group DRO({risk_label})"] = max_risks[:, 2].tolist()
+        results[L][f"Magging({risk_label})"] = max_risks[:, 3].tolist()
 
     np.save(
         f"{risk_label}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
