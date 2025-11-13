@@ -37,9 +37,9 @@ Ls = [3, 4, 5, 6, 7, 8, 9, 10]
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-OUT_DIR = os.path.join(RESULTS_DIR, "output_additional")
+OUT_DIR = os.path.join(RESULTS_DIR, "output_simulation")
 os.makedirs(OUT_DIR, exist_ok=True)
-OUT_DIR = os.path.join(OUT_DIR, "comparison_weights_MaxRM")
+OUT_DIR = os.path.join(OUT_DIR, "comparison_gdro_magging")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
