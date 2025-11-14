@@ -260,7 +260,10 @@ if __name__ == "__main__":
         results[L][f"Magging({risk_label})"] = max_risks[:, 3].tolist()
 
     np.save(
-        f"{risk_label}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
+        os.path.join(
+            OUT_DIR,
+            f"{risk_label}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
+        ),
         results,
     )
 
