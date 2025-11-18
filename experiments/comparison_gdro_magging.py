@@ -18,8 +18,8 @@ SEED = 42
 COLORS = {
     "RF": "#5790FC",
     "MaxRM-RF": "#F89C20",
-    "Group DRO": "#D62728",
-    "Magging": "#204A16",
+    "Group DRO": "#86C8DD",
+    "Magging": "#964A8B",
 }
 
 NUM_COVARIATES = 5
@@ -91,7 +91,7 @@ def plot_maxrisk_vs_nenvs(
         )
         ax.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
 
-    ax.set_xlabel("Number of environments K")
+    ax.set_xlabel("Number of environments $K$")
     if risk_eval == "mse":
         ax.set_ylabel("Maximum MSE across environments")
     elif risk_eval == "nrw":
