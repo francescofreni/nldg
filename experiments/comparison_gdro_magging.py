@@ -27,12 +27,14 @@ CHANGE_X_DISTR = True
 BETA_LOW = 0.5
 BETA_HIGH = 2.5
 
-risk = "mse"  # "mse", "reward", "regret"
-risk_label = "mse"  # "mse", "nrw", "reg"
+risk = "regret"  # "mse", "reward", "regret"
+risk_label = "reg"  # "mse", "nrw", "reg"
+
+risk_eval = "mse"  # "mse", "reward", "regret"
 N_JOBS = 5
 
 # number of environments
-Ls = [3, 4, 5, 6, 7, 8, 9, 10]
+Ls = [2, 3, 4, 5, 6, 7, 8]
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
@@ -45,6 +47,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 def plot_maxrisk_vs_nenvs(
     results: dict[int, dict[str, float]],
+    risk_eval: str = "mse",
     risk_label: str = "mse",
 ) -> None:
     methods = []
@@ -88,13 +91,13 @@ def plot_maxrisk_vs_nenvs(
         )
         ax.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
 
-    ax.set_xlabel("Number of test environments")
-    if risk_label == "mse":
-        ax.set_ylabel("Maximum MSE across test environments")
-    elif risk_label == "nrw":
-        ax.set_ylabel("Maximum Negative Reward across test environments")
+    ax.set_xlabel("Number of environments K")
+    if risk_eval == "mse":
+        ax.set_ylabel("Maximum MSE across environments")
+    elif risk_eval == "nrw":
+        ax.set_ylabel("Maximum Negative Reward across environments")
     else:
-        ax.set_ylabel("Maximum Regret across test environments")
+        ax.set_ylabel("Maximum Regret across environments")
 
     ax.set_xticks(L_vals)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
@@ -106,7 +109,7 @@ def plot_maxrisk_vs_nenvs(
     plt.savefig(
         os.path.join(
             OUT_DIR,
-            f"{risk_label}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.pdf",
+            f"opt{risk_label}_eval{risk_eval}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.pdf",
         ),
         dpi=300,
         bbox_inches="tight",
@@ -202,7 +205,7 @@ if __name__ == "__main__":
             # ---------------------------------------------------------------
 
             # MaxRM-RF ------------------------------------------------------
-            solvers = ["ECOS", "SCS"]
+            solvers = ["ECOS", "SCS", "CLARABEL"]
             success = False
             kwargs = {"n_jobs": N_JOBS}
             if risk == "regret":
@@ -232,13 +235,13 @@ if __name__ == "__main__":
 
             # Evaluate the maximum risk
 
-            if risk == "mse":
+            if risk_eval == "mse":
                 max_risks[sim, 0] = max_mse(Yte, pred_rf, Ete)
                 max_risks[sim, 1] = max_mse(Yte, pred_maxrmrf, Ete)
                 max_risks[sim, 2] = max_mse(Yte, pred_gdro, Ete)
                 max_risks[sim, 3] = max_mse(Yte, pred_magging, Ete)
 
-            elif risk == "reward":
+            elif risk_eval == "reward":
                 max_risks[sim, 0] = -min_reward(Yte, pred_rf, Ete)
                 max_risks[sim, 1] = -min_reward(Yte, pred_maxrmrf, Ete)
                 max_risks[sim, 2] = -min_reward(Yte, pred_gdro, Ete)
@@ -262,12 +265,13 @@ if __name__ == "__main__":
     np.save(
         os.path.join(
             OUT_DIR,
-            f"{risk_label}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
+            f"opt{risk_label}_eval{risk_eval}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
         ),
         results,
     )
 
     plot_maxrisk_vs_nenvs(
         results,
+        risk_eval=risk_eval,
         risk_label=risk_label,
     )
