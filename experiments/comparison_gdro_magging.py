@@ -27,8 +27,8 @@ CHANGE_X_DISTR = True
 BETA_LOW = 0.5
 BETA_HIGH = 2.5
 
-risk = "regret"  # "mse", "reward", "regret"
-risk_label = "reg"  # "mse", "nrw", "reg"
+risk = "mse"  # "mse", "reward", "regret"
+risk_label = "mse"  # "mse", "nrw", "reg"
 
 risk_eval = "mse"  # "mse", "reward", "regret"
 N_JOBS = 5
