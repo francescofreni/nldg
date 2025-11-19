@@ -32,11 +32,11 @@ if __name__ == "__main__":
         f"{NAME_RF}-local": [],
         f"{NAME_RF}-global": [],
         f"{NAME_RF}-global-NonDFS": [],
-        f"{NAME_RF}-ow": [],
-        f"{NAME_RF}-posthoc-ow": [],
-        f"{NAME_RF}-local-ow": [],
-        f"{NAME_RF}-global-ow": [],
-        f"{NAME_RF}-global-NonDFS-ow": [],
+        f"{NAME_RF}-w": [],
+        f"{NAME_RF}-posthoc-w": [],
+        f"{NAME_RF}-local-w": [],
+        f"{NAME_RF}-global-w": [],
+        f"{NAME_RF}-global-NonDFS-w": [],
         "RF": [],
     }
 
@@ -200,7 +200,7 @@ if __name__ == "__main__":
         end_rf_t = time.perf_counter()
         time_rf_t = end_rf_t - start_rf_t
 
-        # MaxRM-RF-ow -----------------------------------------------
+        # MaxRM-RF-w -----------------------------------------------
         start = time.perf_counter()
         preds_ow, _ = rf_t.refine_weights(
             X_val=Xtr_w,
@@ -211,14 +211,14 @@ if __name__ == "__main__":
         end = time.perf_counter()
 
         time_MaxRM_RF_ow = time_rf_t + end - start
-        runtime_dict[f"{NAME_RF}-ow"].append(time_MaxRM_RF_ow)
-        mse_dict[f"{NAME_RF}-ow"].append(mean_squared_error(Yte, preds_ow))
+        runtime_dict[f"{NAME_RF}-w"].append(time_MaxRM_RF_ow)
+        mse_dict[f"{NAME_RF}-w"].append(mean_squared_error(Yte, preds_ow))
         mse_envs_ow, maxmse_ow = max_mse(Yte, preds_ow, Ete, ret_ind=True)
-        mse_envs_dict[f"{NAME_RF}-ow"].append(mse_envs_ow)
-        maxmse_dict[f"{NAME_RF}-ow"].append(maxmse_ow)
+        mse_envs_dict[f"{NAME_RF}-w"].append(mse_envs_ow)
+        maxmse_dict[f"{NAME_RF}-w"].append(maxmse_ow)
         # -----------------------------------------------------------
 
-        # MaxRM-RF-posthoc-ow ---------------------------------------
+        # MaxRM-RF-posthoc-w ---------------------------------------
         start = time.perf_counter()
         rf_t.modify_predictions_trees(
             Etr_t,
@@ -232,18 +232,18 @@ if __name__ == "__main__":
         )
         end = time.perf_counter()
         time_posthoc_ow = time_rf_t + end - start
-        runtime_dict[f"{NAME_RF}-posthoc-ow"].append(time_posthoc_ow)
-        mse_dict[f"{NAME_RF}-posthoc-ow"].append(
+        runtime_dict[f"{NAME_RF}-posthoc-w"].append(time_posthoc_ow)
+        mse_dict[f"{NAME_RF}-posthoc-w"].append(
             mean_squared_error(Yte, preds_posthoc_ow)
         )
         mse_envs_posthoc_ow, maxmse_posthoc_ow = max_mse(
             Yte, preds_posthoc_ow, Ete, ret_ind=True
         )
-        mse_envs_dict[f"{NAME_RF}-posthoc-ow"].append(mse_envs_posthoc_ow)
-        maxmse_dict[f"{NAME_RF}-posthoc-ow"].append(maxmse_posthoc_ow)
+        mse_envs_dict[f"{NAME_RF}-posthoc-w"].append(mse_envs_posthoc_ow)
+        maxmse_dict[f"{NAME_RF}-posthoc-w"].append(maxmse_posthoc_ow)
         # -----------------------------------------------------------
 
-        # MaxRM-RF-local-ow -----------------------------------------
+        # MaxRM-RF-local-w -----------------------------------------
         start = time.perf_counter()
         rf_local_t = RandomForest(
             "MinMaxRegression",
@@ -262,18 +262,18 @@ if __name__ == "__main__":
         )
         end = time.perf_counter()
         time_local_ow = end - start
-        runtime_dict[f"{NAME_RF}-local-ow"].append(time_local_ow)
-        mse_dict[f"{NAME_RF}-local-ow"].append(
+        runtime_dict[f"{NAME_RF}-local-w"].append(time_local_ow)
+        mse_dict[f"{NAME_RF}-local-w"].append(
             mean_squared_error(Yte, preds_local_ow)
         )
         mse_envs_local_ow, maxmse_local_ow = max_mse(
             Yte, preds_local_ow, Ete, ret_ind=True
         )
-        mse_envs_dict[f"{NAME_RF}-local-ow"].append(mse_envs_local_ow)
-        maxmse_dict[f"{NAME_RF}-local-ow"].append(maxmse_local_ow)
+        mse_envs_dict[f"{NAME_RF}-local-w"].append(mse_envs_local_ow)
+        maxmse_dict[f"{NAME_RF}-local-w"].append(maxmse_local_ow)
         # -----------------------------------------------------------
 
-        # MaxRM-RF-global-ow ----------------------------------------
+        # MaxRM-RF-global-w ----------------------------------------
         start = time.perf_counter()
         rf_global_t = RandomForest(
             "MinMaxRegression",
@@ -292,18 +292,18 @@ if __name__ == "__main__":
         )
         end = time.perf_counter()
         time_global_ow = end - start
-        runtime_dict[f"{NAME_RF}-global-ow"].append(time_global_ow)
-        mse_dict[f"{NAME_RF}-global-ow"].append(
+        runtime_dict[f"{NAME_RF}-global-w"].append(time_global_ow)
+        mse_dict[f"{NAME_RF}-global-w"].append(
             mean_squared_error(Yte, preds_global_ow)
         )
         mse_envs_global_ow, maxmse_global_ow = max_mse(
             Yte, preds_global_ow, Ete, ret_ind=True
         )
-        mse_envs_dict[f"{NAME_RF}-global-ow"].append(mse_envs_global_ow)
-        maxmse_dict[f"{NAME_RF}-global-ow"].append(maxmse_global_ow)
+        mse_envs_dict[f"{NAME_RF}-global-w"].append(mse_envs_global_ow)
+        maxmse_dict[f"{NAME_RF}-global-w"].append(maxmse_global_ow)
         # -----------------------------------------------------------
 
-        # MaxRM-RF-global-NonDFS-ow ---------------------------------
+        # MaxRM-RF-global-NonDFS-w ---------------------------------
         start = time.perf_counter()
         rf_global_nondfs_t = RandomForest(
             "MinMaxRegression",
@@ -322,19 +322,19 @@ if __name__ == "__main__":
         )
         end = time.perf_counter()
         time_global_nondfs_ow = end - start
-        runtime_dict[f"{NAME_RF}-global-NonDFS-ow"].append(
+        runtime_dict[f"{NAME_RF}-global-NonDFS-w"].append(
             time_global_nondfs_ow
         )
-        mse_dict[f"{NAME_RF}-global-NonDFS-ow"].append(
+        mse_dict[f"{NAME_RF}-global-NonDFS-w"].append(
             mean_squared_error(Yte, preds_global_nondfs_ow)
         )
         mse_envs_global_nondfs_ow, maxmse_global_nondfs_ow = max_mse(
             Yte, preds_global_nondfs_ow, Ete, ret_ind=True
         )
-        mse_envs_dict[f"{NAME_RF}-global-NonDFS-ow"].append(
+        mse_envs_dict[f"{NAME_RF}-global-NonDFS-w"].append(
             mse_envs_global_nondfs_ow
         )
-        maxmse_dict[f"{NAME_RF}-global-NonDFS-ow"].append(
+        maxmse_dict[f"{NAME_RF}-global-NonDFS-w"].append(
             maxmse_global_nondfs_ow
         )
         # -----------------------------------------------------------
