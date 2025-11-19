@@ -11,8 +11,8 @@ from utils import *
 N_SIM = 20
 SAMPLE_SIZE = 1000
 NOISE_STD = 0.5
-N_ESTIMATORS = 50
-MIN_SAMPLES_LEAF = 30
+N_ESTIMATORS = 100
+MIN_SAMPLES_LEAF = 15
 N_JOBS = 1
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
