@@ -10,40 +10,73 @@ from nldg.rf import MaggingRF
 from adaXT.random_forest import RandomForest
 from tqdm import tqdm
 
-N_ESTIMATORS = 50
-MIN_SAMPLES_LEAF = 30
+N_ESTIMATORS = 100
+MIN_SAMPLES_LEAF = 15
 RANDOM_STATE = 42
-N_PER_ENV = 400
+N_PER_ENV = 500
 NOISE_STD = 0.5
-N_SIM = 50
+N_SIM = 100
 
 
 class DataContainer:
-    def __init__(self, n=300, noise_std=0.2):
+    def __init__(self, n=500, noise_std=0.2):
         self.n = n  # number of samples in each source domain
         self.d = 1  # number of features
-        self.L = None  # number of source domains
+        self.L = 3  # number of source domains
         self.noise_std = noise_std
 
         self.X_sources_list = []  # list of source covariate matrices
         self.Y_sources_list = []  # list of source outcome vectors
         self.E_sources_list = []  # list of source environment labels
 
+        # proportion of samples in first quarter of the domain
+        # (shifts in the marginal covariate distribution)
+        self.prop_first_quarter = []
+
         self.f_funcs = []  # list of source conditional outcome functions
 
     def generate_funcs_list(self, L):
-        self.L = L
-        f1 = lambda x: np.where(x <= 0, -0.5 * x, 4 * x)
-        f2 = lambda x: np.where(x <= 0, 3 * x, 0.5 * x)
-        f3 = lambda x: np.where(x <= 0, 2.5 * x, x)
+        f1 = lambda x: np.where(x <= 0, -0.5 * x, np.exp(0.7 * x) - 1)
+        f2 = lambda x: np.where(x <= 0, 3 * x, np.exp(0.7 * x) - 1)
+        f3 = lambda x: np.where(x <= 0, 2.5 * x, np.exp(0.7 * x) - 1)
         self.f_funcs = [f1, f2, f3]
 
     def generate_data(self, seed=None):
         self.rng = np.random.default_rng(seed)
         self._reset_lists()
 
-        X = self.rng.uniform(-4, 4, size=self.n)
+        def sample_X(n, prop_first_quarter, rng):
+            # empty array to hold the samples
+            x = np.empty(n, dtype=float)
+
+            # assign values for second half of the samples
+            mask_half = rng.random(n) > 0.5
+            x[mask_half] = rng.uniform(0, 4, mask_half.sum())
+
+            # build an index array for the "other half"
+            idx_rest = np.flatnonzero(~mask_half)
+
+            # decide which of the "other half" goes to first quarter
+            mask_quarter = rng.random(idx_rest.size) < prop_first_quarter
+
+            # assign values accordingly
+            x[idx_rest[mask_quarter]] = rng.uniform(-4, -2, mask_quarter.sum())
+            x[idx_rest[~mask_quarter]] = rng.uniform(
+                -2, 0, (~mask_quarter).sum()
+            )
+
+            return x
+
         for l in range(self.L):
+            if l == 0:
+                prop_first_quarter = 0.5
+            elif l == 1:
+                prop_first_quarter = 0.8
+            else:
+                prop_first_quarter = 0.2
+            X = sample_X(self.n, prop_first_quarter, self.rng)
+            self.prop_first_quarter.append(prop_first_quarter)
+
             Y = self.f_funcs[l](X) + self.rng.normal(
                 0, self.noise_std, size=self.n
             )
@@ -55,6 +88,7 @@ class DataContainer:
         self.X_sources_list = []
         self.Y_sources_list = []
         self.E_sources_list = []
+        self.prop_first_quarter = []
 
 
 class GroupDRO:
@@ -201,9 +235,11 @@ class GroupDRO:
         return preds
 
 
-def plot_results(data, X_sorted, Y_rf, Y_maxrmrf, Y_magging, Y_gdro):
-    data_colors = ["black", "grey", "silver"]
-    fig, ax = plt.subplots(figsize=(8, 5))
+def plot_results(
+    data, X_sorted, Y_rf, Y_maxrmrf, Y_magging, Y_gdro, plot_X_densities=True
+):
+    data_colors = ["dimgray", "silver", "black"]
+    fig, ax = plt.subplots(figsize=(8, 7))
 
     for L in range(data.L):
         ax.scatter(
@@ -235,7 +271,7 @@ def plot_results(data, X_sorted, Y_rf, Y_maxrmrf, Y_magging, Y_gdro):
         Y_magging,
         color="#964A8B",
         linewidth=2,
-        label="RF(magging)",
+        label="Magging-RF(mse)",
     )
     ax.plot(
         X_sorted,
@@ -246,7 +282,12 @@ def plot_results(data, X_sorted, Y_rf, Y_maxrmrf, Y_magging, Y_gdro):
     )
 
     x_range = np.linspace(X_sorted.min(), X_sorted.max(), 1000)
-    y_opt = np.where(x_range > 0, 2.25 * x_range, 1.25 * x_range)
+    # y_opt = np.where(x_range > 0, np.exp(0.7 * x_range) - 1, 1.25 * x_range)
+    y_opt = np.where(
+        x_range <= 0,
+        np.where(x_range <= -2, 1.487397 * x_range, 0.366576 * x_range),
+        np.exp(0.7 * x_range) - 1,
+    )
     ax.plot(
         x_range,
         y_opt,
@@ -263,7 +304,37 @@ def plot_results(data, X_sorted, Y_rf, Y_maxrmrf, Y_magging, Y_gdro):
     handles, labels = ax.get_legend_handles_labels()
     ax.legend(handles=handles)
 
-    plt.tight_layout()
+    if plot_X_densities:
+        inset_cfg = {
+            "height": 0.055,
+            "gap": 0.015,
+            "bottom_margin": 0.04,
+            "top_margin": 0.02,
+        }
+        reserved_bottom = (
+            inset_cfg["bottom_margin"]
+            + inset_cfg["top_margin"]
+            + data.L * inset_cfg["height"]
+            + (data.L - 1) * inset_cfg["gap"]
+        )
+        max_reserved = 0.45
+        if reserved_bottom >= max_reserved:
+            usable_height = max(
+                max_reserved
+                - inset_cfg["bottom_margin"]
+                - inset_cfg["top_margin"]
+                - (data.L - 1) * inset_cfg["gap"],
+                0,
+            )
+            inset_cfg["height"] = usable_height / max(data.L, 1)
+            reserved_bottom = max_reserved
+
+        if inset_cfg["height"] <= 0:
+            plt.tight_layout()
+        else:
+            plt.tight_layout(rect=[0, reserved_bottom, 1, 1])
+            _add_covariate_rug_axes(fig, ax, data, data_colors, inset_cfg)
+
     script_dir = os.path.dirname(os.path.abspath(__file__))
     parent_dir = os.path.join(
         script_dir, "..", "..", "results", "output_additional"
@@ -274,8 +345,99 @@ def plot_results(data, X_sorted, Y_rf, Y_maxrmrf, Y_magging, Y_gdro):
     # plt.show()
 
 
+def _add_covariate_rug_axes(fig, main_ax, data, data_colors, inset_cfg):
+    """
+    Attach slim axes under the main panel with rug-style covariate densities.
+    """
+    if not data.X_sources_list:
+        return
+
+    prop_list = getattr(data, "prop_first_quarter", [])
+    ax_box = main_ax.get_position()
+    bottom = inset_cfg["bottom_margin"]
+
+    fig.text(
+        0.146,
+        0.26,
+        f"Density of $X$:",
+        ha="right",
+        va="center",
+        color="black",
+        fontsize=11,
+    )
+
+    for env_idx in reversed(range(data.L)):
+        xs = data.X_sources_list[env_idx]
+        color = data_colors[env_idx % len(data_colors)]
+        rug_ax = fig.add_axes(
+            [ax_box.x0, bottom, ax_box.width, inset_cfg["height"]],
+            sharex=main_ax,
+        )
+        rug_ax.set_ylim(0, 0.25)
+        rug_ax.tick_params(
+            axis="x", which="both", bottom=False, labelbottom=False
+        )
+        rug_ax.tick_params(axis="y", which="both", left=False, labelleft=False)
+        for spine in rug_ax.spines.values():
+            spine.set_visible(False)
+
+        if xs.size > 0:
+            rug_ax.vlines(
+                xs,
+                0,
+                0.05,
+                color="black",
+                alpha=0.5,
+                linewidth=0.5,
+            )
+
+        if len(prop_list) > env_idx:
+            for start, end, height in _covariate_density_segments(
+                prop_list[env_idx]
+            ):
+                rug_ax.fill_between(
+                    [start, end],
+                    [0, 0],
+                    [height, height],
+                    color=color,
+                    alpha=0.5,
+                    linewidth=0.0,
+                )
+                rug_ax.hlines(height, start, end, color="black", linewidth=1)
+
+        rug_ax.text(
+            -0.015,
+            0.25,
+            f"Env {env_idx + 1}",
+            transform=rug_ax.transAxes,
+            ha="right",
+            va="center",
+            color="black",
+            fontsize=11,
+        )
+        bottom += inset_cfg["height"] + inset_cfg["gap"]
+
+
+def _covariate_density_segments(prop_first_quarter):
+    """
+    Returns piecewise-constant density specification for DataContainer covariates.
+    """
+    density_pos = 0.5 / 4  # probability mass 0.5 spread uniformly on [0,4]
+    density_neg_quarter = 0.5 * prop_first_quarter / 2
+    density_neg_second = 0.5 * (1 - prop_first_quarter) / 2
+    return [
+        (-4, -2, density_neg_quarter),
+        (-2, 0, density_neg_second),
+        (0, 4, density_pos),
+    ]
+
+
 def f_opt(x):
-    return np.where(x <= 0, 1.25 * x, 2.25 * x)
+    return np.where(
+        x <= 0,
+        np.where(x <= -2, 1.487397 * x, 0.366576 * x),
+        np.exp(0.7 * x) - 1,
+    )
 
 
 def one_sim_step(seed, ret_ise=True):
@@ -309,6 +471,7 @@ def one_sim_step(seed, ret_ise=True):
         n_estimators=N_ESTIMATORS,
         min_samples_leaf=MIN_SAMPLES_LEAF,
         random_state=RANDOM_STATE,
+        risk="mse",
         backend="adaXT",
     )
     _ = rf_magging.fit(Xtr, Ytr, Etr)
@@ -317,7 +480,7 @@ def one_sim_step(seed, ret_ise=True):
     ise_magging = np.sum((preds_magging_grid - preds_opt) ** 2) * delta
 
     # Group DRO
-    gdro = GroupDRO(data, hidden_dims=[64], seed=RANDOM_STATE)
+    gdro = GroupDRO(data, hidden_dims=[48], seed=RANDOM_STATE)
     gdro.fit(epochs=1000, lr_model=0.01, eta=0.01, weight_decay=0.01)
     preds_gdro = gdro.predict(Xtr_sorted)
     preds_gdro_grid = gdro.predict(x_grid)
@@ -331,7 +494,7 @@ def one_sim_step(seed, ret_ise=True):
 
 if __name__ == "__main__":
     x_min, x_max = -4, 4
-    n_grid = 100
+    n_grid = 2000
     x_grid = np.linspace(-4, 4, n_grid)
     delta = (x_max - x_min) / n_grid
     preds_opt = f_opt(x_grid).ravel()
@@ -345,7 +508,7 @@ if __name__ == "__main__":
             seed=RANDOM_STATE + i
         )
 
-    names = ["RF", "MaxRM-RF(mse)", "RF(magging)", "GroupDRO-NN(mse)"]
+    names = ["RF", "MaxRM-RF(mse)", "Magging-RF(mse)", "GroupDRO-NN(mse)"]
     means = ise.mean(axis=0)
     stds = ise.std(axis=0, ddof=1)
     z = 1.96
@@ -364,5 +527,11 @@ if __name__ == "__main__":
     ) = one_sim_step(seed=RANDOM_STATE, ret_ise=False)
 
     plot_results(
-        data, Xtr_sorted, preds_rf, preds_maxrmrf, preds_magging, preds_gdro
+        data,
+        Xtr_sorted,
+        preds_rf,
+        preds_maxrmrf,
+        preds_magging,
+        preds_gdro,
+        plot_X_densities=True,
     )
