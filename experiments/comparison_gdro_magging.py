@@ -95,9 +95,9 @@ def plot_maxrisk_vs_nenvs(
     if risk_eval == "mse":
         ax.set_ylabel("Maximum MSE across environments")
     elif risk_eval == "nrw":
-        ax.set_ylabel("Maximum Negative Reward across environments")
+        ax.set_ylabel("Maximum negative reward across environments")
     else:
-        ax.set_ylabel("Maximum Regret across environments")
+        ax.set_ylabel("Maximum regret across environments")
 
     ax.set_xticks(L_vals)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
