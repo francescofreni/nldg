@@ -5,6 +5,7 @@ from adaXT.random_forest import RandomForest
 from nldg.additional.data_GP_proper import DataContainer
 from nldg.additional.gdro import GroupDRO
 from nldg.rf import MaggingRF
+from nldg.utils import max_mse
 from tqdm import tqdm
 from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
@@ -91,9 +92,7 @@ def plot_maxrisk_vs_nenvs(
         ax.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
 
     ax.set_xlabel("Number of observations per environment")
-
-    ax.set_ylabel("Pooled MSE across environments")
-
+    ax.set_ylabel("Maximum MSE across environments")
     ax.set_xticks(L_vals)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
 
@@ -115,7 +114,7 @@ if __name__ == "__main__":
     results = {L: {} for L in N_vec}
 
     for n in tqdm(N_vec):
-        risks = np.zeros((N_SIM, 4))
+        max_risks = np.zeros((N_SIM, 4))
 
         for sim in tqdm(range(N_SIM), leave=False):
             data = DataContainer(
@@ -200,15 +199,15 @@ if __name__ == "__main__":
             # ---------------------------------------------------------------
 
             # Evaluate the risk
-            risks[sim, 0] = np.mean((Yte - pred_rf) ** 2)
-            risks[sim, 1] = np.mean((Yte - pred_maxrmrf) ** 2)
-            risks[sim, 2] = np.mean((Yte - pred_gdro) ** 2)
-            risks[sim, 3] = np.mean((Yte - pred_magging) ** 2)
+            max_risks[sim, 0] = max_mse(Yte, pred_rf, Ete)
+            max_risks[sim, 1] = max_mse(Yte, pred_maxrmrf, Ete)
+            max_risks[sim, 2] = max_mse(Yte, pred_gdro, Ete)
+            max_risks[sim, 3] = max_mse(Yte, pred_magging, Ete)
 
-        results[n]["RF"] = risks[:, 0].tolist()
-        results[n][f"MaxRM-RF({risk_label})"] = risks[:, 1].tolist()
-        results[n][f"GroupDRO-NN({risk_label})"] = risks[:, 2].tolist()
-        results[n][f"Magging-RF({risk_label})"] = risks[:, 3].tolist()
+        results[n]["RF"] = max_risks[:, 0].tolist()
+        results[n][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
+        results[n][f"GroupDRO-NN({risk_label})"] = max_risks[:, 2].tolist()
+        results[n][f"Magging-RF({risk_label})"] = max_risks[:, 3].tolist()
 
     np.save(
         os.path.join(
