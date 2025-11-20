@@ -238,6 +238,16 @@ if __name__ == "__main__":
                     opt_method="extragradient",
                 )
             pred_maxrmrf = rf.predict(Xte)
+
+            # sometimes convex solver fails
+            # -> replace any bad MaxRM-RF predictions with mean of Ytr
+            infty = ~np.isfinite(pred_maxrmrf)
+            if np.any(infty):
+                mean_ytr = float(np.mean(Ytr))
+                print(
+                    f"[WARN] Replacing {infty.sum()} infinite MaxRM-RF preds at L={L}, sim={sim} with mean(Ytr)={mean_ytr:.4f}"
+                )
+                pred_maxrmrf[infty] = mean_ytr
             # ---------------------------------------------------------------
 
             # Evaluate the maximum risk
