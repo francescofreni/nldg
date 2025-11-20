@@ -11,6 +11,7 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 
 
+N_JOBS = 5
 N_SIM = 100
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 30
@@ -28,10 +29,16 @@ BETA_LOW = 0.5
 BETA_HIGH = 2.5
 
 risk = "mse"  # "mse", "reward", "regret"
-risk_label = "mse"  # "mse", "nrw", "reg"
 
-risk_eval = "mse"  # "mse", "reward", "regret"
-N_JOBS = 5
+if risk == "mse":
+    risk_label = "mse"
+elif risk == "reward":
+    risk_label = "nrw"
+else:
+    risk_label = "reg"
+
+# evaluate on the same risk as optimized
+risk_eval = risk
 
 # number of environments
 Ls = [2, 3, 4, 5, 6, 7, 8]
@@ -94,9 +101,9 @@ def plot_maxrisk_vs_nenvs(
     ax.set_xlabel("Number of environments $K$")
     if risk_eval == "mse":
         ax.set_ylabel("Maximum MSE across environments")
-    elif risk_eval == "nrw":
+    elif risk_eval == "reward":
         ax.set_ylabel("Maximum negative reward across environments")
-    else:
+    elif risk_eval == "regret":
         ax.set_ylabel("Maximum regret across environments")
 
     ax.set_xticks(L_vals)
@@ -247,7 +254,7 @@ if __name__ == "__main__":
                 max_risks[sim, 2] = -min_reward(Yte, pred_gdro, Ete)
                 max_risks[sim, 3] = -min_reward(Yte, pred_magging, Ete)
 
-            else:
+            elif risk_eval == "regret":
                 max_risks[sim, 0] = max_regret(Yte, pred_rf, pred_erm, Ete)
                 max_risks[sim, 1] = max_regret(
                     Yte, pred_maxrmrf, pred_erm, Ete
