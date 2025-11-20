@@ -13,7 +13,7 @@ from tqdm import tqdm
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 15
 RANDOM_STATE = 42
-N_PER_ENV = 500
+N_PER_ENV = 400
 NOISE_STD = 0.5
 N_SIM = 100
 
@@ -236,7 +236,7 @@ class GroupDRO:
 
 
 def plot_results(
-    data, X_sorted, Y_rf, Y_maxrmrf, Y_magging, Y_gdro, plot_X_densities=True
+    data, X_sorted, Y_rf, Y_maxrmrf, Y_gdro, Y_magging, plot_X_densities=True
 ):
     data_colors = ["dimgray", "silver", "black"]
     fig, ax = plt.subplots(figsize=(8, 7))
@@ -268,17 +268,17 @@ def plot_results(
     )
     ax.plot(
         X_sorted,
-        Y_magging,
-        color="#964A8B",
-        linewidth=2,
-        label="Magging-RF(mse)",
-    )
-    ax.plot(
-        X_sorted,
         Y_gdro,
         color="#86C8DD",
         linewidth=2,
         label="GroupDRO-NN(mse)",
+    )
+    ax.plot(
+        X_sorted,
+        Y_magging,
+        color="#964A8B",
+        linewidth=2,
+        label="Magging-RF(mse)",
     )
 
     x_range = np.linspace(X_sorted.min(), X_sorted.max(), 1000)
@@ -466,6 +466,13 @@ def one_sim_step(seed, ret_ise=True):
     preds_maxrmrf_grid = rf.predict(x_grid)
     ise_maxrmrf = np.sum((preds_maxrmrf_grid - preds_opt) ** 2) * delta
 
+    # Group DRO
+    gdro = GroupDRO(data, hidden_dims=[48], seed=RANDOM_STATE)
+    gdro.fit(epochs=1000, lr_model=0.01, eta=0.01, weight_decay=0.01)
+    preds_gdro = gdro.predict(Xtr_sorted)
+    preds_gdro_grid = gdro.predict(x_grid)
+    ise_gdro = np.sum((preds_gdro_grid - preds_opt) ** 2) * delta
+
     # Magging-RF
     rf_magging = MaggingRF(
         n_estimators=N_ESTIMATORS,
@@ -479,17 +486,10 @@ def one_sim_step(seed, ret_ise=True):
     preds_magging_grid = rf_magging.predict(x_grid)
     ise_magging = np.sum((preds_magging_grid - preds_opt) ** 2) * delta
 
-    # Group DRO
-    gdro = GroupDRO(data, hidden_dims=[48], seed=RANDOM_STATE)
-    gdro.fit(epochs=1000, lr_model=0.01, eta=0.01, weight_decay=0.01)
-    preds_gdro = gdro.predict(Xtr_sorted)
-    preds_gdro_grid = gdro.predict(x_grid)
-    ise_gdro = np.sum((preds_gdro_grid - preds_opt) ** 2) * delta
-
     if ret_ise:
-        return ise_rf, ise_maxrmrf, ise_magging, ise_gdro
+        return ise_rf, ise_maxrmrf, ise_gdro, ise_magging
     else:
-        return Xtr_sorted, preds_rf, preds_maxrmrf, preds_magging, preds_gdro
+        return Xtr_sorted, preds_rf, preds_maxrmrf, preds_gdro, preds_magging
 
 
 if __name__ == "__main__":
@@ -508,22 +508,22 @@ if __name__ == "__main__":
             seed=RANDOM_STATE + i
         )
 
-    names = ["RF", "MaxRM-RF(mse)", "Magging-RF(mse)", "GroupDRO-NN(mse)"]
+    names = ["RF", "MaxRM-RF(mse)", "GroupDRO-NN(mse)", "Magging-RF(mse)"]
     means = ise.mean(axis=0)
     stds = ise.std(axis=0, ddof=1)
     z = 1.96
     halfwidth = z * stds / np.sqrt(N_SIM)
     print("\nMean ISE (±95% CI):")
     for name, m, h in zip(names, means, halfwidth):
-        print(f"{name:>16}: {m:.6f}  [{(m - h):.6f}, {(m + h):.6f}]")
+        print(f"{name:>16}: {m:.6f}  [±{h:.6f}]")
 
     # Repeat to make the plot
     (
         Xtr_sorted,
         preds_rf,
         preds_maxrmrf,
-        preds_magging,
         preds_gdro,
+        preds_magging,
     ) = one_sim_step(seed=RANDOM_STATE, ret_ise=False)
 
     plot_results(
@@ -531,7 +531,7 @@ if __name__ == "__main__":
         Xtr_sorted,
         preds_rf,
         preds_maxrmrf,
-        preds_magging,
         preds_gdro,
+        preds_magging,
         plot_X_densities=True,
     )
