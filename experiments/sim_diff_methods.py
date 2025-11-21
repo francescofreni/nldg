@@ -13,7 +13,8 @@ SAMPLE_SIZE = 1000
 NOISE_STD = 0.5
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 15
-N_JOBS = 1
+N_JOBS = 10
+SEED = 42
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
@@ -47,7 +48,10 @@ if __name__ == "__main__":
 
     for i in tqdm(range(N_SIM)):
         dtr = gen_data_v6(
-            n=SAMPLE_SIZE, noise_std=NOISE_STD, random_state=i, setting=2
+            n=SAMPLE_SIZE,
+            noise_std=NOISE_STD,
+            random_state=SEED + i,
+            setting=2,
         )
         Xtr = np.array(dtr.drop(columns=["E", "Y"]))
         Ytr = np.array(dtr["Y"])
@@ -56,7 +60,7 @@ if __name__ == "__main__":
         dte = gen_data_v6(
             n=SAMPLE_SIZE,
             noise_std=NOISE_STD,
-            random_state=1000 + i,
+            random_state=1000 + SEED + i,
             setting=2,
         )
         Xte = np.array(dte.drop(columns=["E", "Y"]))
@@ -69,7 +73,7 @@ if __name__ == "__main__":
             "Regression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             n_jobs=N_JOBS,
         )
         rf.fit(Xtr, Ytr)
@@ -88,6 +92,7 @@ if __name__ == "__main__":
         rf.modify_predictions_trees(
             Etr,
             n_jobs=N_JOBS,
+            seed=SEED + i,
         )
         end = time.perf_counter()
         time_posthoc = end - start
@@ -110,7 +115,7 @@ if __name__ == "__main__":
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="base",
             n_jobs=N_JOBS,
         )
@@ -135,7 +140,7 @@ if __name__ == "__main__":
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="fullopt",
             n_jobs=N_JOBS,
         )
@@ -159,7 +164,7 @@ if __name__ == "__main__":
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="adafullopt",
             n_jobs=N_JOBS,
         )
@@ -185,7 +190,7 @@ if __name__ == "__main__":
 
         # split train into a part for tree-fitting and a part for weight-refinement
         Xtr_t, Xtr_w, Ytr_t, Ytr_w, Etr_t, Etr_w = train_test_split(
-            Xtr, Ytr, Etr, test_size=0.3, random_state=i, shuffle=True
+            Xtr, Ytr, Etr, test_size=0.3, random_state=SEED + i, shuffle=True
         )
 
         start_rf_t = time.perf_counter()
@@ -193,7 +198,7 @@ if __name__ == "__main__":
             "Regression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             n_jobs=N_JOBS,
         )
         rf_t.fit(Xtr_t, Ytr_t)
@@ -223,6 +228,7 @@ if __name__ == "__main__":
         rf_t.modify_predictions_trees(
             Etr_t,
             n_jobs=N_JOBS,
+            seed=SEED + i,
         )
         preds_posthoc_ow, _ = rf_t.refine_weights(
             X_val=Xtr_w,
@@ -249,7 +255,7 @@ if __name__ == "__main__":
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="base",
             n_jobs=N_JOBS,
         )
@@ -279,7 +285,7 @@ if __name__ == "__main__":
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="fullopt",
             n_jobs=N_JOBS,
         )
@@ -309,7 +315,7 @@ if __name__ == "__main__":
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="adafullopt",
             n_jobs=N_JOBS,
         )
