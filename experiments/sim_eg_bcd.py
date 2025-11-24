@@ -101,6 +101,49 @@ def plot_dtr(
 
 
 if __name__ == "__main__":
+    # plot
+    dtr = gen_data_v6(
+        n=SAMPLE_SIZE, noise_std=NOISE_STD, random_state=SEED, setting=2
+    )
+    Xtr = np.array(dtr.drop(columns=["E", "Y"]))
+    Ytr = np.array(dtr["Y"])
+    Etr = np.array(dtr["E"])
+    Xtr_sorted = np.sort(Xtr, axis=0)
+
+    rf = RandomForest(
+        "Regression",
+        n_estimators=N_ESTIMATORS,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        seed=SEED,
+    )
+    rf.fit(Xtr, Ytr)
+    preds_rf = rf.predict(Xtr_sorted)
+
+    rf_posthoc = copy.deepcopy(rf)
+    rf_posthoc.modify_predictions_trees(Etr)
+    preds_posthoc = rf_posthoc.predict(Xtr_sorted)
+
+    rf_posthoc_eg = copy.deepcopy(rf)
+    rf_posthoc_eg.modify_predictions_trees(
+        Etr, opt_method="extragradient", early_stopping=True
+    )
+    preds_posthoc_eg = rf_posthoc_eg.predict(Xtr_sorted)
+
+    rf_posthoc_bcd = copy.deepcopy(rf)
+    block_size = 5
+    rf_posthoc_bcd.modify_predictions_trees(
+        Etr, bcd=True, block_size=BLOCK_SIZE, patience=PATIENCE
+    )
+    preds_posthoc_bcd = rf_posthoc_bcd.predict(Xtr_sorted)
+
+    dtr["X_sorted"] = Xtr_sorted
+    dtr["rf"] = preds_rf
+    dtr["rf-posthoc"] = preds_posthoc
+    dtr["rf-posthoc-eg"] = preds_posthoc_eg
+    dtr["rf-posthoc-bcd"] = preds_posthoc_bcd
+    plot_dtr(dtr, saveplot=True)
+
+    # simulation
     results_dict = {
         "RF": [],
         "MaxRM-RF-posthoc": [],
