@@ -15,7 +15,8 @@ MIN_SAMPLES_LEAF = 15
 N_JOBS = 10
 SEED = 42
 BLOCK_SIZE = 15
-PATIENCE = 1
+PATIENCE_BCD = 1
+GAMMA = 0.1
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
@@ -125,14 +126,16 @@ if __name__ == "__main__":
 
     rf_posthoc_eg = copy.deepcopy(rf)
     rf_posthoc_eg.modify_predictions_trees(
-        Etr, opt_method="extragradient", early_stopping=True
+        Etr,
+        opt_method="extragradient",
+        early_stopping=True,
+        gamma=GAMMA,
     )
     preds_posthoc_eg = rf_posthoc_eg.predict(Xtr_sorted)
 
     rf_posthoc_bcd = copy.deepcopy(rf)
-    block_size = 5
     rf_posthoc_bcd.modify_predictions_trees(
-        Etr, bcd=True, block_size=BLOCK_SIZE, patience=PATIENCE
+        Etr, bcd=True, block_size=BLOCK_SIZE, patience=PATIENCE_BCD
     )
     preds_posthoc_bcd = rf_posthoc_bcd.predict(Xtr_sorted)
 
@@ -225,6 +228,7 @@ if __name__ == "__main__":
             opt_method="extragradient",
             early_stopping=True,
             n_jobs=N_JOBS,
+            gamma=GAMMA,
         )
         end = time.perf_counter()
         time_posthoc_eg = end - start
@@ -247,7 +251,7 @@ if __name__ == "__main__":
             Etr,
             bcd=True,
             block_size=BLOCK_SIZE,
-            patience=PATIENCE,
+            patience=PATIENCE_BCD,
             n_jobs=N_JOBS,
         )
         end = time.perf_counter()
