@@ -1,7 +1,4 @@
-# code structure modified from https://github.com/zywang0701/DRoL/blob/main/methods/data.py
-
 import numpy as np
-from typing import Callable
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel
 
 
@@ -10,163 +7,181 @@ class DataContainer:
         self,
         n: int,
         N: int,
+        L: int,
+        d: int,
         change_X_distr: bool = False,
         risk: str = "mse",
-        d: int = 5,
-        target_mode: str = "convex_mixture_P",
-        common_core_func: bool = False,
+        beta_low: float = 1.0,
+        beta_high: float = 2.0,
     ) -> None:
+        self.rng = np.random.default_rng()
+
         self.n = n  # number of samples per source environment
         self.N = N  # number of samples in the target domain
         self.d = d  # number of features
-        self.L = None  # number of source environments
+        self.L = L  # number of source environments
 
         # storage for generated data
         self.X_sources_list = []
         self.Y_sources_list = []
         self.E_sources_list = []
+        self.f_sources_list = []
 
+        self.X_target = None
         self.X_target_list = []
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
-        self.Q_target_list = []  # convex weights per test environment
-
-        # list of source conditional outcome functions
-        self.f_funcs = []
+        self.f_target_potential_list = []
 
         # flags and risk
         self.change_X_distr = change_X_distr
+        self.beta_low = beta_low
+        self.beta_high = beta_high
+
         self.risk = risk
-        self.target_mode = target_mode
-        self.common_core_func = common_core_func
 
         # X distribution support
         self.X_supp = 1.0
 
-        # noise stddev and GP hyperparams
-        self.sigma_eps = 0.1
-        self.gp_length_scale = 0.5
-        self.gp_amplitude = 1.0
-        self.n_grid = 1000  # grid size for GP function sampling
-        # per-environment X distribution params (used when change_X_distr)
         # List of dicts with keys 'alpha', 'beta'
+        # per-environment X distribution params (used when change_X_distr)
         self.env_x_params = []
+
+        # noise stddev and GP hyperparams
+        self.sigma_eps = 0.25
+        self.gp_length_scale = 0.5
+        self.gp_variance = 1.0
+        self.t = 1e-7  # jitter for numerical stability
 
     # -----------------------------
     # public API
     # -----------------------------
-    def generate_funcs_list(self, L: int, seed: int | None = None) -> None:
-        np.random.seed(seed)
-        self.L = L
-        self.f_funcs = []
-        base_funcs = [self._sample_additive_gp_function() for _ in range(L)]
 
-        if self.common_core_func:
-            self.f_funcs = [self._wrap_with_core(g_fn) for g_fn in base_funcs]
-        else:
-            self.f_funcs = base_funcs
-
-    def generate_data(
+    def generate_dataset(
         self, seed: int | None = None, reuse_params: bool = False
     ) -> None:
-        np.random.seed(seed)
+        self.rng = np.random.default_rng(seed)
         self._reset_lists()
 
         if not reuse_params:
-            self.Q_target_list = []
             self.env_x_params = []
 
         if self.change_X_distr and len(self.env_x_params) == 0:
-            # Initialize environment-specific X distribution parameters
-            self._init_env_x_params(self.L)
+            # initialize environment-specific X distribution parameters
+            self._init_env_x_params()
 
-        # ------- Generate Source Data -------
-        for env_idx in range(self.L or 0):
-            X = self._sample_X_source_env(env_idx, self.n)
+        if not self.change_X_distr:
+            self.X_target = self.sample_X_env(env_idx=0, n=self.N)
 
-            eps = np.random.normal(0.0, self.sigma_eps, size=self.n)
-            Y = self.f_funcs[env_idx](X) + eps
-            self.E_sources_list.append(np.full(self.n, env_idx, dtype=int))
+        for env_idx in range(self.L):
+            # sample covariates for train/test
+            X_tr = self.sample_X_env(env_idx, self.n)
 
-            self.X_sources_list.append(X)
-            self.Y_sources_list.append(Y)
-
-        # ------- Generate Target Data (mode: convex_mixture_P or same)
-
-        if self.target_mode == "same":
-            eye_weights = np.eye(self.L)
-            for env_idx in range(self.L):
-                X_target = self._sample_X_source_env(env_idx, self.N)
-
-                eps_t = np.random.normal(0.0, self.sigma_eps, size=self.N)
-                Y_target = self.f_funcs[env_idx](X_target) + eps_t
-
-                self.X_target_list.append(X_target)
-                self.Y_target_potential_list.append(Y_target)
-                self.E_target_potential_list.append(
-                    np.full(self.N, env_idx, dtype=int)
-                )
-                self.Q_target_list.append(eye_weights[env_idx])
-
-        elif self.target_mode == "convex_mixture_P":
-            # For each test env, draw q, then sample (X,Y) via env draws
-            if reuse_params and len(self.Q_target_list) == self.L:
-                Q = np.array(self.Q_target_list)
+            if self.change_X_distr:
+                X_te = self.sample_X_env(env_idx, self.N)
             else:
-                Q = np.random.dirichlet(alpha=np.ones(self.L), size=self.L)
+                X_te = self.X_target
 
-            self.Q_target_list = Q.tolist()
+            # sample GP functions and outcomes for train/test
+            f_tr = self._sample_gp_new(X_tr)
+            f_te = self._sample_gp_conditional(
+                X_obs=X_tr, f_obs=f_tr, X_new=X_te
+            )
 
-            for env_idx in range(self.L):
-                q = Q[env_idx]
-                # sample latent training env index per sample
-                env_choices = np.random.choice(self.L, size=self.N, p=q)
-                X_list = []
-                Y_list = []
-                for e in env_choices:
-                    Xe = self._sample_X_source_env(int(e), 1)
-                    ye = self.f_funcs[int(e)](Xe) + np.random.normal(
-                        0.0, self.sigma_eps, size=1
-                    )
-                    X_list.append(Xe[0])
-                    Y_list.append(ye[0])
-                X_target_e = np.vstack(X_list)
-                Y_target_e = np.array(Y_list)
+            # add noise to outcomes
+            # (one could also add self.sigma_eps^2 I to the kernel)
+            y_tr = f_tr + self.rng.normal(0.0, self.sigma_eps, size=self.n)
+            y_te = f_te + self.rng.normal(0.0, self.sigma_eps, size=self.N)
 
-                self.X_target_list.append(X_target_e)
-                self.Y_target_potential_list.append(Y_target_e)
-                self.E_target_potential_list.append(
-                    np.full(self.N, env_idx, dtype=int)
-                )
+            # store generated data
+            self.X_sources_list.append(X_tr)
+            self.Y_sources_list.append(y_tr)
+            self.E_sources_list.append(np.full(self.n, env_idx, dtype=int))
+            self.f_sources_list.append(f_tr)
 
-    # -----------------------------
-    # internal funcs
-    # -----------------------------
+            self.X_target_list.append(X_te)
+            self.Y_target_potential_list.append(y_te)
+            self.E_target_potential_list.append(
+                np.full(self.N, env_idx, dtype=int)
+            )
+            self.f_target_potential_list.append(f_te)
+
     def _reset_lists(self) -> None:
         self.X_sources_list = []
         self.Y_sources_list = []
         self.E_sources_list = []
+        self.f_sources_list = []
+        self.X_target = None
         self.X_target_list = []
         self.Y_target_potential_list = []
         self.E_target_potential_list = []
+        self.f_target_potential_list = []
 
-    def _sample_X_source_env(self, env_idx: int, n: int) -> np.ndarray:
-        """Sample X from the training environment-specific distribution.
+    # -----------------------------
+    # Public evaluation helpers
+    # -----------------------------
 
-        Extension point: override or modify to allow different X distributions
-        per training environment in the future.
+    def env_posterior_mean(
+        self, env_idx: int, X_new: np.ndarray
+    ) -> np.ndarray:
+        """Evaluate the posterior mean of environment env_idx at X_new.
+
+        Uses the GP prior and the stored training function values (X_tr, f_tr)
+        for that environment to compute E[f(X_new) | f(X_tr) = f_tr].
+
+                Notes
+                        - If common_core_func is False, f denotes the
+                            environment-specific function.
+                - If common_core_func is True, f denotes the TOTAL function
+                    (f_env + f0), because f0 is added into the stored
+                    f_sources_list during dataset generation.
+
+        Parameters
+        - env_idx: int, environment index (0..L-1)
+        - X_new: (m, d) array of input locations
+
+        Returns
+        - mu: (m,) posterior mean at X_new
         """
+        X_obs = self.X_sources_list[env_idx]
+        f_obs = self.f_sources_list[env_idx]
+
+        K_xx = self._kernel(X_obs, X_obs)
+        K_xs = self._kernel(X_obs, X_new)
+        K_sx = K_xs.T
+
+        L = np.linalg.cholesky(K_xx + self.t * np.eye(K_xx.shape[0]))
+        alpha = np.linalg.solve(L.T, np.linalg.solve(L, f_obs))
+        mu = K_sx @ alpha
+        return mu.ravel()
+
+    def sample_X_env(self, env_idx: int, n: int) -> np.ndarray:
+        """Sample X from the training environment-specific distribution."""
         if self.change_X_distr and self.env_x_params is not None:
             params = self.env_x_params[int(env_idx)]
             alpha = params["alpha"]
             beta = params["beta"]
             # Draw per-feature Beta and map to [-X_supp, X_supp]
-            U = np.random.beta(alpha, beta, size=(n, self.d))
+            U = self.rng.beta(alpha, beta, size=(n, self.d))
             X = (2.0 * U - 1.0) * self.X_supp
             return X
-        return self._sample_X_source(n)
+        else:
+            return self.rng.uniform(
+                -self.X_supp, self.X_supp, size=(n, self.d)
+            )
 
-    def _init_env_x_params(self, L: int) -> None:
+    def sample_additional_X(self, n: int) -> list[np.ndarray]:
+        """Return additional covariates from all environments.
+
+        Produces a list with one (n, d) array per environment.
+        """
+        covariates_list = []
+        for env_idx in range(self.L):
+            X_env = self.sample_X_env(env_idx, n)
+            covariates_list.append(X_env)
+        return covariates_list
+
+    def _init_env_x_params(self) -> None:
         """Create per-environment Beta(alpha, beta) params for X if enabled.
 
         Alpha and beta are sampled uniformly from [1, 2] per environment and
@@ -174,80 +189,56 @@ class DataContainer:
         convex_mixture_P can resample from the same marginals later.
         """
         self.env_x_params = []
-        for _ in range(L):
-            alpha = np.random.uniform(1.0, 2.0)
-            beta = np.random.uniform(1.0, 2.0)
+        for _ in range(self.L):
+            alpha = self.rng.uniform(self.beta_low, self.beta_high)
+            beta = self.rng.uniform(self.beta_low, self.beta_high)
             self.env_x_params.append({"alpha": alpha, "beta": beta})
-
-    def _sample_X_source(self, n: int) -> np.ndarray:
-        # Uniform on [-X_supp, X_supp]^d
-        low = -self.X_supp
-        high = self.X_supp
-        return np.random.uniform(low, high, size=(n, self.d))
-
-    def _core_func(self, X: np.ndarray) -> np.ndarray:
-        X = np.asarray(X, dtype=float)
-        if X.ndim == 1:
-            X = X[None, :]
-        return 1.5 * np.sum(np.abs(X), axis=1)
-
-    def _wrap_with_core(
-        self, g_fn: Callable[[np.ndarray], np.ndarray]
-    ) -> Callable[[np.ndarray], np.ndarray]:
-        def f_wrapped(X: np.ndarray) -> np.ndarray:
-            return self._core_func(X) + g_fn(X)
-
-        return f_wrapped
 
     # -----------------------------
     # GP helpers
     # -----------------------------
-    def _rbf_kernel(self, x_grid: np.ndarray) -> np.ndarray:
-        kernel = ConstantKernel(self.gp_amplitude) * RBF(
+
+    def _kernel(self, X: np.ndarray, Z: np.ndarray) -> np.ndarray:
+        # X: (n,d), Z: (m,d)
+        X = np.atleast_2d(X)
+        Z = np.atleast_2d(Z)
+
+        kernel = ConstantKernel(self.gp_variance) * RBF(
             length_scale=self.gp_length_scale
         )
-        K = kernel(x_grid, x_grid)
-
+        K = kernel(X, Z)
         return K
 
-    def _sample_gp_function_1d(self) -> Callable[[np.ndarray], np.ndarray]:
-        """Draw a 1D GP function on a grid and return an interpolator."""
+    def _sample_gp_new(self, X: np.ndarray) -> np.ndarray:
+        K = self._kernel(X, X)
+        # cholesky with small jitter for numerical stability
+        L = np.linalg.cholesky(K + self.t * np.eye(K.shape[0]))
+        z = self.rng.standard_normal(K.shape[0])
+        return L @ z
 
-        # grid for kernel computation
-        x_grid = np.linspace(-self.X_supp, self.X_supp, self.n_grid).reshape(
-            -1, 1
-        )
-
-        K = self._rbf_kernel(x_grid)
-
-        f_vals = np.random.multivariate_normal(
-            mean=np.zeros(self.n_grid), cov=K
-        )
-
-        def g(x: np.ndarray) -> np.ndarray:
-            x = np.asarray(x).reshape(-1)
-            return np.interp(x.ravel(), x_grid.ravel(), f_vals)
-
-        return g
-
-    def _sample_additive_gp_function(
-        self,
-    ) -> Callable[[np.ndarray], np.ndarray]:
-        """f(X) = sum_j beta_j * g_j(X[:, j])
-        with independent GP components g_j.
+    def _sample_gp_conditional(
+        self, X_obs: np.ndarray, f_obs: np.ndarray, X_new: np.ndarray
+    ) -> np.ndarray:
         """
-        g_list = [self._sample_gp_function_1d() for _ in range(self.d)]
+        Draw f_new ~ p(f(X_new) | f(X_obs)) from the GP prior.
+        """
+        K_xx = self._kernel(X_obs, X_obs)
+        K_xs = self._kernel(X_obs, X_new)
+        K_sx = K_xs.T
+        K_ss = self._kernel(X_new, X_new)
 
-        beta = np.random.uniform(0.0, 1.0, size=(self.d,))
+        # solve with Cholesky
+        L = np.linalg.cholesky(K_xx + self.t * np.eye(K_xx.shape[0]))
+        # α = K_xx^{-1} f_obs via solves
+        alpha = np.linalg.solve(L.T, np.linalg.solve(L, f_obs))
+        mu = K_sx @ alpha
 
-        def f_nd(X: np.ndarray) -> np.ndarray:
-            X = np.asarray(X, dtype=float)
-            if X.ndim == 1:
-                X = X[None, :]
-            out = np.zeros(X.shape[0])
-            for j in range(self.d):
-                out += beta[j] * g_list[j](X[:, j])
-            return out
+        # Compute posterior cov: K_ss - K_sx K_xx^{-1} K_xs
+        v = np.linalg.solve(L, K_xs)
+        Sigma = K_ss - v.T @ v
 
-        f_nd.beta = beta
-        return f_nd
+        # Draw one sample
+        L_post = np.linalg.cholesky(Sigma + self.t * np.eye(Sigma.shape[0]))
+        z = self.rng.standard_normal(Sigma.shape[0])
+        f_new = mu + L_post @ z
+        return f_new

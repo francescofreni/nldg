@@ -1,6 +1,6 @@
 # code modified from https://github.com/zywang0701/DRoL/blob/main/methods/drol.py
 from nldg.additional.utils import *
-from nldg.additional.data import *
+from nldg.additional.data_drol_paper import *
 import cvxpy as cp
 from adaXT.random_forest import RandomForest
 

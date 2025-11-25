@@ -2,7 +2,7 @@
 import os
 import numpy as np
 from adaXT.random_forest import RandomForest
-from nldg.additional.data_GP_proper import DataContainer
+from nldg.additional.data_GP import DataContainer
 from nldg.additional.gdro import GroupDRO
 from nldg.rf import MaggingRF
 from nldg.utils import max_mse
