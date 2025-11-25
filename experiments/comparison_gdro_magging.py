@@ -1,3 +1,23 @@
+"""Simulation script to compare RF, MaxRM-RF, GroupDRO-NN, and Magging-RF
+over multiple heterogeneous environments.
+
+1. Generate synthetic source and target environments
+2. Fit:
+   - Pooled Random Forest
+   - MaxRM-RF
+   - GroupDRO
+   - Magging-RF
+3. Evaluate worst-case risk across target environments (MSE, negative reward, or regret).
+4. Save numeric results and plot
+
+Command-line arguments:
+--change_X_distr : if set, target covariate distribution differs from sources.
+--risk           : one of ['mse', 'reward', 'regret'] defining optimization/evaluation metric.
+--n_jobs         : parallel jobs for tree-based models
+
+Outputs placed under results/output_simulation/comparison_gdro_magging/.
+"""
+
 # code modified from https://github.com/zywang0701/DRoL/blob/main/simu1.py
 import os
 import numpy as np
@@ -44,6 +64,21 @@ def plot_maxrisk_vs_nenvs(
     risk_eval: str = "mse",
     risk_label: str = "mse",
 ) -> None:
+    """Plot (with 95% normal-approx CI) the max env risk versus number of envs.
+
+    Parameters
+    ----------
+    results : dict[int, dict[str, list[float]]]
+    change_X_distr : bool
+        Whether target covariate distribution differs from training sources
+        (affects filename).
+    ylim : (float, float) | None
+        Optional y-axis limits.
+    risk_eval : str
+        Risk used for evaluation
+    risk_label : str
+        Short label of optimized risk for embedding in output filenames.
+    """
     fontsize = 16
     methods = []
     for L in results:
@@ -164,9 +199,11 @@ if __name__ == "__main__":
     Ls = [2, 3, 4, 5, 6, 7, 8]  # number of environments
     results = {L: {} for L in Ls}
     for L in tqdm(Ls):
+        # max_risks columns: [RF, MaxRM-RF, GroupDRO-NN, Magging-RF]
         max_risks = np.zeros((N_SIM, 4))
 
         for sim in tqdm(range(N_SIM), leave=False):
+            # 1. data generation per simulation
             data = DataContainer(
                 n=2000,
                 N=2000,
@@ -191,6 +228,7 @@ if __name__ == "__main__":
             fitted_erm = None
             fitted_erm_trees = None
             pred_erm = None
+            # 2. Regret-specific per-env ERM baselines (only if risk == "regret")
             if risk == "regret":
                 fitted_erm = np.zeros(len(Etr))
                 fitted_erm_trees = np.zeros((N_ESTIMATORS, len(Etr)))
@@ -215,7 +253,7 @@ if __name__ == "__main__":
                     mask_te = Ete == env
                     pred_erm[mask_te] = rf_e.predict(Xte[mask_te])
 
-            # RF ------------------------------------------------------------
+            # 3. Fit pooled RF
             rf = RandomForest(
                 "Regression",
                 n_estimators=N_ESTIMATORS,
@@ -227,7 +265,7 @@ if __name__ == "__main__":
             pred_rf = rf.predict(Xte)
             # ---------------------------------------------------------------
 
-            # Magging -------------------------------------------------------
+            # 4. fit Magging-RF
             rf_magging = MaggingRF(
                 n_estimators=N_ESTIMATORS,
                 min_samples_leaf=MIN_SAMPLES_LEAF,
@@ -240,7 +278,7 @@ if __name__ == "__main__":
             pred_magging = rf_magging.predict(Xte)
             # ---------------------------------------------------------------
 
-            # GroupDRO-NN ---------------------------------------------------
+            # 5. Fit GroupDRO
             gdro = GroupDRO(
                 data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk=risk
             )
@@ -248,7 +286,7 @@ if __name__ == "__main__":
             pred_gdro = gdro.predict(Xte)
             # ---------------------------------------------------------------
 
-            # MaxRM-RF ------------------------------------------------------
+            # 6. Modify RF predictions to obtain MaxRM-RF
             solvers = ["ECOS", "SCS", "CLARABEL"]
             success = False
             kwargs = {"n_jobs": n_jobs}
@@ -276,6 +314,7 @@ if __name__ == "__main__":
                 )
             pred_maxrmrf = rf.predict(Xte)
 
+            # 7. Replace any infinite MaxRM-RF predictions (solver fallback safeguard).
             # sometimes convex solver fails
             # -> replace any bad MaxRM-RF predictions with mean of Ytr
             infty = ~np.isfinite(pred_maxrmrf)
@@ -287,8 +326,7 @@ if __name__ == "__main__":
                 pred_maxrmrf[infty] = mean_ytr
             # ---------------------------------------------------------------
 
-            # Evaluate the maximum risk
-
+            # 8. Evaluate worst-case risk across target envs
             if risk_eval == "mse":
                 max_risks[sim, 0] = max_mse(Yte, pred_rf, Ete)
                 max_risks[sim, 1] = max_mse(Yte, pred_maxrmrf, Ete)
@@ -311,6 +349,7 @@ if __name__ == "__main__":
                     Yte, pred_magging, pred_erm, Ete
                 )
 
+        # Aggregate replicate results into results dict
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
         results[L][f"GroupDRO-NN({risk_label})"] = max_risks[:, 2].tolist()
