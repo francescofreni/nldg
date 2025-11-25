@@ -60,6 +60,21 @@ class DataContainer:
     def generate_dataset(
         self, seed: int | None = None, reuse_params: bool = False
     ) -> None:
+        """
+        Generate source and target Gaussian process datasets for all environments.
+
+        Parameters
+        ----------
+        seed:
+            Optional random seed used to re-initialize the internal RNG; if
+            ``None``, the existing RNG state is used.
+        reuse_params:
+            If True, reuse previously stored environment-specific X
+            distribution parameters in env_x_params; if False, draw new
+            parameters. The shared target covariates X_target are resampled
+            on every call when change_X_distr is False.
+        """
+
         self.rng = np.random.default_rng(seed)
         self._reset_lists()
 
@@ -129,13 +144,6 @@ class DataContainer:
         Uses the GP prior and the stored training function values (X_tr, f_tr)
         for that environment to compute E[f(X_new) | f(X_tr) = f_tr].
 
-                Notes
-                        - If common_core_func is False, f denotes the
-                            environment-specific function.
-                - If common_core_func is True, f denotes the TOTAL function
-                    (f_env + f0), because f0 is added into the stored
-                    f_sources_list during dataset generation.
-
         Parameters
         - env_idx: int, environment index (0..L-1)
         - X_new: (m, d) array of input locations
@@ -184,9 +192,8 @@ class DataContainer:
     def _init_env_x_params(self) -> None:
         """Create per-environment Beta(alpha, beta) params for X if enabled.
 
-        Alpha and beta are sampled uniformly from [1, 2] per environment and
-        applied to all features independently. Values are stored so that
-        convex_mixture_P can resample from the same marginals later.
+        Alpha and beta are sampled uniformly from [beta_low, beta_high] per
+        environment and applied to all features independently.
         """
         self.env_x_params = []
         for _ in range(self.L):
@@ -199,6 +206,7 @@ class DataContainer:
     # -----------------------------
 
     def _kernel(self, X: np.ndarray, Z: np.ndarray) -> np.ndarray:
+        """Kernel matrix between X and Z."""
         # X: (n,d), Z: (m,d)
         X = np.atleast_2d(X)
         Z = np.atleast_2d(Z)
@@ -210,6 +218,7 @@ class DataContainer:
         return K
 
     def _sample_gp_new(self, X: np.ndarray) -> np.ndarray:
+        """Draw f ~ p(f(X)) from the GP prior."""
         K = self._kernel(X, X)
         # cholesky with small jitter for numerical stability
         L = np.linalg.cholesky(K + self.t * np.eye(K.shape[0]))
