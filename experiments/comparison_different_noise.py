@@ -6,9 +6,10 @@ from nldg.additional.data_GP_proper import DataContainer
 from nldg.utils import max_mse
 from tqdm import tqdm
 import matplotlib.pyplot as plt
+from sklearn.ensemble import RandomForestRegressor
+from scipy.stats import ttest_rel
 
-
-N_SIM = 20
+N_SIM = 100
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 30
 SEED = 42
@@ -38,8 +39,10 @@ if __name__ == "__main__":
     # Columns:
     # 0: Oracle RF, 1: RF,
     # 2: Oracle MaxRM-RF(mse), 3: MaxRM-RF(mse),
-    # 4: Oracle MaxRM-RF(reg), 5: MaxRM-RF(reg)
-    max_risks = np.zeros((N_SIM, 6))
+    # 4: Oracle MaxRM-RF(reg), 5: MaxRM-RF(reg),
+    # 6: Hack 1 (knowledge distillation),
+    # 7: Hack 2 (linear combination),
+    max_risks = np.zeros((N_SIM, 8))
 
     for sim in tqdm(range(N_SIM), leave=False):
         data = DataContainer(
@@ -131,7 +134,7 @@ if __name__ == "__main__":
 
         # MaxRM-RF ------------------------------------------------------
         print("MaxRM-RF MSE")
-        solvers = ["ECOS", "CLARABEL", "SCS"]
+        solvers = ["ECOS", "CLARABEL"]
         success = False
         kwargs = {"n_jobs": N_JOBS}
         for solver in solvers:
@@ -263,6 +266,107 @@ if __name__ == "__main__":
         pred_maxrmrf_reg_oracle = rf_oracle.predict(Xte)
         # ---------------------------------------------------------------
 
+        # hack 1: knowledge distillation --------------------------------
+        print("Hack 1: knowledge distillation")
+        Y_oob_preds = np.zeros(len(Etr))
+        for env in np.unique(Etr):
+            mask = Etr == env
+            Xtr_env = Xtr[mask]
+            Ytr_env_noisy = Ytr_noisy[mask]
+            rf_e = RandomForestRegressor(
+                n_estimators=500,
+                min_samples_leaf=MIN_SAMPLES_LEAF,
+                oob_score=True,
+                bootstrap=True,
+                n_jobs=N_JOBS,
+                random_state=SEED,
+            )
+            rf_e.fit(Xtr_env, Ytr_env_noisy)
+            Y_oob_preds[mask] = rf_e.oob_prediction_
+
+        rf = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED,
+            n_jobs=N_JOBS,
+        )
+        rf.fit(Xtr, Y_oob_preds)
+
+        success = False
+        kwargs = {"n_jobs": N_JOBS}
+        for solver in solvers:
+            print("Trying solver:", solver)
+            try:
+                rf.modify_predictions_trees(
+                    Etr,
+                    method="mse",
+                    **kwargs,
+                    solver=solver,
+                )
+                success = True
+                break
+            except Exception:
+                pass
+        if not success:
+            print("All solvers failed, switching to extragradient method.")
+            rf.modify_predictions_trees(
+                Etr,
+                method="mse",
+                **kwargs,
+                opt_method="extragradient",
+            )
+        pred_hack1 = rf.predict(Xte)
+        # ---------------------------------------------------------------
+
+        # Hack 2: linear combination ------------------------------------
+        print("Hack 2: linear combination")
+        v = np.zeros(len(np.unique(Etr)))
+
+        for env in np.unique(Etr):
+            mask = Etr == env
+            v[env] = np.var(Ytr_noisy[mask] - Y_oob_preds[mask])
+
+        a = np.sqrt(np.median(v)) / (np.sqrt(v) + 1e-8)
+
+        Y_hack2 = (1 - a[Etr]) * Y_oob_preds + a[Etr] * Ytr_noisy
+
+        rf = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED,
+            n_jobs=N_JOBS,
+        )
+        rf.fit(Xtr, Y_hack2)
+
+        success = False
+        kwargs = {"n_jobs": N_JOBS}
+        for solver in solvers:
+            print("Trying solver:", solver)
+            try:
+                rf.modify_predictions_trees(
+                    Etr,
+                    method="mse",
+                    **kwargs,
+                    solver=solver,
+                )
+                success = True
+                break
+            except Exception:
+                pass
+        if not success:
+            print("All solvers failed, switching to extragradient method.")
+            rf.modify_predictions_trees(
+                Etr,
+                method="mse",
+                **kwargs,
+                opt_method="extragradient",
+            )
+        pred_hack2 = rf.predict(Xte)
+
+        # ---------------------------------------------------------------
+
         # Evaluate the maximum risk
         max_risks[sim, 0] = max_mse(Yte, pred_rf_oracle, Ete)
         max_risks[sim, 1] = max_mse(Yte, pred_rf, Ete)
@@ -270,6 +374,11 @@ if __name__ == "__main__":
         max_risks[sim, 3] = max_mse(Yte, pred_maxrmrf_mse, Ete)
         max_risks[sim, 4] = max_mse(Yte, pred_maxrmrf_reg_oracle, Ete)
         max_risks[sim, 5] = max_mse(Yte, pred_maxrmrf_reg, Ete)
+        max_risks[sim, 6] = max_mse(Yte, pred_hack1, Ete)
+        max_risks[sim, 7] = max_mse(Yte, pred_hack2, Ete)
+
+    t_stat, p_val = ttest_rel(max_risks[:, 5], max_risks[:, 6])
+    print(f"Paired t-test MaxRM-RF(reg) vs Hack 2: p-value = {p_val:.4e}")
 
     fig, ax = plt.subplots()
     bp = ax.boxplot(
@@ -280,6 +389,8 @@ if __name__ == "__main__":
             max_risks[:, 3],  # MaxRM-RF(mse)
             max_risks[:, 4],  # Oracle MaxRM-RF(reg)
             max_risks[:, 5],  # MaxRM-RF(reg)
+            max_risks[:, 6],  # Hack 1 (knowledge distillation)
+            max_risks[:, 7],  # Hack 2 (linear combination)
         ],
         tick_labels=[
             "Oracle\nRF",
@@ -288,13 +399,13 @@ if __name__ == "__main__":
             "MaxRM-RF(mse)",
             "Oracle\nMaxRM-RF(reg)",
             "MaxRM-RF(reg)",
+            "Hack 1",
+            "Hack 2",
         ],
         patch_artist=True,
     )
-    ax.tick_params(axis="x", labelsize=7)
-    # Pair colors: RF (blue), MSE (orange), Regret (green).
-    # Oracle is lighter shade.
-    base_colors = ["#1f77b4", "#ff7f0e", "#2ca02c"]
+    ax.tick_params(axis="x", labelsize=6)
+    base_colors = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728"]
 
     def lighten(color_hex, amount):
         from matplotlib.colors import to_rgb
@@ -309,6 +420,8 @@ if __name__ == "__main__":
         lighten(base_colors[1], 0.3),  # MSE (darker orange)
         lighten(base_colors[2], 0.6),  # Oracle Regret (lighter green)
         lighten(base_colors[2], 0.3),  # Regret (darker green)
+        lighten(base_colors[3], 0.5),  # Hack 1 (lighter red)
+        lighten(base_colors[3], 0.5),  # Hack 2 (darker red)
     ]
     for patch, color in zip(bp["boxes"], colors, strict=True):
         patch.set_facecolor(color)
@@ -318,11 +431,10 @@ if __name__ == "__main__":
             item.set_color("black")
     ax.set_ylabel("Maximum MSE across environments")
     ax.set_title("Comparison of methods with different noise levels")
+    ax.yaxis.grid(True, which="major", linestyle="--")
     plt.tight_layout()
-    plt.savefig(
-        os.path.join(
-            OUT_DIR,
-            f"boxplot_diff_noise_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.png",
-        )
-    )
+
+    base_fname = f"boxplot_diff_noise_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}"
+    plt.savefig(os.path.join(OUT_DIR, f"{base_fname}.png"), dpi=300)
+    np.save(os.path.join(OUT_DIR, f"{base_fname}.npy"), max_risks)
     plt.close(fig)
