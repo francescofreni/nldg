@@ -186,7 +186,7 @@ if __name__ == "__main__":
             "Regression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             n_jobs=N_JOBS,
         )
         rf.fit(Xtr, Ytr)
