@@ -1,3 +1,14 @@
+"""Simulation comparing multiple MaxRM-RF variants:
+- posthoc
+- local
+- global
+- global-NonDFS (alternate global method)
+- each with/without optimal weight refinement (suffix '-w')
+- baseline RF
+
+Outputs are saved under results/output_simulation/sim_diff_methods/.
+"""
+
 import os
 import copy
 import time

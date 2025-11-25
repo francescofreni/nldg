@@ -1,3 +1,9 @@
+"""Compare RF, MaxRM-RF, GroupDRO-NN, and Magging-RF when all environments
+are iid/equal and only the per-environment sample size varies.
+
+Environments are synthetically created via simple splitting of iid data.
+"""
+
 # code modified from https://github.com/zywang0701/DRoL/blob/main/simu1.py
 import os
 import numpy as np
@@ -50,6 +56,7 @@ def plot_maxrisk_vs_nenvs(
     results: dict[int, dict[str, float]],
     risk_label: str = "mse",
 ) -> None:
+    """Plot maximum per-environment MSE vs per-environment sample size."""
     fontsize = 15
 
     methods = []
@@ -118,6 +125,7 @@ if __name__ == "__main__":
     results = {L: {} for L in N_vec}
 
     for n in tqdm(N_vec):
+        # max_risks columns: [RF, MaxRM-RF, GroupDRO-NN, Magging-RF]
         max_risks = np.zeros((N_SIM, 4))
 
         for sim in tqdm(range(N_SIM), leave=False):
