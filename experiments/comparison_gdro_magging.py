@@ -54,9 +54,11 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 def plot_maxrisk_vs_nenvs(
     results: dict[int, dict[str, float]],
+    ylim: tuple[float, float] | None = None,
     risk_eval: str = "mse",
     risk_label: str = "mse",
 ) -> None:
+    fontsize = 16
     methods = []
     for L in results:
         methods.extend(results[L].keys())
@@ -98,19 +100,33 @@ def plot_maxrisk_vs_nenvs(
         )
         ax.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
 
-    ax.set_xlabel("Number of environments $K$")
+    ax.set_xlabel("Number of environments $K$", fontsize=fontsize)
     if risk_eval == "mse":
-        ax.set_ylabel("Maximum MSE across environments")
+        ax.set_ylabel("Maximum MSE across environments", fontsize=fontsize)
     elif risk_eval == "reward":
-        ax.set_ylabel("Maximum negative reward across environments")
+        ax.set_ylabel(
+            "Maximum negative reward\nacross environments", fontsize=fontsize
+        )
     elif risk_eval == "regret":
-        ax.set_ylabel("Maximum regret across environments")
+        ax.set_ylabel("Maximum regret across environments", fontsize=fontsize)
 
     ax.set_xticks(L_vals)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.tick_params(axis="x", labelsize=14)
+    ax.tick_params(axis="y", labelsize=14)
 
     ax.grid(True, linewidth=0.2)
-    ax.legend(frameon=True, fontsize=12)
+    ax.legend(frameon=True, fontsize=fontsize)
+
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
+    ymin, ymax = ax.get_ylim()
+    start = np.ceil((ymin + 1e-9) / 0.1) * 0.1
+    ticks = np.arange(start, ymax, 0.1)
+    ticks = [t for t in ticks if ymin < t < ymax]
+    ax.set_yticks(ticks)
+
     plt.tight_layout()
 
     plt.savefig(
@@ -289,6 +305,7 @@ if __name__ == "__main__":
 
     plot_maxrisk_vs_nenvs(
         results,
+        ylim=(0.7, 1.35),
         risk_eval=risk_eval,
         risk_label=risk_label,
     )

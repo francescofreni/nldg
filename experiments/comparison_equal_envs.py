@@ -50,6 +50,8 @@ def plot_maxrisk_vs_nenvs(
     results: dict[int, dict[str, float]],
     risk_label: str = "mse",
 ) -> None:
+    fontsize = 15
+
     methods = []
     for L in results:
         methods.extend(results[L].keys())
@@ -91,13 +93,15 @@ def plot_maxrisk_vs_nenvs(
         )
         ax.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
 
-    ax.set_xlabel("Number of observations per environment")
-    ax.set_ylabel("Maximum MSE across environments")
+    ax.set_xlabel("Number of observations per environment", fontsize=fontsize)
+    ax.set_ylabel("Maximum MSE across environments", fontsize=fontsize)
     ax.set_xticks(L_vals)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.tick_params(axis="x", labelsize=12)
+    ax.tick_params(axis="y", labelsize=12)
 
     ax.grid(True, linewidth=0.2)
-    ax.legend(frameon=True, fontsize=12)
+    ax.legend(frameon=True, fontsize=fontsize)
     plt.tight_layout()
 
     plt.savefig(
