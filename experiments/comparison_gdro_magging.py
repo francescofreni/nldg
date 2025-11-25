@@ -1,6 +1,7 @@
 # code modified from https://github.com/zywang0701/DRoL/blob/main/simu1.py
 import os
 import numpy as np
+import argparse
 from adaXT.random_forest import RandomForest
 from nldg.additional.data_GP import DataContainer
 from nldg.utils import min_reward, max_mse, max_regret
@@ -11,7 +12,6 @@ from matplotlib.ticker import MaxNLocator
 import matplotlib.pyplot as plt
 
 
-N_JOBS = 5
 N_SIM = 100
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 30
@@ -24,24 +24,9 @@ COLORS = {
 }
 
 NUM_COVARIATES = 5
-CHANGE_X_DISTR = True
 BETA_LOW = 0.5
 BETA_HIGH = 2.5
 
-risk = "mse"  # "mse", "reward", "regret"
-
-if risk == "mse":
-    risk_label = "mse"
-elif risk == "reward":
-    risk_label = "nrw"
-else:
-    risk_label = "reg"
-
-# evaluate on the same risk as optimized
-risk_eval = risk
-
-# number of environments
-Ls = [2, 3, 4, 5, 6, 7, 8]
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
@@ -54,6 +39,7 @@ os.makedirs(OUT_DIR, exist_ok=True)
 
 def plot_maxrisk_vs_nenvs(
     results: dict[int, dict[str, float]],
+    change_X_distr: bool,
     ylim: tuple[float, float] | None = None,
     risk_eval: str = "mse",
     risk_label: str = "mse",
@@ -132,7 +118,7 @@ def plot_maxrisk_vs_nenvs(
     plt.savefig(
         os.path.join(
             OUT_DIR,
-            f"opt{risk_label}_eval{risk_eval}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.pdf",
+            f"opt{risk_label}_eval{risk_eval}_changeXdistr{str(change_X_distr)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.pdf",
         ),
         dpi=300,
         bbox_inches="tight",
@@ -140,8 +126,43 @@ def plot_maxrisk_vs_nenvs(
 
 
 if __name__ == "__main__":
-    results = {L: {} for L in Ls}
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--change_X_distr",
+        action="store_true",
+        help="Whether the target covariate distribution differs from the training ones (default: False).",
+    )
+    parser.add_argument(
+        "--risk",
+        type=str,
+        default="mse",
+        choices=["mse", "reward", "regret"],
+        help="Risk definition (default: 'mse')."
+        "Must be one of 'mse', 'reward', 'regret'.",
+    )
+    parser.add_argument(
+        "--n_jobs",
+        type=int,
+        default=5,
+        help="Number of jobs (default: 1).",
+    )
+    args = parser.parse_args()
+    change_X_distr = args.change_X_distr
+    risk = args.risk
+    n_jobs = args.n_jobs
 
+    if risk == "mse":
+        risk_label = "mse"
+    elif risk == "reward":
+        risk_label = "nrw"
+    else:
+        risk_label = "reg"
+
+    # evaluate on the same risk as optimized
+    risk_eval = risk
+
+    Ls = [2, 3, 4, 5, 6, 7, 8]  # number of environments
+    results = {L: {} for L in Ls}
     for L in tqdm(Ls):
         max_risks = np.zeros((N_SIM, 4))
 
@@ -151,7 +172,7 @@ if __name__ == "__main__":
                 N=2000,
                 L=L,
                 d=NUM_COVARIATES,
-                change_X_distr=CHANGE_X_DISTR,
+                change_X_distr=change_X_distr,
                 risk=risk,
                 beta_low=BETA_LOW,
                 beta_high=BETA_HIGH,
@@ -183,7 +204,7 @@ if __name__ == "__main__":
                         n_estimators=N_ESTIMATORS,
                         min_samples_leaf=MIN_SAMPLES_LEAF,
                         seed=SEED,
-                        n_jobs=N_JOBS,
+                        n_jobs=n_jobs,
                     )
                     rf_e.fit(Xtr_env, Ytr_env)
                     fitted_erm[mask] = rf_e.predict(Xtr_env)
@@ -200,7 +221,7 @@ if __name__ == "__main__":
                 n_estimators=N_ESTIMATORS,
                 min_samples_leaf=MIN_SAMPLES_LEAF,
                 seed=SEED,
-                n_jobs=N_JOBS,
+                n_jobs=n_jobs,
             )
             rf.fit(Xtr, Ytr)
             pred_rf = rf.predict(Xte)
@@ -230,7 +251,7 @@ if __name__ == "__main__":
             # MaxRM-RF ------------------------------------------------------
             solvers = ["ECOS", "SCS", "CLARABEL"]
             success = False
-            kwargs = {"n_jobs": N_JOBS}
+            kwargs = {"n_jobs": n_jobs}
             if risk == "regret":
                 kwargs["sols_erm"] = fitted_erm
                 kwargs["sols_erm_trees"] = fitted_erm_trees
@@ -298,14 +319,15 @@ if __name__ == "__main__":
     np.save(
         os.path.join(
             OUT_DIR,
-            f"opt{risk_label}_eval{risk_eval}_changeXdistr{str(CHANGE_X_DISTR)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
+            f"opt{risk_label}_eval{risk_eval}_changeXdistr{str(change_X_distr)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
         ),
         results,
     )
 
     plot_maxrisk_vs_nenvs(
         results,
-        ylim=(0.7, 1.35),
+        change_X_distr,
+        # ylim=(0.7, 1.35),
         risk_eval=risk_eval,
         risk_label=risk_label,
     )
