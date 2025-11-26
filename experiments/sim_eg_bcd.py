@@ -15,7 +15,7 @@ MIN_SAMPLES_LEAF = 15
 N_JOBS = 10
 SEED = 42
 BLOCK_SIZE = 15
-PATIENCE = 1
+PATIENCE_BCD = 1
 GAMMA = 0.1
 T_MAX = 100
 
@@ -132,13 +132,16 @@ if __name__ == "__main__":
         early_stopping=True,
         gamma=GAMMA,
         epochs=T_MAX,
-        patience=PATIENCE,
     )
     preds_posthoc_eg = rf_posthoc_eg.predict(Xtr_sorted)
 
     rf_posthoc_bcd = copy.deepcopy(rf)
     rf_posthoc_bcd.modify_predictions_trees(
-        Etr, bcd=True, block_size=BLOCK_SIZE, patience=PATIENCE
+        Etr,
+        bcd=True,
+        block_size=BLOCK_SIZE,
+        patience=PATIENCE_BCD,
+        max_iter=T_MAX,
     )
     preds_posthoc_bcd = rf_posthoc_bcd.predict(Xtr_sorted)
 
@@ -233,7 +236,6 @@ if __name__ == "__main__":
             n_jobs=N_JOBS,
             gamma=GAMMA,
             epochs=T_MAX,
-            patience=PATIENCE,
         )
         end = time.perf_counter()
         time_posthoc_eg = end - start
@@ -256,7 +258,7 @@ if __name__ == "__main__":
             Etr,
             bcd=True,
             block_size=BLOCK_SIZE,
-            patience=PATIENCE,
+            patience=PATIENCE_BCD,
             n_jobs=N_JOBS,
             max_iter=T_MAX,
         )
