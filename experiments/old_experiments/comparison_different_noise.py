@@ -62,9 +62,9 @@ if __name__ == "__main__":
         data.generate_dataset(seed=sim)
 
         stds = rng.uniform(0, MAX_NOISE_LEVEL, size=L)
-        scales = np.repeat(stds, 2000)
+        scales = np.repeat(stds, OBS_PER_ENV)
 
-        noise = rng.normal(size=2000 * L) * scales
+        noise = rng.normal(size=OBS_PER_ENV * L) * scales
 
         Xtr = np.vstack(data.X_sources_list)
         Ytr = np.concatenate(data.Y_sources_list)
