@@ -543,7 +543,7 @@ if __name__ == "__main__":
     ax.yaxis.grid(True, which="major", linestyle="--")
     plt.tight_layout()
 
-    base_fname = f"boxplot_changeXdistr{str(CHANGE_X_DISTR)}_reps{N_SIM}_obsPerEnv{OBS_PER_ENV}_sigma{SIGMA}"
-    plt.savefig(os.path.join(OUT_DIR, f"{base_fname}.png"), dpi=300)
+    base_fname = f"boxplot_changeXdistr{str(CHANGE_X_DISTR)}_reps{N_SIM}_obsPerEnv{OBS_PER_ENV}_sigma{SIGMA}_noiselvl{MAX_NOISE_LEVEL}"
+    plt.savefig(os.path.join(OUT_DIR, f"{base_fname}.pdf"), dpi=300)
     np.save(os.path.join(OUT_DIR, f"{base_fname}.npy"), max_risks)
     plt.close(fig)
