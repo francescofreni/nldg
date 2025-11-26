@@ -17,6 +17,7 @@ SEED = 42
 BLOCK_SIZE = 15
 PATIENCE_BCD = 1
 GAMMA = 0.1
+T_MAX = 100
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
@@ -229,6 +230,7 @@ if __name__ == "__main__":
             early_stopping=True,
             n_jobs=N_JOBS,
             gamma=GAMMA,
+            epochs=T_MAX,
         )
         end = time.perf_counter()
         time_posthoc_eg = end - start
@@ -253,6 +255,7 @@ if __name__ == "__main__":
             block_size=BLOCK_SIZE,
             patience=PATIENCE_BCD,
             n_jobs=N_JOBS,
+            max_iter=T_MAX,
         )
         end = time.perf_counter()
         time_posthoc_bcd = end - start
