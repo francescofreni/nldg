@@ -103,7 +103,6 @@ if __name__ == "__main__":
         rf.modify_predictions_trees(
             Etr,
             n_jobs=N_JOBS,
-            seed=SEED + i,
         )
         end = time.perf_counter()
         time_posthoc = end - start
@@ -239,7 +238,6 @@ if __name__ == "__main__":
         rf_t.modify_predictions_trees(
             Etr_t,
             n_jobs=N_JOBS,
-            seed=SEED + i,
         )
         preds_posthoc_ow, _ = rf_t.refine_weights(
             X_val=Xtr_w,
