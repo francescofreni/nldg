@@ -57,7 +57,7 @@ def hyperparam_exp(
     if hyperparam == "mtry":
         hyperparam_values = np.arange(1, X.shape[1] + 1)
     elif hyperparam == "min_samples_leaf":
-        hyperparam_values = np.array([10, 15, 20, 25, 30, 35])
+        hyperparam_values = np.array([5, 10, 15, 20, 25, 30])
     else:
         hyperparam_values = np.array([5, 6, 7, 8, 9, 10])
     len_grid = len(hyperparam_values)
