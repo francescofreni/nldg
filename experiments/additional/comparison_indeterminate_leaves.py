@@ -12,7 +12,7 @@ from matplotlib.ticker import MaxNLocator, FuncFormatter
 import matplotlib.pyplot as plt
 
 
-N_SIM = 2
+N_SIM = 100
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 30
 SEED = 42
