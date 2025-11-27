@@ -63,14 +63,14 @@ def plot_dtr(
         dtr["rf-posthoc-eg"],
         color="#86C8DD",
         linewidth=2,
-        label="MaxRM-RF-EG(mse)",
+        label="MaxRM-RF(mse) with EG",
     )
     ax.plot(
         dtr["X_sorted"],
         dtr["rf-posthoc-bcd"],
         color="#964A8B",
         linewidth=2,
-        label="MaxRM-RF-BCD(mse)",
+        label="MaxRM-RF(mse) with BCD",
     )
 
     x_range = np.linspace(dtr["X_sorted"].min(), dtr["X_sorted"].max(), 1000)
