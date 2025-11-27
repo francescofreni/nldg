@@ -8,8 +8,6 @@ archive/
 notebooks/settings/
 *.nc
 *.pdf
-__pycache__/
-.DS_Store
-fluxnet/notebooks/
-fluxnet/results/
-fluxnet/QuickEval/
+*.npy
+*.pyc
+*.DS_Store
