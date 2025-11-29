@@ -5,7 +5,7 @@ from sklearn.metrics import mean_squared_error
 from nldg.utils import *
 from adaXT.random_forest import RandomForest
 from tqdm import tqdm
-from utils import *
+from ..utils import *
 
 N_SIM = 20
 SAMPLE_SIZE = 1000
@@ -16,9 +16,9 @@ N_JOBS = 10
 SEED = 42
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-SIM_DIR = os.path.join(RESULTS_DIR, "output_simulation")
+SIM_DIR = os.path.join(RESULTS_DIR, "output_additional")
 os.makedirs(SIM_DIR, exist_ok=True)
 OUT_DIR = os.path.join(SIM_DIR, "sim_eg_bcd")
 os.makedirs(OUT_DIR, exist_ok=True)

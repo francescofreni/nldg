@@ -47,9 +47,9 @@ def plot_runtime(
     plt.tight_layout()
 
     script_dir = os.path.dirname(__file__)
-    parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+    parent_dir = os.path.abspath(os.path.join(script_dir, "..", ".."))
     results_dir = os.path.join(parent_dir, "results")
-    plots_dir = os.path.join(results_dir, "figures")
+    plots_dir = os.path.join(results_dir, "output_old")
     os.makedirs(plots_dir, exist_ok=True)
     outpath = os.path.join(plots_dir, "runtime_vs_cores.png")
     plt.savefig(outpath, dpi=300, bbox_inches="tight")

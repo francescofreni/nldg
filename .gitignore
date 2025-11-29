@@ -11,3 +11,4 @@ notebooks/settings/
 *.npy
 *.pyc
 *.DS_Store
+results_archive/

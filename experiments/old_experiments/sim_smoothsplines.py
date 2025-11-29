@@ -5,16 +5,16 @@ from sklearn.metrics import mean_squared_error
 from nldg.utils import *
 from nldg.ss import MaxRMSmoothSpline, MaggingSmoothSpline
 from tqdm import tqdm
-from utils import *
+from ..utils import *
 
 N_SIM = 20
 SAMPLE_SIZE = 1000
 NOISE_STD = 0.5
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-SIM_DIR = os.path.join(RESULTS_DIR, "output_simulation")
+SIM_DIR = os.path.join(RESULTS_DIR, "output_old")
 os.makedirs(SIM_DIR, exist_ok=True)
 OUT_DIR = os.path.join(SIM_DIR, "sim_smoothsplines")
 os.makedirs(OUT_DIR, exist_ok=True)

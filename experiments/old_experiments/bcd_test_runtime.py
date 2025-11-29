@@ -301,9 +301,9 @@ if __name__ == "__main__":
             runtime_dict[f"{NAME_RF}(mse-BCD-{bs})"].append(bcd_time)
 
     script_dir = os.path.dirname(__file__)
-    parent_dir = os.path.abspath(os.path.join(script_dir, ".."))
+    parent_dir = os.path.abspath(os.path.join(script_dir, "..", ".."))
     results_dir = os.path.join(parent_dir, "results")
-    plots_dir = os.path.join(results_dir, "figures")
+    plots_dir = os.path.join(results_dir, "output_old")
     os.makedirs(plots_dir, exist_ok=True)
 
     plot_bcd_runtime(runtime_dict, plots_dir)

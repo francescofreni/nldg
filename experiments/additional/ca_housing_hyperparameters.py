@@ -7,10 +7,10 @@ from nldg.utils import max_mse, max_regret, min_reward
 from adaXT.random_forest import RandomForest
 from sklearn.model_selection import train_test_split
 from tqdm import tqdm
-from utils import (
+from ..utils import (
     plot_max_risk_vs_hyperparam,
 )
-from ca_housing_analysis import assign_quadrant, load_data
+from ..ca_housing_analysis import assign_quadrant, load_data
 
 # Setup logging
 logging.basicConfig(
@@ -20,10 +20,10 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data")
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
+DATA_DIR = os.path.join(SCRIPT_DIR, "..", "..", "data")
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-CA_DIR = os.path.join(RESULTS_DIR, "output_ca_housing")
+CA_DIR = os.path.join(RESULTS_DIR, "output_additional")
 os.makedirs(CA_DIR, exist_ok=True)
 OUT_DIR = os.path.join(CA_DIR, "hyperparameters")
 os.makedirs(OUT_DIR, exist_ok=True)
