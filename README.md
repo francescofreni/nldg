@@ -86,6 +86,7 @@ See `experiment/additional/comparison_magging.ipynb` (to see Fig. 8).
 
 
 ### Appendix D.1
+To reproduce Tab. 3:
 ```bash
 python experiments/additional/tree_rf_comparison.py
 ```
@@ -93,6 +94,7 @@ The results are saved in `results/output_additional/`.
 
 
 ### Appendix D.2
+To reproduce Tab. 4 and Fig. 9:
 ```bash
 python experiments/additional/sim_eg_bcd.py
 ```
@@ -100,6 +102,7 @@ The results are saved in `results/output_additional/sim_eg_bcd/`.
 
 
 ### Appendix D.3
+To reproduce Fig. 10:
 ```bash
 python experiments/additional/comparison_indeterminate_leaves.py
 ```
