@@ -108,4 +108,4 @@ line-length = 79
 target-version = "py310"
 
 [tool.setuptools]
-packages = ["nldg", "experiments", "fluxnet", "fluxnet.cv"]
+packages = ["nldg", "experiments", "nldg.additional"]
