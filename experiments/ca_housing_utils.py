@@ -928,7 +928,7 @@ def generate_tables_and_plots(
     for model_set, suffix in [
         (models, "all_methods"),
         (
-            ["LR", "RF", "Magging-RF(mse)", "GroupDRO-NN", "MaxRM-RF(mse)"],
+            ["LR", "GroupDRO-NN"],
             "only_mse_methods",
         ),
     ]:
@@ -949,24 +949,24 @@ def generate_tables_and_plots(
             f.write(latex_str)
 
     # Generate plots
-    plot_test_risk_all_methods(
-        results_agg,
-        models,
-        colors,
-        saveplot=True,
-        out_dir=out_dir,
-        nameplot=f"{prefix}l5co_{agg_type}_all_methods",
-        folds=True,
-    )
-    plot_test_risk_all_methods(
-        results_agg,
-        rf_models,
-        colors,
-        saveplot=True,
-        out_dir=out_dir,
-        nameplot=f"{prefix}l5co_{agg_type}_rf_methods",
-        folds=True,
-    )
+    # plot_test_risk_all_methods(
+    #     results_agg,
+    #     models,
+    #     colors,
+    #     saveplot=True,
+    #     out_dir=out_dir,
+    #     nameplot=f"{prefix}l5co_{agg_type}_all_methods",
+    #     folds=True,
+    # )
+    # plot_test_risk_all_methods(
+    #     results_agg,
+    #     rf_models,
+    #     colors,
+    #     saveplot=True,
+    #     out_dir=out_dir,
+    #     nameplot=f"{prefix}l5co_{agg_type}_rf_methods",
+    #     folds=True,
+    # )
 
 
 def print_model_comparison_stats(results_df, model_names, baseline="RF"):

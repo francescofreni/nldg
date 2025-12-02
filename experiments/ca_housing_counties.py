@@ -458,10 +458,16 @@ if __name__ == "__main__":
                     results_test_df, unique_envs, models
                 )
 
-            # generate_tables_and_plots(
-            #     results_test_df, preds_test_df, agg,
-            #     models, rf_models, colors, OUT_DIR, prefix
-            # )
+            generate_tables_and_plots(
+                results_test_df,
+                preds_test_df,
+                agg,
+                models,
+                rf_models,
+                colors,
+                OUT_DIR,
+                prefix,
+            )
 
         # for each held out, plot a calibration plot of RF and MaxRM-RFs
         # calibration_models = ['RF', 'MaxRM-RF(mse)', 'MaxRM-RF(nrw)', 'MaxRM-RF(reg)']
