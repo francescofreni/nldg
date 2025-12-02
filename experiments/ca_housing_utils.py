@@ -828,7 +828,7 @@ def table_test_risk_all_methods_perm(
     df_preds: pd.DataFrame,
     models: list[str],
     folds: bool = False,
-    perm: bool = True,
+    perm: bool = False,
     return_p_values: bool = False,
 ) -> pd.DataFrame:
     means = df.copy().set_index("HeldOut").unstack()
