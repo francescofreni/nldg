@@ -2,7 +2,6 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
 
 NAME_RF = "MaxRM-RF"
 WIDTH, HEIGHT = 10, 6
@@ -536,6 +535,7 @@ def plot_max_risk_vs_hyperparam(
     out_dir: str | None = None,
     suffix: str = "mse",
 ) -> None:
+    fontsize = 16
     methods = ["RF", f"{NAME_RF}({suffix})"]
     if suffix == "mse":
         colors = ["#5790FC", "#F89C20"]
@@ -588,20 +588,29 @@ def plot_max_risk_vs_hyperparam(
         )
 
     if hyperparam == "mtry":
-        plt.xlabel(r"$m_{\mathrm{try}}$")
+        plt.xlabel(r"$m_{\mathrm{try}}$", fontsize=fontsize)
     elif hyperparam == "min_samples_leaf":
-        plt.xlabel("Minimum number of observations per leaf")
+        plt.xlabel(
+            "Minimum number of observations per leaf", fontsize=fontsize
+        )
     else:
-        plt.xlabel("Maximum depth")
+        plt.xlabel("Maximum depth", fontsize=fontsize)
     if suffix == "mse":
         lab = "MSE"
     elif suffix == "nrw":
-        lab = "Negative Reward"
+        lab = "negative reward\n"
     else:
-        lab = "Regret"
-    plt.ylabel(f"Maximum {lab} over environments")
+        lab = "regret"
+    plt.ylabel(f"Maximum {lab} across environments", fontsize=fontsize)
     plt.grid(True, linewidth=0.2)
-    plt.legend(frameon=True, fontsize=18)
+    plt.tick_params(axis="x", labelsize=14)
+    plt.tick_params(axis="y", labelsize=14)
+
+    # Set ticks exactly at the data points
+    all_x_values = sorted(df_stats[hyperparam].unique())
+    plt.xticks(all_x_values)
+
+    plt.legend(frameon=True, fontsize=fontsize)
     plt.tight_layout()
 
     if saveplot and out_dir is not None:
