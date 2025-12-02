@@ -82,7 +82,7 @@ The results are saved in `results/output_simulation/comparison_equal_envs/`.
 
 
 ### Appendix B
-See `experiment/additional/comparison_magging.ipynb` (to see Fig. 8).
+See `experiment/additional/comparison_magging.ipynb` (to see Fig. 7).
 
 
 ### Appendix D.1
@@ -94,7 +94,7 @@ The results are saved in `results/output_additional/`.
 
 
 ### Appendix D.2
-To reproduce Tab. 4 and Fig. 9:
+To reproduce Tab. 4 and Fig. 8:
 ```bash
 python experiments/additional/sim_eg_bcd.py
 ```
@@ -102,7 +102,7 @@ The results are saved in `results/output_additional/sim_eg_bcd/`.
 
 
 ### Appendix D.3
-To reproduce Fig. 10:
+To reproduce Fig. 9:
 ```bash
 python experiments/additional/comparison_indeterminate_leaves.py
 ```
@@ -110,16 +110,20 @@ The results are saved in `results/output_additional/comparison_indeterminate_lea
 
 
 ### Appendix D.4
-**TBD**
+To reproduce Fig. 10:
+```bash
+python experiments/additional/comparison_hyperparameters.py --change_X_distr
+```
+The results are saved in `results/output_additional/comparison_hyperparameters`.
 
 
 ### Appendix D.5
-To reproduce Fig. 14: 
+To reproduce Fig. 11: 
 ```bash
 python experiments/comparison_gdro_magging.py --risk "reward"
 python experiments/comparison_gdro_magging.py --risk "regret"
 ```
-To reproduce Fig. 15: 
+To reproduce Fig. 12: 
 ```bash
 python experiments/comparison_gdro_magging.py --risk "reward" --change_X_distr
 python experiments/comparison_gdro_magging.py --risk "regret" --change_X_distr
