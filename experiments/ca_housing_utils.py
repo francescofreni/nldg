@@ -937,7 +937,7 @@ def generate_tables_and_plots(
             preds_df,
             model_set,
             folds=True,
-            perm=(agg_type == "max"),
+            perm=False,
         )
         latex_str = table_df.to_latex(
             index=False, escape=False, column_format="l" + "c" * len(model_set)
