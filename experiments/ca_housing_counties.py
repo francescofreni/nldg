@@ -26,10 +26,10 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(SCRIPT_DIR, "..", "data")
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-OUT_DIR = os.path.join(RESULTS_DIR, "output_ca_housing")
+OUT_DIR = os.path.join(RESULTS_DIR, "output_realworld")
 os.makedirs(OUT_DIR, exist_ok=True)
 
-plt.style.use(os.path.join(SCRIPT_DIR, "style.mplstyle"))
+# plt.style.use(os.path.join(SCRIPT_DIR, "style.mplstyle"))
 
 # Experiment flags
 DOMAINS = "counties"
@@ -51,14 +51,14 @@ G5 = ["Los Angeles", "Orange", "Riverside", "San Bernardino", "San Diego"]
 # Models and colors for plotting
 models = [
     "LR",
-    "RF",
+    # "RF",
     "GroupDRO-NN",
-    "Magging-RF(mse)",
-    "Magging-RF(nrw)",
-    "Magging-RF(reg)",
-    "MaxRM-RF(mse)",
-    "MaxRM-RF(nrw)",
-    "MaxRM-RF(reg)",
+    # "Magging-RF(mse)",
+    # "Magging-RF(nrw)",
+    # "Magging-RF(reg)",
+    # "MaxRM-RF(mse)",
+    # "MaxRM-RF(nrw)",
+    # "MaxRM-RF(reg)",
 ]
 rf_models = ["RF", "MaxRM-RF(mse)", "MaxRM-RF(nrw)", "MaxRM-RF(reg)"]
 colors = {
