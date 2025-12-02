@@ -138,7 +138,7 @@ class GroupDRO:
             self.model.parameters(), lr=lr_model, weight_decay=weight_decay
         )
         # Loss function (Mean Squared Error)
-        loss_fn = nn.MSELoss(reduction="mean")  # Compute mean loss per group
+        loss_fn = nn.MSELoss(reduction="none")
         # Initialize group weights
         L = self.data.L
         weights = torch.ones(L, device=device) / L
