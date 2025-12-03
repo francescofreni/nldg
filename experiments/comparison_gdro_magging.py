@@ -283,7 +283,7 @@ if __name__ == "__main__":
             gdro = GroupDRO(
                 data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk=risk
             )
-            gdro.fit(epochs=500, eta=ETA_GDRO)
+            gdro.fit(epochs=500, eta=ETA_GDRO, device="cpu")
             pred_gdro = gdro.predict(Xte)
             # ---------------------------------------------------------------
 

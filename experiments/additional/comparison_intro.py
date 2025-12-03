@@ -321,7 +321,13 @@ def one_sim_step(seed, ret_ise=True):
 
     # Group DRO
     gdro = GroupDRO(data, hidden_dims=[48], seed=RANDOM_STATE)
-    gdro.fit(epochs=1000, lr_model=0.01, eta=ETA_GDRO, weight_decay=0.01)
+    gdro.fit(
+        epochs=1000,
+        lr_model=0.01,
+        eta=ETA_GDRO,
+        weight_decay=0.01,
+        device="cpu",
+    )
     preds_gdro = gdro.predict(Xtr_sorted)
     preds_gdro_grid = gdro.predict(x_grid)
     ise_gdro = np.sum((preds_gdro_grid - preds_opt) ** 2) * delta

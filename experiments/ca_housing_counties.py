@@ -210,7 +210,7 @@ def run_experiment(
     if verbose:
         print("Fitting GroupDRO-NN")
     gdro = GroupDRO(data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk="mse")
-    gdro.fit(epochs=500, eta=0.001, batch_size=128)
+    gdro.fit(epochs=500, eta=0.001, batch_size=128, device="cpu")
     # ---------------------------------------------------------------
 
     # MaxRM-RF ------------------------------------------------------
