@@ -46,6 +46,8 @@ class GroupDRO:
         group_predictors = []
         for l in range(self.data.L):
             X, Y = X_groups[l], Y_groups[l]
+            if X.dim() == 1:
+                X = X.unsqueeze(1)
             n = X.shape[0]
             idx = torch.randperm(n)
             n_val = max(1, int(0.2 * n))
@@ -152,7 +154,10 @@ class GroupDRO:
         for g_idx, (Xg, Yg) in enumerate(
             zip(self.data.X_sources_list, self.data.Y_sources_list)
         ):
-            X_tensors.append(torch.tensor(Xg, dtype=torch.float32))
+            xt = torch.tensor(Xg, dtype=torch.float32)
+            if xt.dim() == 1:
+                xt = xt.unsqueeze(1)
+            X_tensors.append(xt)
             Y_tensors.append(
                 torch.tensor(Yg, dtype=torch.float32).unsqueeze(1)
             )
@@ -177,6 +182,9 @@ class GroupDRO:
             X_groups = [
                 torch.tensor(X, dtype=torch.float32)
                 for X in self.data.X_sources_list
+            ]
+            X_groups = [
+                x.unsqueeze(1) if x.dim() == 1 else x for x in X_groups
             ]
             Y_groups = [
                 torch.tensor(Y, dtype=torch.float32).unsqueeze(1)
@@ -285,6 +293,8 @@ class GroupDRO:
         self.model.eval()
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32)
+            if X_tensor.dim() == 1:
+                X_tensor = X_tensor.unsqueeze(1)
             preds = self.model(X_tensor).numpy().flatten()
         return preds
 
@@ -296,5 +306,7 @@ class GroupDRO:
             mask = E == l
             with torch.no_grad():
                 X_tensor = torch.tensor(X[mask], dtype=torch.float32)
+                if X_tensor.dim() == 1:
+                    X_tensor = X_tensor.unsqueeze(1)
                 preds[mask] = model(X_tensor).numpy().flatten()
         return preds
