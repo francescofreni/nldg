@@ -25,7 +25,7 @@ import argparse
 from adaXT.random_forest import RandomForest
 from nldg.additional.data_GP import DataContainer
 from nldg.utils import min_reward, max_mse, max_regret
-from nldg.additional.gdro import GroupDRO
+from nldg.additional.gdro_new import GroupDRO
 from nldg.rf import MaggingRF
 from tqdm import tqdm
 from matplotlib.ticker import MaxNLocator
@@ -35,6 +35,7 @@ import matplotlib.pyplot as plt
 N_SIM = 100
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 30
+ETA_GDRO = 0.001
 SEED = 42
 COLORS = {
     "RF": "#5790FC",
@@ -282,12 +283,12 @@ if __name__ == "__main__":
             gdro = GroupDRO(
                 data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk=risk
             )
-            gdro.fit(epochs=500)
+            gdro.fit(epochs=500, eta=ETA_GDRO)
             pred_gdro = gdro.predict(Xte)
             # ---------------------------------------------------------------
 
             # 6. Modify RF predictions to obtain MaxRM-RF
-            solvers = ["ECOS", "SCS", "CLARABEL"]
+            solvers = ["ECOS", "CLARABEL", "SCS"]
             success = False
             kwargs = {"n_jobs": n_jobs}
             if risk == "regret":
