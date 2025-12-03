@@ -100,7 +100,7 @@ class GroupDRO:
     def fit(
         self,
         lr_model=1e-3,
-        eta=0.1,
+        eta=0.001,
         epochs=100,
         weight_decay=1e-5,
         batch_size=128,
