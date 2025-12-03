@@ -12,3 +12,5 @@ notebooks/settings/
 *.pyc
 *.DS_Store
 results_archive/
+fluxnet/
+old_experiments/
