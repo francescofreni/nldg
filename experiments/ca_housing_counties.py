@@ -28,6 +28,8 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 OUT_DIR = os.path.join(RESULTS_DIR, "output_ca_housing")
 os.makedirs(OUT_DIR, exist_ok=True)
+# OUT_DIR = os.path.join(OUT_DIR, "1203")
+# os.makedirs(OUT_DIR, exist_ok=True)
 
 plt.style.use(os.path.join(SCRIPT_DIR, "style.mplstyle"))
 
@@ -529,6 +531,23 @@ if __name__ == "__main__":
             p=0.5, alternative='greater'
         ).pvalue
         print(f"\tBinomial p-value for MaxRM-RF(mse) better than RF: {p_binom:.4f}")
+
+        print("--------------------------------")
+        table_df, pval_df = table_test_risk_all_methods_perm(
+            results_test_df_agg, preds_test_df, 
+            ['RF', 'MaxRM-RF(mse)'],
+            folds=True, perm=True, 
+            return_p_values=True,
+            alternative='greater'
+            )
+        print("% of folds where RF statistically better than MaxRM-RF(mse):")
+        num_better = np.sum(pval_df['MaxRM-RF(mse)'] < 0.05)
+        print(f"{num_better} / {len(pval_df)}")
+        p_binom = binomtest(
+            k=num_better, n=len(pval_df), 
+            p=0.5, alternative='greater'
+        ).pvalue
+        print(f"\tBinomial p-value for RF better than MaxRM-RF(mse): {p_binom:.4f}")
 
         # histplot of maximum MSE of RF vs MaxRM-RF(mse)
         maxmse_file = os.path.join(
