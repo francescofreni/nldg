@@ -7,7 +7,7 @@ import pandas as pd
 
 from adaXT.random_forest import RandomForest
 from nldg.additional.data_CA import DataContainer
-from nldg.nldg.additional.gdro import GroupDRO
+from nldg.additional.gdro import GroupDRO
 from nldg.rf import MaggingRF
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error

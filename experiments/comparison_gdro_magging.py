@@ -25,7 +25,7 @@ import argparse
 from adaXT.random_forest import RandomForest
 from nldg.additional.data_GP import DataContainer
 from nldg.utils import min_reward, max_mse, max_regret
-from nldg.nldg.additional.gdro import GroupDRO
+from nldg.additional.gdro import GroupDRO
 from nldg.rf import MaggingRF
 from tqdm import tqdm
 from matplotlib.ticker import MaxNLocator

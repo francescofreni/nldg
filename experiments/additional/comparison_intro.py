@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from nldg.rf import MaggingRF
 from adaXT.random_forest import RandomForest
 from tqdm import tqdm
-from nldg.nldg.additional.gdro import GroupDRO
+from nldg.additional.gdro import GroupDRO
 
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 15
