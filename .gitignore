@@ -14,3 +14,5 @@ notebooks/settings/
 results_archive/
 fluxnet/
 old_experiments/
+nldg/nn.py
+nldg/train_nn.py
