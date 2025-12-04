@@ -82,20 +82,19 @@ To reproduce Fig. 6, Table 2, and Table 6:
 ```bash
 python experiments/ca_housing_counties.py --leave-5-out --use-geo-clusters
 ```
-The results are saved in 
-* `results/output_realworld/ca_housing_envs_County.png` (Figure 6)
-* `results/output_realworld/split_geo/geo_l5co_max_only_mse_methods.txt` (Table 2) 
-* `results/output_realworld/split_geo/geo_l5co_max_all_methods.txt` (Table 6).
+The results are saved in `results/output_realworld/` (Figure 6: `ca_housing_envs_County.png`, Table 2: `split_geo/geo_l5co_max_only_mse_methods.txt`, Table 6: `split_geo/geo_l5co_max_all_methods.txt`).
 
 To rerun for 200 random splits:
 ```bash
 python experiments/ca_housing_counties.py --many-folds-l5co
 ```
+The results are printed to the terminal.
 
 To reproduce Fig. 13:
 ```bash
 python experiments/ca_housing_counties.py --similarity --use-geo-clusters
 ```
+The results are saved in `results/output_realworld/` (`env_similarity_heatmap.png`).
 
 
 ### Appendix B
