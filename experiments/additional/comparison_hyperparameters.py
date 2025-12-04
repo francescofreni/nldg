@@ -42,7 +42,7 @@ NAME_RF = "MaxRM-RF"
 
 # hyperparameter grids
 GRID_MTRY = np.arange(1, NUM_COVARIATES + 1)
-GRID_MIN_SAMPLES_LEAF = np.array([5, 10, 15, 20, 25, 30, 35, 40])
+GRID_MIN_SAMPLES_LEAF = np.array([1, 3, 5, 10, 15, 20, 25, 30, 35, 40])
 GRID_MAX_DEPTH = np.array([3, 4, 5, 6, 7, 8])
 
 

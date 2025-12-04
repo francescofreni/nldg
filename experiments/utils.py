@@ -590,9 +590,7 @@ def plot_max_risk_vs_hyperparam(
     if hyperparam == "mtry":
         plt.xlabel(r"$m_{\mathrm{try}}$", fontsize=fontsize)
     elif hyperparam == "min_samples_leaf":
-        plt.xlabel(
-            "Minimum number of observations per leaf", fontsize=fontsize
-        )
+        plt.xlabel("Minimum leaf size", fontsize=fontsize)
     else:
         plt.xlabel("Maximum depth", fontsize=fontsize)
     if suffix == "mse":

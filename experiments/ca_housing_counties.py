@@ -7,7 +7,7 @@ import pandas as pd
 
 from adaXT.random_forest import RandomForest
 from nldg.additional.data_CA import DataContainer
-from nldg.additional.gdro_new import GroupDRO
+from nldg.additional.gdro import GroupDRO
 from nldg.rf import MaggingRF
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_squared_error
@@ -210,7 +210,7 @@ def run_experiment(
     if verbose:
         print("Fitting GroupDRO-NN")
     gdro = GroupDRO(data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk="mse")
-    gdro.fit(epochs=500, eta=0.001, batch_size=128)
+    gdro.fit(epochs=500, eta=0.001, batch_size=128, device="cpu")
     # ---------------------------------------------------------------
 
     # MaxRM-RF ------------------------------------------------------
