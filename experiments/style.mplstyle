@@ -1,0 +1,27 @@
+# JMLR Matplotlib Style File
+
+# Figure size # double-column default
+figure.figsize: 3, 2.5 # width, height in inches
+
+# Fonts
+# font.family: serif # commenting this out so the font stays the same
+# font.serif: Palatino
+font.size: 8
+
+# Axes
+axes.titlesize: 9      # title of axes
+axes.labelsize: 9      # x and y labels
+
+# Ticks
+xtick.labelsize: 8
+ytick.labelsize: 8
+
+# Legend
+legend.fontsize: 8
+
+# Figure title
+figure.titlesize: 10
+
+# # LaTeX integration
+# text.usetex: True
+# text.latex.preamble: \usepackage{amsmath}\usepackage{amssymb}\usepackage{siunitx}[=v2]
