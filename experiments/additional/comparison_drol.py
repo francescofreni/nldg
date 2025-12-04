@@ -5,7 +5,7 @@ import argparse
 import numpy as np
 import pandas as pd
 from adaXT.random_forest import RandomForest
-from nldg.additional.data import DataContainer
+from nldg.additional.data_CA import DataContainer
 from nldg.additional.drol import DRoL
 from nldg.utils import max_mse, min_reward, max_regret
 import matplotlib.pyplot as plt

@@ -40,7 +40,7 @@ class DataContainer:
     def load_custom_data(self, Xtr, Ytr, Etr, Xte, Yte, Ete):
         """
         Load custom data into the DataContainer format.
-        
+
         Parameters:
         -----------
         Xtr : numpy.ndarray
@@ -65,25 +65,25 @@ class DataContainer:
         Xte = np.array(Xte)
         Yte = np.array(Yte)
         Ete = np.array(Ete)
-        
+
         # Update dimensions based on data
         self.d = Xtr.shape[1]
         self.N = Xte.shape[0]
-        
+
         # Get unique environments
         unique_envs = np.unique(Etr)
         self.L = len(unique_envs)
-        
+
         # Split source data by environment
         for env in unique_envs:
             mask = Etr == env
             self.X_sources_list.append(Xtr[mask])
             self.Y_sources_list.append(Ytr[mask])
             self.E_sources_list.append(Etr[mask])
-        
+
         # Set target data
         self.X_target = Xte
-        
+
         # Split target data by environment for potential outcomes
         unique_target_envs = np.unique(Ete)
         for env in unique_target_envs:
@@ -91,13 +91,13 @@ class DataContainer:
             self.X_target_list.append(Xte[mask])
             self.Y_target_potential_list.append(Yte[mask])
             self.E_target_potential_list.append(Ete[mask])
-        
+
         # Compute statistics
         self.mu = np.mean(Xtr, axis=0)
         self.Sigma = np.cov(Xtr.T)
         self.mu0 = np.mean(Xte, axis=0)
         self.Sigma0 = np.cov(Xte.T)
-        
+
         # Update n based on average samples per environment
         self.n = int(np.mean([len(X) for X in self.X_sources_list]))
 
