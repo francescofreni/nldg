@@ -94,7 +94,7 @@ To reproduce Fig. 13:
 ```bash
 python experiments/ca_housing_counties.py --similarity --use-geo-clusters
 ```
-The results are saved in `results/output_realworld/` (`env_similarity_heatmap.png`).
+The results are saved in `results/output_realworld/env_similarity_heatmap.png`.
 
 
 ### Appendix B
