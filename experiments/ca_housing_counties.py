@@ -28,8 +28,10 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 OUT_DIR = os.path.join(RESULTS_DIR, "output_realworld")
 os.makedirs(OUT_DIR, exist_ok=True)
+# OUT_DIR = os.path.join(OUT_DIR, "1203")
+# os.makedirs(OUT_DIR, exist_ok=True)
 
-# plt.style.use(os.path.join(SCRIPT_DIR, "style.mplstyle"))
+plt.style.use(os.path.join(SCRIPT_DIR, "style.mplstyle"))
 
 # Experiment flags
 DOMAINS = "counties"
@@ -51,14 +53,14 @@ G5 = ["Los Angeles", "Orange", "Riverside", "San Bernardino", "San Diego"]
 # Models and colors for plotting
 models = [
     "LR",
-    # "RF",
+    "RF",
     "GroupDRO-NN",
-    # "Magging-RF(mse)",
-    # "Magging-RF(nrw)",
-    # "Magging-RF(reg)",
-    # "MaxRM-RF(mse)",
-    # "MaxRM-RF(nrw)",
-    # "MaxRM-RF(reg)",
+    "Magging-RF(mse)",
+    "Magging-RF(nrw)",
+    "Magging-RF(reg)",
+    "MaxRM-RF(mse)",
+    "MaxRM-RF(nrw)",
+    "MaxRM-RF(reg)",
 ]
 rf_models = ["RF", "MaxRM-RF(mse)", "MaxRM-RF(nrw)", "MaxRM-RF(reg)"]
 colors = {
@@ -125,28 +127,28 @@ def run_experiment(
     Xtr, Ytr, Etr, Xval, Yval, Eval, Xte, Yte, Ete, data, verbose=False
 ):
     # Get solutions of individual ERM in each environment ------------
-    # fitted_erm = np.zeros(len(Etr))
-    # fitted_erm_trees = np.zeros((N_ESTIMATORS, len(Etr)))
-    # pred_erm = np.zeros(len(Ete))
-    # for env in np.unique(Etr):
-    #     mask = Etr == env
-    #     Xtr_env = Xtr[mask]
-    #     Ytr_env = Ytr[mask]
-    #     rf_e = RandomForest(
-    #         "Regression",
-    #         n_estimators=N_ESTIMATORS,
-    #         min_samples_leaf=MIN_SAMPLES_LEAF,
-    #         seed=SEED,
-    #         n_jobs=N_JOBS,
-    #     )
-    #     rf_e.fit(Xtr_env, Ytr_env)
-    #     fitted_erm[mask] = rf_e.predict(Xtr_env)
-    #     for i in range(N_ESTIMATORS):
-    #         fitted_erm_trees[i, mask] = rf_e.trees[i].predict(
-    #             np.ascontiguousarray(Xtr_env)
-    #         )
-    #     mask_te = Ete == env
-    #     pred_erm[mask_te] = rf_e.predict(Xte[mask_te])
+    fitted_erm = np.zeros(len(Etr))
+    fitted_erm_trees = np.zeros((N_ESTIMATORS, len(Etr)))
+    pred_erm = np.zeros(len(Ete))
+    for env in np.unique(Etr):
+        mask = Etr == env
+        Xtr_env = Xtr[mask]
+        Ytr_env = Ytr[mask]
+        rf_e = RandomForest(
+            "Regression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED,
+            n_jobs=N_JOBS,
+        )
+        rf_e.fit(Xtr_env, Ytr_env)
+        fitted_erm[mask] = rf_e.predict(Xtr_env)
+        for i in range(N_ESTIMATORS):
+            fitted_erm_trees[i, mask] = rf_e.trees[i].predict(
+                np.ascontiguousarray(Xtr_env)
+            )
+        mask_te = Ete == env
+        pred_erm[mask_te] = rf_e.predict(Xte[mask_te])
 
     # LR ------------------------------------------------------------
     if verbose:
@@ -156,69 +158,81 @@ def run_experiment(
     # ---------------------------------------------------------------
 
     # RF ------------------------------------------------------------
-    # if verbose: print("Fitting Random Forest")
-    # rf = RandomForest(
-    #     "Regression",
-    #     n_estimators=N_ESTIMATORS,
-    #     min_samples_leaf=MIN_SAMPLES_LEAF,
-    #     seed=SEED,
-    #     n_jobs=N_JOBS,
-    # )
-    # rf.fit(Xtr, Ytr)
+    if verbose:
+        print("Fitting Random Forest")
+    rf = RandomForest(
+        "Regression",
+        n_estimators=N_ESTIMATORS,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        seed=SEED,
+        n_jobs=N_JOBS,
+    )
+    rf.fit(Xtr, Ytr)
     # ---------------------------------------------------------------
 
     # Magging -------------------------------------------------------
-    # if verbose: print("Fitting Magging-RF(mse)")
-    # rf_magging_mse = MaggingRF(
-    #     n_estimators=N_ESTIMATORS,
-    #     min_samples_leaf=MIN_SAMPLES_LEAF,
-    #     random_state=SEED,
-    #     backend="adaXT",
-    #     risk="mse",  # negative reward is the default for magging
-    #     # sols_erm=fitted_erm,
-    # )
-    # rf_magging_mse.fit(np.array(Xtr), np.array(Ytr), np.array(Etr))
+    if verbose:
+        print("Fitting Magging-RF(mse)")
+    rf_magging_mse = MaggingRF(
+        n_estimators=N_ESTIMATORS,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        random_state=SEED,
+        backend="adaXT",
+        risk="mse",  # negative reward is the default for magging
+        # sols_erm=fitted_erm,
+    )
+    rf_magging_mse.fit(np.array(Xtr), np.array(Ytr), np.array(Etr))
     # ---------------------------------------------------------------
 
     # Magging -------------------------------------------------------
-    # if verbose: print("Fitting Magging-RF(reg)")
-    # rf_magging_reg = MaggingRF(
-    #     n_estimators=N_ESTIMATORS,
-    #     min_samples_leaf=MIN_SAMPLES_LEAF,
-    #     random_state=SEED,
-    #     backend="adaXT",
-    #     risk="reg",  # negative reward is the default for magging
-    #     sols_erm=fitted_erm,
-    # )
-    # rf_magging_reg.fit(np.array(Xtr), np.array(Ytr), np.array(Etr))
+    if verbose:
+        print("Fitting Magging-RF(reg)")
+    rf_magging_reg = MaggingRF(
+        n_estimators=N_ESTIMATORS,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        random_state=SEED,
+        backend="adaXT",
+        risk="reg",  # negative reward is the default for magging
+        sols_erm=fitted_erm,
+    )
+    rf_magging_reg.fit(np.array(Xtr), np.array(Ytr), np.array(Etr))
     # ---------------------------------------------------------------
 
     # Magging -------------------------------------------------------
-    # if verbose: print("Fitting Magging-RF(nrw)")
-    # rf_magging = MaggingRF(
-    #     n_estimators=N_ESTIMATORS,
-    #     min_samples_leaf=MIN_SAMPLES_LEAF,
-    #     random_state=SEED,
-    #     backend="adaXT",
-    #     risk="nrw",  # negative reward is the default for magging
-    #     sols_erm=fitted_erm,
-    # )
-    # rf_magging.fit(Xtr, Ytr, Etr)
+    if verbose:
+        print("Fitting Magging-RF(nrw)")
+    rf_magging = MaggingRF(
+        n_estimators=N_ESTIMATORS,
+        min_samples_leaf=MIN_SAMPLES_LEAF,
+        random_state=SEED,
+        backend="adaXT",
+        risk="nrw",  # negative reward is the default for magging
+        sols_erm=fitted_erm,
+    )
+    rf_magging.fit(Xtr, Ytr, Etr)
     # ---------------------------------------------------------------
 
     # GroupDRO-NN ---------------------------------------------------
     if verbose:
         print("Fitting GroupDRO-NN")
     gdro = GroupDRO(data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk="mse")
-    gdro.fit(epochs=500, eta=0.001, batch_size=128, device="cpu")
+    gdro.fit(epochs=500, eta=0.001)
     # ---------------------------------------------------------------
 
     # MaxRM-RF ------------------------------------------------------
-    # if verbose: print("Fitting MaxRM-RF variants")
-    # rf_maxrm_mse = modify_rf(copy.deepcopy(rf), "mse", Ytr, Etr, Xte)
-    # rf_maxrm_nrw = modify_rf(copy.deepcopy(rf), "reward", Ytr, Etr, Xte)
-    # rf_maxrm_reg = modify_rf(copy.deepcopy(rf), "regret", Ytr, Etr, Xte,
-    #                          fitted_erm, fitted_erm_trees)
+    if verbose:
+        print("Fitting MaxRM-RF variants")
+    rf_maxrm_mse = modify_rf(copy.deepcopy(rf), "mse", Ytr, Etr, Xte)
+    rf_maxrm_nrw = modify_rf(copy.deepcopy(rf), "reward", Ytr, Etr, Xte)
+    rf_maxrm_reg = modify_rf(
+        copy.deepcopy(rf),
+        "regret",
+        Ytr,
+        Etr,
+        Xte,
+        fitted_erm,
+        fitted_erm_trees,
+    )
     # ---------------------------------------------------------------
 
     # Collect results ------------------------------------------------
@@ -226,14 +240,14 @@ def run_experiment(
         print("Evaluating results")
     all_models = {
         "LR": lr,
-        # 'RF': rf,
+        "RF": rf,
         "GroupDRO-NN": gdro,
-        # 'Magging-RF(mse)': rf_magging_mse,
-        # 'Magging-RF(nrw)': rf_magging,
-        # 'Magging-RF(reg)': rf_magging_reg,
-        # 'MaxRM-RF(mse)': rf_maxrm_mse,
-        # 'MaxRM-RF(nrw)': rf_maxrm_nrw,
-        # 'MaxRM-RF(reg)': rf_maxrm_reg,
+        "Magging-RF(mse)": rf_magging_mse,
+        "Magging-RF(nrw)": rf_magging,
+        "Magging-RF(reg)": rf_magging_reg,
+        "MaxRM-RF(mse)": rf_maxrm_mse,
+        "MaxRM-RF(nrw)": rf_maxrm_nrw,
+        "MaxRM-RF(reg)": rf_maxrm_reg,
     }
     results_val = []
     results_test = []
@@ -391,40 +405,48 @@ if __name__ == "__main__":
     # ---------------------------------------------------------------------
     # Plot the data points colored by environment
     # ---------------------------------------------------------------------
-    # plot_env_with_basemap(
-    #     env, Z,
-    #     out_dir=OUT_DIR,
-    #     label='County',
-    #     counties=unique_envs,
-    #     clustering=[G1, G2, G3, G4, G5] if USE_GEO_CLUSTERS else None
-    # )
+    plot_env_with_basemap(
+        env,
+        Z,
+        out_dir=OUT_DIR,
+        label="County",
+        counties=unique_envs,
+        clustering=[G1, G2, G3, G4, G5] if USE_GEO_CLUSTERS else None,
+    )
 
     # ---------------------------------------------------------------------
     # train on i, test on j (to test similarity between envs)
     # ---------------------------------------------------------------------
-    # if EXP_SIMILARITY:
-    #     print("Running Experiment: Similarity between environments")
-    #     filepath = os.path.join(OUT_DIR, "env_similarity_results.csv")
-    #     results_df = load_or_compute(
-    #         filepath=filepath,
-    #         compute_fn=similarity_experiment,
-    #         args={'unique_envs': unique_envs, 'X': X, 'y': y, 'env': env},
-    #         rerun=RERUN
-    #     )
-    #
-    #     # plot pairwise similarity heatmap
-    #     plot_path = os.path.join(OUT_DIR, "env_similarity_heatmap.png")
-    #     heatmap_data = plot_similarity_results(
-    #         results_df, env, unique_envs,
-    #         figsize=(6, 5), filepath=plot_path,
-    #         annot=False,
-    #         clustering=[G1, G2, G3, G4, G5] if USE_GEO_CLUSTERS else None
-    #     )
-    #
-    #     # plot the diagonal as a bar plot
-    #     bar_filepath = os.path.join(OUT_DIR, "oob_mse_counties.png")
-    #     plot_oob_mse(heatmap_data, unique_envs, bar_filepath,
-    #                  clustering=[G1, G2, G3, G4, G5] if USE_GEO_CLUSTERS else None)
+    if EXP_SIMILARITY:
+        print("Running Experiment: Similarity between environments")
+        filepath = os.path.join(OUT_DIR, "env_similarity_results.csv")
+        results_df = load_or_compute(
+            filepath=filepath,
+            compute_fn=similarity_experiment,
+            args={"unique_envs": unique_envs, "X": X, "y": y, "env": env},
+            rerun=RERUN,
+        )
+
+        # plot pairwise similarity heatmap
+        plot_path = os.path.join(OUT_DIR, "env_similarity_heatmap.png")
+        heatmap_data = plot_similarity_results(
+            results_df,
+            env,
+            unique_envs,
+            figsize=(6, 5),
+            filepath=plot_path,
+            annot=False,
+            clustering=[G1, G2, G3, G4, G5] if USE_GEO_CLUSTERS else None,
+        )
+
+        # plot the diagonal as a bar plot
+        bar_filepath = os.path.join(OUT_DIR, "oob_mse_counties.png")
+        plot_oob_mse(
+            heatmap_data,
+            unique_envs,
+            bar_filepath,
+            clustering=[G1, G2, G3, G4, G5] if USE_GEO_CLUSTERS else None,
+        )
 
     # ---------------------------------------------------------------------
     # Leave 5 Counties Out
@@ -470,102 +492,137 @@ if __name__ == "__main__":
             )
 
         # for each held out, plot a calibration plot of RF and MaxRM-RFs
-        # calibration_models = ['RF', 'MaxRM-RF(mse)', 'MaxRM-RF(nrw)', 'MaxRM-RF(reg)']
-        # for held_out in results_test_df['HeldOut'].unique():
-        #     filepath = os.path.join(
-        #         OUT_DIR,
-        #         f"l5co_calibration_{held_out.replace(', ', '_')}.png"
-        #     )
-        #     calibration_plot(preds_test_df, held_out, calibration_models, colors, filepath)
+        calibration_models = [
+            "RF",
+            "MaxRM-RF(mse)",
+            "MaxRM-RF(nrw)",
+            "MaxRM-RF(reg)",
+        ]
+        for held_out in results_test_df["HeldOut"].unique():
+            filepath = os.path.join(
+                OUT_DIR, f"l5co_calibration_{held_out.replace(', ', '_')}.png"
+            )
+            calibration_plot(
+                preds_test_df, held_out, calibration_models, colors, filepath
+            )
 
     # ---------------------------------------------------------------------
     # Many folds of Leave 5 Counties Out
     # ---------------------------------------------------------------------
-    # if EXP_MANY_FOLDS_L5CO:
-    #     print("Running Experiment: Many folds of Leave 5 Counties Out")
-    #     out_file = os.path.join(
-    #         OUT_DIR, "many_folds_l5co_results.csv")
-    #     preds_file = os.path.join(
-    #         OUT_DIR, "many_folds_l5co_test_preds.csv")
-    #     intermediate_results_dir = os.path.join(
-    #         OUT_DIR, "intermediate_many_folds_l5co")
-    #     os.makedirs(intermediate_results_dir, exist_ok=True)
-    #
-    #     if not RERUN and os.path.exists(out_file) and os.path.exists(preds_file):
-    #         results_test_df = pd.read_csv(out_file)
-    #         preds_test_df = pd.read_csv(preds_file)
-    #     else:
-    #         results_test = []
-    #         preds_test = []
-    #         for fold_split in range(200):
-    #             split_dir = os.path.join(OUT_DIR, intermediate_results_dir)
-    #             out_file_split = os.path.join(
-    #                 split_dir, f"foldsplit_{fold_split}.csv")
-    #             preds_file_split = os.path.join(
-    #                 split_dir, f"foldsplit_{fold_split}_preds.csv")
-    #
-    #             np.random.seed(fold_split)
-    #             test_counties = np.random.choice(
-    #                 unique_envs, size=5, replace=False
-    #             )
-    #
-    #             print(f"Running split {fold_split}")
-    #             res_t, preds_t = load_or_compute(
-    #                 filepath=[out_file_split, preds_file_split],
-    #                 compute_fn=run_l5go_experiment,
-    #                 args={
-    #                     'X': X,
-    #                     'y': y,
-    #                     'env': env,
-    #                     'unique_envs': unique_envs,
-    #                     'seed': SEED,
-    #                     'folds': [test_counties],
-    #                     'verbose': False,
-    #                 },
-    #                 rerun=False
-    #             )
-    #             res_t['fold_split'] = fold_split
-    #             preds_t['fold_split'] = fold_split
-    #             results_test.append(res_t)
-    #             preds_test.append(preds_t)
-    #
-    #         results_test_df = pd.concat(results_test, ignore_index=True)
-    #         results_test_df.to_csv(out_file, index=False)
-    #         preds_test_df = pd.concat(preds_test, ignore_index=True)
-    #         preds_test_df.to_csv(preds_file, index=False)
-    #
-    #     print("Aggregated results over many folds of Leave 5 Counties Out:")
-    #     results_test_df_agg = results_test_df. \
-    #         groupby(['HeldOut', 'fold_split']). \
-    #         agg('max'). \
-    #         drop(columns=['EnvIndex']). \
-    #         reset_index()
-    #     print_model_comparison_stats(
-    #         results_test_df,
-    #         ['MaxRM-RF(nrw)', 'MaxRM-RF(reg)', 'MaxRM-RF(mse)']
-    #     )
-    #
-    #     print("--------------------------------")
-    #     table_df, pval_df = table_test_risk_all_methods_perm(
-    #         results_test_df_agg, preds_test_df,
-    #         ['RF', 'MaxRM-RF(mse)'],
-    #         folds=True, perm=True,
-    #         return_p_values=True
-    #     )
-    #     print("% of folds where MaxRM-RF(mse) statistically better than RF:")
-    #     num_better = np.sum(pval_df['MaxRM-RF(mse)'] < 0.05)
-    #     print(f"{num_better} / {len(pval_df)}")
-    #     p_binom = binomtest(
-    #         k=num_better, n=len(pval_df),
-    #         p=0.5, alternative='greater'
-    #     ).pvalue
-    #     print(f"\tBinomial p-value for MaxRM-RF(mse) better than RF: {p_binom:.4f}")
-    #
-    #     # histplot of maximum MSE of RF vs MaxRM-RF(mse)
-    #     maxmse_file = os.path.join(
-    #         OUT_DIR, f"many_folds_l5co_maxrm_vs_rf_max_mse_diff_histplot.png"
-    #     )
-    #     plot_diff_in_max_mse(results_test_df, maxmse_file)
+    if EXP_MANY_FOLDS_L5CO:
+        print("Running Experiment: Many folds of Leave 5 Counties Out")
+        out_file = os.path.join(OUT_DIR, "many_folds_l5co_results.csv")
+        preds_file = os.path.join(OUT_DIR, "many_folds_l5co_test_preds.csv")
+        intermediate_results_dir = os.path.join(
+            OUT_DIR, "intermediate_many_folds_l5co"
+        )
+        os.makedirs(intermediate_results_dir, exist_ok=True)
+
+        if (
+            not RERUN
+            and os.path.exists(out_file)
+            and os.path.exists(preds_file)
+        ):
+            results_test_df = pd.read_csv(out_file)
+            preds_test_df = pd.read_csv(preds_file)
+        else:
+            results_test = []
+            preds_test = []
+            for fold_split in range(200):
+                split_dir = os.path.join(OUT_DIR, intermediate_results_dir)
+                out_file_split = os.path.join(
+                    split_dir, f"foldsplit_{fold_split}.csv"
+                )
+                preds_file_split = os.path.join(
+                    split_dir, f"foldsplit_{fold_split}_preds.csv"
+                )
+
+                np.random.seed(fold_split)
+                test_counties = np.random.choice(
+                    unique_envs, size=5, replace=False
+                )
+
+                print(f"Running split {fold_split}")
+                res_t, preds_t = load_or_compute(
+                    filepath=[out_file_split, preds_file_split],
+                    compute_fn=run_l5go_experiment,
+                    args={
+                        "X": X,
+                        "y": y,
+                        "env": env,
+                        "unique_envs": unique_envs,
+                        "seed": SEED,
+                        "folds": [test_counties],
+                        "verbose": False,
+                    },
+                    rerun=False,
+                )
+                res_t["fold_split"] = fold_split
+                preds_t["fold_split"] = fold_split
+                results_test.append(res_t)
+                preds_test.append(preds_t)
+
+            results_test_df = pd.concat(results_test, ignore_index=True)
+            results_test_df.to_csv(out_file, index=False)
+            preds_test_df = pd.concat(preds_test, ignore_index=True)
+            preds_test_df.to_csv(preds_file, index=False)
+
+        print("Aggregated results over many folds of Leave 5 Counties Out:")
+        results_test_df_agg = (
+            results_test_df.groupby(["HeldOut", "fold_split"])
+            .agg("max")
+            .drop(columns=["EnvIndex"])
+            .reset_index()
+        )
+        print_model_comparison_stats(
+            results_test_df,
+            ["MaxRM-RF(nrw)", "MaxRM-RF(reg)", "MaxRM-RF(mse)"],
+        )
+
+        print("--------------------------------")
+        table_df, pval_df = table_test_risk_all_methods_perm(
+            results_test_df_agg,
+            preds_test_df,
+            ["RF", "MaxRM-RF(mse)"],
+            folds=True,
+            perm=True,
+            return_p_values=True,
+        )
+        print("% of folds where MaxRM-RF(mse) statistically better than RF:")
+        num_better = np.sum(pval_df["MaxRM-RF(mse)"] < 0.05)
+        print(f"{num_better} / {len(pval_df)}")
+        p_binom = binomtest(
+            k=num_better, n=len(pval_df), p=0.5, alternative="greater"
+        ).pvalue
+        print(
+            f"\tBinomial p-value for MaxRM-RF(mse) better than RF: {p_binom:.4f}"
+        )
+
+        print("--------------------------------")
+        table_df, pval_df = table_test_risk_all_methods_perm(
+            results_test_df_agg,
+            preds_test_df,
+            ["RF", "MaxRM-RF(mse)"],
+            folds=True,
+            perm=True,
+            return_p_values=True,
+            alternative="greater",
+        )
+        print("% of folds where RF statistically better than MaxRM-RF(mse):")
+        num_better = np.sum(pval_df["MaxRM-RF(mse)"] < 0.05)
+        print(f"{num_better} / {len(pval_df)}")
+        p_binom = binomtest(
+            k=num_better, n=len(pval_df), p=0.5, alternative="greater"
+        ).pvalue
+        print(
+            f"\tBinomial p-value for RF better than MaxRM-RF(mse): {p_binom:.4f}"
+        )
+
+        # histplot of maximum MSE of RF vs MaxRM-RF(mse)
+        maxmse_file = os.path.join(
+            OUT_DIR, f"many_folds_l5co_maxrm_vs_rf_max_mse_diff_histplot.png"
+        )
+        plot_diff_in_max_mse(results_test_df, maxmse_file)
 
     # Not used, kept for reference
     # # ---------------------------------------------------------------------

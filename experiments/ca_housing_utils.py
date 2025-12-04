@@ -828,8 +828,9 @@ def table_test_risk_all_methods_perm(
     df_preds: pd.DataFrame,
     models: list[str],
     folds: bool = False,
-    perm: bool = False,
+    perm: bool = True,
     return_p_values: bool = False,
+    alternative: str = "less",
 ) -> pd.DataFrame:
     means = df.copy().set_index("HeldOut").unstack()
     held_out_sets = df["HeldOut"].unique()
@@ -865,8 +866,8 @@ def table_test_risk_all_methods_perm(
                     df_rf,
                     df_model,
                     domain_col="domain_col",
-                    n_permutations=10000,
-                    alternative="less",
+                    n_permutations=1000,
+                    alternative=alternative,
                     random_seed=42,
                 )
                 if return_p_values:
@@ -876,7 +877,7 @@ def table_test_risk_all_methods_perm(
                     (len(models) - 1) * len(held_out_sets)
                 ):
                     cell = table_df.loc[q, model]
-                    table_df.loc[q, model] = f"\\cellcolor{{gray!25}} {cell}"
+                    table_df.loc[q, model] = f"\\cellcolor{{gray!25}}{cell}"
 
     # for each row, add a comment in the last cell with the index
     for q in held_out_sets:
@@ -915,6 +916,7 @@ def generate_tables_and_plots(
     colors,
     out_dir,
     prefix="",
+    perm=True,
 ):
     """Generate all tables and plots for a given aggregation type."""
     results_agg = (
@@ -925,19 +927,27 @@ def generate_tables_and_plots(
     )
 
     # Generate tables
-    for model_set, suffix in [
-        (models, "all_methods"),
-        (
-            ["LR", "GroupDRO-NN"],
-            "only_mse_methods",
-        ),
-    ]:
+    tables_to_create = [(models, "all_methods")]
+    if "LR" in models:
+        tables_to_create.append(
+            (
+                [
+                    "LR",
+                    "RF",
+                    "Magging-RF(mse)",
+                    "GroupDRO-NN",
+                    "MaxRM-RF(mse)",
+                ],
+                "only_mse_methods",
+            )
+        )
+    for model_set, suffix in tables_to_create:
         table_df = table_test_risk_all_methods_perm(
             results_agg,
             preds_df,
             model_set,
             folds=True,
-            perm=False,
+            perm=(agg_type == "max") and perm,
         )
         latex_str = table_df.to_latex(
             index=False, escape=False, column_format="l" + "c" * len(model_set)
@@ -949,24 +959,25 @@ def generate_tables_and_plots(
             f.write(latex_str)
 
     # Generate plots
-    # plot_test_risk_all_methods(
-    #     results_agg,
-    #     models,
-    #     colors,
-    #     saveplot=True,
-    #     out_dir=out_dir,
-    #     nameplot=f"{prefix}l5co_{agg_type}_all_methods",
-    #     folds=True,
-    # )
-    # plot_test_risk_all_methods(
-    #     results_agg,
-    #     rf_models,
-    #     colors,
-    #     saveplot=True,
-    #     out_dir=out_dir,
-    #     nameplot=f"{prefix}l5co_{agg_type}_rf_methods",
-    #     folds=True,
-    # )
+    plot_test_risk_all_methods(
+        results_agg,
+        models,
+        colors,
+        saveplot=True,
+        out_dir=out_dir,
+        nameplot=f"{prefix}l5co_{agg_type}_all_methods",
+        folds=True,
+    )
+    if rf_models is not None:
+        plot_test_risk_all_methods(
+            results_agg,
+            rf_models,
+            colors,
+            saveplot=True,
+            out_dir=out_dir,
+            nameplot=f"{prefix}l5co_{agg_type}_rf_methods",
+            folds=True,
+        )
 
 
 def print_model_comparison_stats(results_df, model_names, baseline="RF"):
