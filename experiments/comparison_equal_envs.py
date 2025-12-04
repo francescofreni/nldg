@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 N_SIM = 100
 N_ESTIMATORS = 100
 MIN_SAMPLES_LEAF = 15
+ETA_GDRO = 0.001
 SEED = 42
 COLORS = {
     "RF": "#5790FC",
@@ -180,12 +181,12 @@ if __name__ == "__main__":
             gdro = GroupDRO(
                 data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk="mse"
             )
-            gdro.fit(epochs=500)
+            gdro.fit(epochs=500, eta=ETA_GDRO, device="cpu")
             pred_gdro = gdro.predict(Xte)
             # ---------------------------------------------------------------
 
             # MaxRM-RF ------------------------------------------------------
-            solvers = ["ECOS", "SCS", "CLARABEL"]
+            solvers = ["ECOS", "CLARABEL", "SCS"]
             success = False
             kwargs = {"n_jobs": N_JOBS}
             for solver in solvers:

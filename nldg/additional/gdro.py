@@ -5,6 +5,7 @@ import torch.nn as nn
 import torch.optim as optim
 import copy
 from nldg.utils import set_all_seeds
+from torch.utils.data import TensorDataset, DataLoader
 
 
 class GroupDRO:
@@ -45,6 +46,8 @@ class GroupDRO:
         group_predictors = []
         for l in range(self.data.L):
             X, Y = X_groups[l], Y_groups[l]
+            if X.dim() == 1:
+                X = X.unsqueeze(1)
             n = X.shape[0]
             idx = torch.randperm(n)
             n_val = max(1, int(0.2 * n))
@@ -99,13 +102,15 @@ class GroupDRO:
     def fit(
         self,
         lr_model=1e-3,
-        eta=0.1,
+        eta=0.001,
         epochs=100,
         weight_decay=1e-5,
+        batch_size=128,
         early_stopping=True,
         early_stopping_patience=5,
         min_delta=1e-4,
         verbose=False,
+        device=None,
     ):
         """
         Trains the model using Group DRO with Mirror Ascent for group weights.
@@ -116,39 +121,80 @@ class GroupDRO:
             eta (float, optional): Learning rate for mirror ascent. Defaults to 0.1.
             epochs (int, optional): Max number of training epochs. Defaults to 100.
             weight_decay (float, optional): Weight decay for optimizer. Defaults to 1e-5.
+            batch_size (int, optional): Batch size. Defaults to 128.
             early_stopping (bool, optional): Whether to use early stopping. Defaults to False.
             early_stopping_patience (int, optional): # epochs to wait for improvement. Defaults to 5.
             min_delta (float, optional): Minimum improvement to reset patience. Defaults to 1e-4.
             verbose (bool, optional): If True, prints training progress. Defaults to False.
+            device (torch.device, optional): Device to use. Defaults to None.
         """
+        if device is None:
+            device = torch.device(
+                "cuda" if torch.cuda.is_available() else "cpu"
+            )
+
+        self.model.to(device)
+
         # Optimizer for model parameters
         optimizer_model = optim.Adam(
             self.model.parameters(), lr=lr_model, weight_decay=weight_decay
         )
         # Loss function (Mean Squared Error)
-        loss_fn = nn.MSELoss(reduction="mean")  # Compute mean loss per group
+        loss_fn = nn.MSELoss(reduction="none")
         # Initialize group weights
-        weights = torch.ones(self.data.L) / self.data.L
+        L = self.data.L
+        weights = torch.ones(L, device=device) / L
 
         self.model.train()
-        # Convert all data to PyTorch tensors
-        X_groups = [
-            torch.tensor(X, dtype=torch.float32)
-            for X in self.data.X_sources_list
-        ]
-        Y_groups = [
-            torch.tensor(Y, dtype=torch.float32).unsqueeze(1)
-            for Y in self.data.Y_sources_list
-        ]
 
+        # Convert all data to PyTorch tensors
+        X_tensors = []
+        Y_tensors = []
+        G_tensors = []
+        for g_idx, (Xg, Yg) in enumerate(
+            zip(self.data.X_sources_list, self.data.Y_sources_list)
+        ):
+            xt = torch.tensor(Xg, dtype=torch.float32)
+            if xt.dim() == 1:
+                xt = xt.unsqueeze(1)
+            X_tensors.append(xt)
+            Y_tensors.append(
+                torch.tensor(Yg, dtype=torch.float32).unsqueeze(1)
+            )
+            G_tensors.append(torch.full((len(Xg),), g_idx, dtype=torch.long))
+
+        X_all = torch.cat(X_tensors, dim=0)
+        Y_all = torch.cat(Y_tensors, dim=0)
+        G_all = torch.cat(G_tensors, dim=0)
+
+        dataset = TensorDataset(X_all, Y_all, G_all)
+        loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
+
+        # Precompute baselines for reward / regret
         if self.risk == "reward":
-            y2_means = self._group_y2_means(Y_groups)
+            # E[Y^2] per group, same as before
+            Y_groups = [
+                torch.tensor(Y, dtype=torch.float32).unsqueeze(1)
+                for Y in self.data.Y_sources_list
+            ]
+            y2_means = self._group_y2_means(Y_groups).to(device)  # [L]
         elif self.risk == "regret":
+            X_groups = [
+                torch.tensor(X, dtype=torch.float32)
+                for X in self.data.X_sources_list
+            ]
+            X_groups = [
+                x.unsqueeze(1) if x.dim() == 1 else x for x in X_groups
+            ]
+            Y_groups = [
+                torch.tensor(Y, dtype=torch.float32).unsqueeze(1)
+                for Y in self.data.Y_sources_list
+            ]
             if self._regret_baselines is None:
                 self._regret_baselines = self._fit_group_predictors(
                     X_groups, Y_groups
                 )
-            b = self._regret_baselines
+            b = self._regret_baselines.to(device)  # [L]
 
         # Track best state for early stopping
         best_loss = float("inf")
@@ -157,41 +203,57 @@ class GroupDRO:
         no_improve_epochs = 0
 
         for epoch in range(1, epochs + 1):
-            group_losses = []
+            epoch_losses = []
 
-            # compute loss for each group
-            for l in range(self.data.L):
-                X = X_groups[l]
-                Y = Y_groups[l]
-                preds = self.model(X)
-                base = 0.0
+            for Xb, Yb, Gb in loader:
+                Xb = Xb.to(device)
+                Yb = Yb.to(device)
+                Gb = Gb.to(device)  # group indices in this batch
+
+                preds = self.model(Xb)  # [B, 1]
+                per_sample_loss = loss_fn(preds, Yb).view(-1)  # [B]
+
+                # Subtract group-specific baseline if needed
                 if self.risk == "reward":
-                    base = y2_means[l].item()
+                    baseline_per_sample = y2_means[Gb]  # [B]
+                    per_sample_loss = per_sample_loss - baseline_per_sample
                 elif self.risk == "regret":
-                    base = b[l].item()
-                loss = loss_fn(preds, Y) - base
-                group_losses.append(loss)
+                    baseline_per_sample = b[Gb]  # [B]
+                    per_sample_loss = per_sample_loss - baseline_per_sample
 
-            group_losses_tensor = torch.stack(
-                group_losses
-            )  # shape: [num_groups]
+                # Compute per-group average loss within this batch
+                group_losses = torch.zeros(L, device=device)
+                group_counts = torch.zeros(L, device=device)
 
-            # Mirror Ascent: update group weights
-            new_weights = weights * torch.exp(eta * group_losses_tensor)
-            new_weights = new_weights / new_weights.sum()
-            weights = new_weights.detach()
+                for g_idx in range(L):
+                    mask = Gb == g_idx
+                    if mask.any():
+                        group_losses[g_idx] = per_sample_loss[mask].mean()
+                        group_counts[g_idx] = mask.sum()
 
-            # Weighted loss
-            weighted_loss = torch.dot(weights, group_losses_tensor)
+                # Mirror Ascent update: only groups with count>0 get updated,
+                # others effectively see loss 0 (exp(0)=1 => unchanged weight).
+                adjusted_losses = (
+                    group_losses  # you could add adj here if desired
+                )
+                new_weights = weights * torch.exp(eta * adjusted_losses)
+                new_weights = new_weights / new_weights.sum()
+                weights = new_weights.detach()
 
-            # Backprop and update model parameters
-            optimizer_model.zero_grad()
-            weighted_loss.backward()
-            optimizer_model.step()
+                # Weighted batch loss (only groups that appear contribute)
+                weighted_loss = (weights * group_losses).sum()
 
-            # Convert to float
-            current_loss = weighted_loss.item()
-            # Early stopping logic
+                optimizer_model.zero_grad()
+                weighted_loss.backward()
+                optimizer_model.step()
+
+                epoch_losses.append(weighted_loss.item())
+
+            # Epoch-level stats for early stopping
+            current_loss = (
+                float(np.mean(epoch_losses)) if epoch_losses else 0.0
+            )
+
             if current_loss < best_loss - min_delta:
                 best_loss = current_loss
                 best_model_state = copy.deepcopy(self.model.state_dict())
@@ -200,21 +262,23 @@ class GroupDRO:
             else:
                 no_improve_epochs += 1
 
-            if verbose and (epoch == 1 or epoch % max(1, epochs // 20) == 0):
+            if verbose:
                 print(
-                    f"Epoch {epoch}/{epochs}, Weighted Loss: {current_loss:.6f}, Best: {best_loss:.6f}"
+                    f"Epoch {epoch}/{epochs}, "
+                    f"Mean Weighted Loss: {current_loss:.6f}, Best: {best_loss:.6f}"
                 )
 
             if early_stopping and no_improve_epochs >= early_stopping_patience:
                 if verbose:
                     print(
-                        f"Early stopping at epoch {epoch} (no improvement in {early_stopping_patience} epochs)."
+                        f"Early stopping at epoch {epoch} "
+                        f"(no improvement in {early_stopping_patience} epochs)."
                     )
                 break
 
-        # Restore best model weights and group weights
+        # Restore best model and weights
         self.model.load_state_dict(best_model_state)
-        weights = best_weights.clone()
+        self.final_group_weights_ = best_weights.clone().cpu()
 
     def predict(self, X):
         """
@@ -229,6 +293,8 @@ class GroupDRO:
         self.model.eval()
         with torch.no_grad():
             X_tensor = torch.tensor(X, dtype=torch.float32)
+            if X_tensor.dim() == 1:
+                X_tensor = X_tensor.unsqueeze(1)
             preds = self.model(X_tensor).numpy().flatten()
         return preds
 
@@ -240,5 +306,7 @@ class GroupDRO:
             mask = E == l
             with torch.no_grad():
                 X_tensor = torch.tensor(X[mask], dtype=torch.float32)
+                if X_tensor.dim() == 1:
+                    X_tensor = X_tensor.unsqueeze(1)
                 preds[mask] = model(X_tensor).numpy().flatten()
         return preds
