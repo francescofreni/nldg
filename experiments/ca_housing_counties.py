@@ -28,15 +28,10 @@ RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
 OUT_DIR = os.path.join(RESULTS_DIR, "output_realworld")
 os.makedirs(OUT_DIR, exist_ok=True)
-# OUT_DIR = os.path.join(OUT_DIR, "1203")
+# OUT_DIR = os.path.join(OUT_DIR, "1204")
 # os.makedirs(OUT_DIR, exist_ok=True)
 
 plt.style.use(os.path.join(SCRIPT_DIR, "style.mplstyle"))
-
-# Experiment flags
-DOMAINS = "counties"
-OUT_DIR = os.path.join(OUT_DIR, DOMAINS)
-os.makedirs(OUT_DIR, exist_ok=True)
 
 # Experiment parameters
 B = 20
