@@ -77,8 +77,25 @@ python experiments/comparison_equal_envs.py
 The results are saved in `results/output_simulation/comparison_equal_envs/`.
 
 
-### Section 6
-**TBD**
+### Section 6 and Appendix E
+To reproduce Fig. 6, Table 2, and Table 6:
+```bash
+python experiments/ca_housing_counties.py --leave-5-out --use-geo-clusters
+```
+The results are saved in 
+* `results/output_realworld/ca_housing_envs_County.png` (Figure 6)
+* `results/output_realworld/split_geo/geo_l5co_max_only_mse_methods.txt` (Table 2) 
+* `results/output_realworld/split_geo/geo_l5co_max_all_methods.txt` (Table 6).
+
+To rerun for 200 random splits:
+```bash
+python experiments/ca_housing_counties.py --many-folds-l5co
+```
+
+To reproduce Fig. 13:
+```bash
+python experiments/ca_housing_counties.py --similarity --use-geo-clusters
+```
 
 
 ### Appendix B
