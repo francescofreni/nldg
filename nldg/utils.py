@@ -383,7 +383,7 @@ def max_regret(
             mse_envs (list): MSE for each environment.
         maxmse (float): Maximum mean squared error.
     """
-    mregret = 0.0
+    mregret = -np.inf
     regret_envs = []
     for env in np.unique(Env):
         Ytrue_e = Ytrue[Env == env]

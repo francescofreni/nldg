@@ -1,9 +1,20 @@
+"""Simulation comparing multiple MaxRM-RF variants:
+- posthoc
+- local
+- global
+- global-NonDFS (alternate global method)
+- each with/without optimal weight refinement (suffix '-w')
+- baseline RF
+
+Outputs are saved under results/output_simulation/sim_diff_methods/.
+"""
+
 import os
 import copy
 import time
 from sklearn.metrics import mean_squared_error
+from sklearn.model_selection import train_test_split
 from nldg.utils import *
-from nldg.rf import MaggingRF
 from adaXT.random_forest import RandomForest
 from tqdm import tqdm
 from utils import *
@@ -11,8 +22,10 @@ from utils import *
 N_SIM = 20
 SAMPLE_SIZE = 1000
 NOISE_STD = 0.5
-N_ESTIMATORS = 50
-MIN_SAMPLES_LEAF = 30
+N_ESTIMATORS = 100
+MIN_SAMPLES_LEAF = 15
+N_JOBS = 10
+SEED = 42
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
@@ -27,14 +40,16 @@ NAME_RF = "MaxRM-RF"
 
 if __name__ == "__main__":
     results_dict = {
+        f"{NAME_RF}-posthoc": [],
+        f"{NAME_RF}-local": [],
+        f"{NAME_RF}-global": [],
+        f"{NAME_RF}-global-NonDFS": [],
+        f"{NAME_RF}-w": [],
+        f"{NAME_RF}-posthoc-w": [],
+        f"{NAME_RF}-local-w": [],
+        f"{NAME_RF}-global-w": [],
+        f"{NAME_RF}-global-NonDFS-w": [],
         "RF": [],
-        "RF(magging)": [],
-        f"{NAME_RF}(local)": [],
-        f"{NAME_RF}(posthoc)": [],
-        f"{NAME_RF}(posthoc-local)": [],
-        f"{NAME_RF}(global-dfs)": [],
-        f"{NAME_RF}(global)": [],
-        f"{NAME_RF}(posthoc-xtrgrd)": [],
     }
 
     runtime_dict = copy.deepcopy(results_dict)
@@ -44,7 +59,10 @@ if __name__ == "__main__":
 
     for i in tqdm(range(N_SIM)):
         dtr = gen_data_v6(
-            n=SAMPLE_SIZE, noise_std=NOISE_STD, random_state=i, setting=2
+            n=SAMPLE_SIZE,
+            noise_std=NOISE_STD,
+            random_state=SEED + i,
+            setting=2,
         )
         Xtr = np.array(dtr.drop(columns=["E", "Y"]))
         Ytr = np.array(dtr["Y"])
@@ -53,23 +71,24 @@ if __name__ == "__main__":
         dte = gen_data_v6(
             n=SAMPLE_SIZE,
             noise_std=NOISE_STD,
-            random_state=1000 + i,
+            random_state=1000 + SEED + i,
             setting=2,
         )
         Xte = np.array(dte.drop(columns=["E", "Y"]))
         Yte = np.array(dte["Y"])
         Ete = np.array(dte["E"])
 
-        # Default RF
-        start = time.process_time()
+        # Default RF ------------------------------------------------
+        start = time.perf_counter()
         rf = RandomForest(
             "Regression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
+            n_jobs=N_JOBS,
         )
         rf.fit(Xtr, Ytr)
-        end = time.process_time()
+        end = time.perf_counter()
         time_rf = end - start
         runtime_dict["RF"].append(time_rf)
         preds_rf = rf.predict(Xte)
@@ -77,149 +96,263 @@ if __name__ == "__main__":
         mse_envs_rf, maxmse_rf = max_mse(Yte, preds_rf, Ete, ret_ind=True)
         mse_envs_dict["RF"].append(mse_envs_rf)
         maxmse_dict["RF"].append(maxmse_rf)
+        # -----------------------------------------------------------
 
-        # RF - Magging
-        start = time.process_time()
-        rf_magging = MaggingRF(
-            n_estimators=N_ESTIMATORS,
-            min_samples_leaf=MIN_SAMPLES_LEAF,
-            random_state=i,
-            backend="adaXT",
+        # MaxRM-RF-posthoc ------------------------------------------
+        start = time.perf_counter()
+        rf.modify_predictions_trees(
+            Etr,
+            n_jobs=N_JOBS,
         )
-        fitted_magging = rf_magging.fit(Xtr, Ytr, Etr)
-        preds_magging = rf_magging.predict(Xte)
-        end = time.process_time()
-        runtime_dict["RF(magging)"].append(end - start)
-        mse_dict["RF(magging)"].append(mean_squared_error(Yte, preds_magging))
-        mse_envs_magging, maxmse_magging = max_mse(
-            Yte, preds_magging, Ete, ret_ind=True
+        end = time.perf_counter()
+        time_posthoc = end - start
+        time_posthoc += time_rf
+        runtime_dict[f"{NAME_RF}-posthoc"].append(time_posthoc)
+        preds_posthoc = rf.predict(Xte)
+        mse_dict[f"{NAME_RF}-posthoc"].append(
+            mean_squared_error(Yte, preds_posthoc)
         )
-        mse_envs_dict["RF(magging)"].append(mse_envs_magging)
-        maxmse_dict["RF(magging)"].append(maxmse_magging)
+        mse_envs_posthoc, maxmse_posthoc = max_mse(
+            Yte, preds_posthoc, Ete, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_RF}-posthoc"].append(mse_envs_posthoc)
+        maxmse_dict[f"{NAME_RF}-posthoc"].append(maxmse_posthoc)
+        # -----------------------------------------------------------
 
-        # RF - Local
-        start = time.process_time()
-        rf_minmax_m0 = RandomForest(
+        # MaxRM-RF-local --------------------------------------------
+        start = time.perf_counter()
+        rf_local = RandomForest(
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="base",
+            n_jobs=N_JOBS,
         )
-        rf_minmax_m0.fit(Xtr, Ytr, Etr)
-        end = time.process_time()
-        time_minmax_m0 = end - start
-        runtime_dict[f"{NAME_RF}(local)"].append(time_minmax_m0)
-        preds_minmax_m0 = rf_minmax_m0.predict(Xte)
-        mse_dict[f"{NAME_RF}(local)"].append(
-            mean_squared_error(Yte, preds_minmax_m0)
+        rf_local.fit(Xtr, Ytr, Etr)
+        end = time.perf_counter()
+        time_local = end - start
+        runtime_dict[f"{NAME_RF}-local"].append(time_local)
+        preds_local = rf_local.predict(Xte)
+        mse_dict[f"{NAME_RF}-local"].append(
+            mean_squared_error(Yte, preds_local)
         )
-        mse_envs_minmax_m0, maxmse_minmax_m0 = max_mse(
-            Yte, preds_minmax_m0, Ete, ret_ind=True
+        mse_envs_local, maxmse_local = max_mse(
+            Yte, preds_local, Ete, ret_ind=True
         )
-        mse_envs_dict[f"{NAME_RF}(local)"].append(mse_envs_minmax_m0)
-        maxmse_dict[f"{NAME_RF}(local)"].append(maxmse_minmax_m0)
+        mse_envs_dict[f"{NAME_RF}-local"].append(mse_envs_local)
+        maxmse_dict[f"{NAME_RF}-local"].append(maxmse_local)
+        # -----------------------------------------------------------
 
-        # RF - Post-hoc
-        start = time.process_time()
-        rf.modify_predictions_trees(Etr)
-        end = time.process_time()
-        time_minmax_m1 = end - start
-        time_minmax_m1 += time_rf
-        runtime_dict[f"{NAME_RF}(posthoc)"].append(time_minmax_m1)
-        preds_minmax_m1 = rf.predict(Xte)
-        mse_dict[f"{NAME_RF}(posthoc)"].append(
-            mean_squared_error(Yte, preds_minmax_m1)
-        )
-        mse_envs_minmax_m1, maxmse_minmax_m1 = max_mse(
-            Yte, preds_minmax_m1, Ete, ret_ind=True
-        )
-        mse_envs_dict[f"{NAME_RF}(posthoc)"].append(mse_envs_minmax_m1)
-        maxmse_dict[f"{NAME_RF}(posthoc)"].append(maxmse_minmax_m1)
-
-        # RF - Post-hoc to Local
-        start = time.process_time()
-        rf_minmax_m0.modify_predictions_trees(Etr)
-        end = time.process_time()
-        time_minmax_m2 = end - start
-        time_minmax_m2 += time_minmax_m0
-        runtime_dict[f"{NAME_RF}(posthoc-local)"].append(time_minmax_m2)
-        preds_minmax_m2 = rf_minmax_m0.predict(Xte)
-        mse_dict[f"{NAME_RF}(posthoc-local)"].append(
-            mean_squared_error(Yte, preds_minmax_m2)
-        )
-        mse_envs_minmax_m2, maxmse_minmax_m2 = max_mse(
-            Yte, preds_minmax_m2, Ete, ret_ind=True
-        )
-        mse_envs_dict[f"{NAME_RF}(posthoc-local)"].append(mse_envs_minmax_m2)
-        maxmse_dict[f"{NAME_RF}(posthoc-local)"].append(maxmse_minmax_m2)
-
-        # RF - Global - DFS
-        start = time.process_time()
-        rf_minmax_m3 = RandomForest(
+        # MaxRM-RF-global -------------------------------------------
+        start = time.perf_counter()
+        rf_global = RandomForest(
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="fullopt",
+            n_jobs=N_JOBS,
         )
-        rf_minmax_m3.fit(Xtr, Ytr, Etr)
-        end = time.process_time()
-        runtime_dict[f"{NAME_RF}(global-dfs)"].append(end - start)
-        preds_minmax_m3 = rf_minmax_m3.predict(Xte)
-        mse_dict[f"{NAME_RF}(global-dfs)"].append(
-            mean_squared_error(Yte, preds_minmax_m3)
+        rf_global.fit(Xtr, Ytr, Etr)
+        end = time.perf_counter()
+        runtime_dict[f"{NAME_RF}-global"].append(end - start)
+        preds_global = rf_global.predict(Xte)
+        mse_dict[f"{NAME_RF}-global"].append(
+            mean_squared_error(Yte, preds_global)
         )
-        mse_envs_minmax_m3, maxmse_minmax_m3 = max_mse(
-            Yte, preds_minmax_m3, Ete, ret_ind=True
+        mse_envs_global, maxmse_global = max_mse(
+            Yte, preds_global, Ete, ret_ind=True
         )
-        mse_envs_dict[f"{NAME_RF}(global-dfs)"].append(mse_envs_minmax_m3)
-        maxmse_dict[f"{NAME_RF}(global-dfs)"].append(maxmse_minmax_m3)
+        mse_envs_dict[f"{NAME_RF}-global"].append(mse_envs_global)
+        maxmse_dict[f"{NAME_RF}-global"].append(maxmse_global)
+        # -----------------------------------------------------------
 
-        # RF - Global
-        start = time.process_time()
-        rf_minmax_m4 = RandomForest(
+        # MaxRM-RF-global-NonDFS ------------------------------------
+        start = time.perf_counter()
+        rf_global_nondfs = RandomForest(
             "MinMaxRegression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
             minmax_method="adafullopt",
+            n_jobs=N_JOBS,
         )
-        rf_minmax_m4.fit(Xtr, Ytr, Etr)
-        end = time.process_time()
-        runtime_dict[f"{NAME_RF}(global)"].append(end - start)
-        preds_minmax_m4 = rf_minmax_m4.predict(Xte)
-        mse_dict[f"{NAME_RF}(global)"].append(
-            mean_squared_error(Yte, preds_minmax_m4)
+        rf_global_nondfs.fit(Xtr, Ytr, Etr)
+        end = time.perf_counter()
+        runtime_dict[f"{NAME_RF}-global-NonDFS"].append(end - start)
+        preds_global_nondfs = rf_global_nondfs.predict(Xte)
+        mse_dict[f"{NAME_RF}-global-NonDFS"].append(
+            mean_squared_error(Yte, preds_global_nondfs)
         )
-        mse_envs_minmax_m4, maxmse_minmax_m4 = max_mse(
-            Yte, preds_minmax_m4, Ete, ret_ind=True
+        mse_envs_global_nondfs, maxmse_global_nondfs = max_mse(
+            Yte, preds_global_nondfs, Ete, ret_ind=True
         )
-        mse_envs_dict[f"{NAME_RF}(global)"].append(mse_envs_minmax_m4)
-        maxmse_dict[f"{NAME_RF}(global)"].append(maxmse_minmax_m4)
+        mse_envs_dict[f"{NAME_RF}-global-NonDFS"].append(
+            mse_envs_global_nondfs
+        )
+        maxmse_dict[f"{NAME_RF}-global-NonDFS"].append(maxmse_global_nondfs)
+        # -----------------------------------------------------------
 
-        # RF - Post-hoc - Extragradient
-        rf = RandomForest(
+        # -----------------------------------------------------------
+        # optimally-weighted versions
+        # -----------------------------------------------------------
+
+        # split train into a part for tree-fitting and a part for weight-refinement
+        Xtr_t, Xtr_w, Ytr_t, Ytr_w, Etr_t, Etr_w = train_test_split(
+            Xtr, Ytr, Etr, test_size=0.3, random_state=SEED + i, shuffle=True
+        )
+
+        start_rf_t = time.perf_counter()
+        rf_t = RandomForest(
             "Regression",
             n_estimators=N_ESTIMATORS,
             min_samples_leaf=MIN_SAMPLES_LEAF,
-            seed=i,
+            seed=SEED + i,
+            n_jobs=N_JOBS,
         )
-        rf.fit(Xtr, Ytr)
-        start = time.process_time()
-        rf.modify_predictions_trees(Etr, opt_method="extragradient")
-        end = time.process_time()
-        time_xtrgrd = end - start
-        runtime_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(time_xtrgrd)
-        preds_xtrgrd = rf.predict(Xte)
-        mse_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(
-            mean_squared_error(Yte, preds_xtrgrd)
+        rf_t.fit(Xtr_t, Ytr_t)
+        end_rf_t = time.perf_counter()
+        time_rf_t = end_rf_t - start_rf_t
+
+        # MaxRM-RF-w -----------------------------------------------
+        start = time.perf_counter()
+        preds_ow, _ = rf_t.refine_weights(
+            X_val=Xtr_w,
+            Y_val=Ytr_w,
+            E_val=Etr_w,
+            X=Xte,
         )
-        mse_envs_xtrgrd, maxmse_xtrgrd = max_mse(
-            Yte, preds_xtrgrd, Ete, ret_ind=True
+        end = time.perf_counter()
+
+        time_MaxRM_RF_ow = time_rf_t + end - start
+        runtime_dict[f"{NAME_RF}-w"].append(time_MaxRM_RF_ow)
+        mse_dict[f"{NAME_RF}-w"].append(mean_squared_error(Yte, preds_ow))
+        mse_envs_ow, maxmse_ow = max_mse(Yte, preds_ow, Ete, ret_ind=True)
+        mse_envs_dict[f"{NAME_RF}-w"].append(mse_envs_ow)
+        maxmse_dict[f"{NAME_RF}-w"].append(maxmse_ow)
+        # -----------------------------------------------------------
+
+        # MaxRM-RF-posthoc-w ---------------------------------------
+        start = time.perf_counter()
+        rf_t.modify_predictions_trees(
+            Etr_t,
+            n_jobs=N_JOBS,
         )
-        mse_envs_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(mse_envs_xtrgrd)
-        maxmse_dict[f"{NAME_RF}(posthoc-xtrgrd)"].append(maxmse_xtrgrd)
+        preds_posthoc_ow, _ = rf_t.refine_weights(
+            X_val=Xtr_w,
+            Y_val=Ytr_w,
+            E_val=Etr_w,
+            X=Xte,
+        )
+        end = time.perf_counter()
+        time_posthoc_ow = time_rf_t + end - start
+        runtime_dict[f"{NAME_RF}-posthoc-w"].append(time_posthoc_ow)
+        mse_dict[f"{NAME_RF}-posthoc-w"].append(
+            mean_squared_error(Yte, preds_posthoc_ow)
+        )
+        mse_envs_posthoc_ow, maxmse_posthoc_ow = max_mse(
+            Yte, preds_posthoc_ow, Ete, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_RF}-posthoc-w"].append(mse_envs_posthoc_ow)
+        maxmse_dict[f"{NAME_RF}-posthoc-w"].append(maxmse_posthoc_ow)
+        # -----------------------------------------------------------
+
+        # MaxRM-RF-local-w -----------------------------------------
+        start = time.perf_counter()
+        rf_local_t = RandomForest(
+            "MinMaxRegression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED + i,
+            minmax_method="base",
+            n_jobs=N_JOBS,
+        )
+        rf_local_t.fit(Xtr_t, Ytr_t, Etr_t)
+        preds_local_ow, _ = rf_local_t.refine_weights(
+            X_val=Xtr_w,
+            Y_val=Ytr_w,
+            E_val=Etr_w,
+            X=Xte,
+        )
+        end = time.perf_counter()
+        time_local_ow = end - start
+        runtime_dict[f"{NAME_RF}-local-w"].append(time_local_ow)
+        mse_dict[f"{NAME_RF}-local-w"].append(
+            mean_squared_error(Yte, preds_local_ow)
+        )
+        mse_envs_local_ow, maxmse_local_ow = max_mse(
+            Yte, preds_local_ow, Ete, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_RF}-local-w"].append(mse_envs_local_ow)
+        maxmse_dict[f"{NAME_RF}-local-w"].append(maxmse_local_ow)
+        # -----------------------------------------------------------
+
+        # MaxRM-RF-global-w ----------------------------------------
+        start = time.perf_counter()
+        rf_global_t = RandomForest(
+            "MinMaxRegression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED + i,
+            minmax_method="fullopt",
+            n_jobs=N_JOBS,
+        )
+        rf_global_t.fit(Xtr_t, Ytr_t, Etr_t)
+        preds_global_ow, _ = rf_global_t.refine_weights(
+            X_val=Xtr_w,
+            Y_val=Ytr_w,
+            E_val=Etr_w,
+            X=Xte,
+        )
+        end = time.perf_counter()
+        time_global_ow = end - start
+        runtime_dict[f"{NAME_RF}-global-w"].append(time_global_ow)
+        mse_dict[f"{NAME_RF}-global-w"].append(
+            mean_squared_error(Yte, preds_global_ow)
+        )
+        mse_envs_global_ow, maxmse_global_ow = max_mse(
+            Yte, preds_global_ow, Ete, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_RF}-global-w"].append(mse_envs_global_ow)
+        maxmse_dict[f"{NAME_RF}-global-w"].append(maxmse_global_ow)
+        # -----------------------------------------------------------
+
+        # MaxRM-RF-global-NonDFS-w ---------------------------------
+        start = time.perf_counter()
+        rf_global_nondfs_t = RandomForest(
+            "MinMaxRegression",
+            n_estimators=N_ESTIMATORS,
+            min_samples_leaf=MIN_SAMPLES_LEAF,
+            seed=SEED + i,
+            minmax_method="adafullopt",
+            n_jobs=N_JOBS,
+        )
+        rf_global_nondfs_t.fit(Xtr_t, Ytr_t, Etr_t)
+        preds_global_nondfs_ow, _ = rf_global_nondfs_t.refine_weights(
+            X_val=Xtr_w,
+            Y_val=Ytr_w,
+            E_val=Etr_w,
+            X=Xte,
+        )
+        end = time.perf_counter()
+        time_global_nondfs_ow = end - start
+        runtime_dict[f"{NAME_RF}-global-NonDFS-w"].append(
+            time_global_nondfs_ow
+        )
+        mse_dict[f"{NAME_RF}-global-NonDFS-w"].append(
+            mean_squared_error(Yte, preds_global_nondfs_ow)
+        )
+        mse_envs_global_nondfs_ow, maxmse_global_nondfs_ow = max_mse(
+            Yte, preds_global_nondfs_ow, Ete, ret_ind=True
+        )
+        mse_envs_dict[f"{NAME_RF}-global-NonDFS-w"].append(
+            mse_envs_global_nondfs_ow
+        )
+        maxmse_dict[f"{NAME_RF}-global-NonDFS-w"].append(
+            maxmse_global_nondfs_ow
+        )
+        # -----------------------------------------------------------
 
     # Results
     mse_df = pd.DataFrame(mse_dict)
@@ -235,10 +368,11 @@ if __name__ == "__main__":
         stderr = mse_df.std(axis=0, ddof=1) / np.sqrt(n)
         ci_lower = means - 1.96 * stderr
         ci_upper = means + 1.96 * stderr
+        half_width = (ci_upper - ci_lower) / 2
         f.write("MSE\n")
         for col in mse_df.columns:
             f.write(
-                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}], CI half-width = {half_width[col]:.4f}\n"
             )
         f.write("\n")
 
@@ -248,10 +382,11 @@ if __name__ == "__main__":
         stderr = maxmse_df.std(axis=0, ddof=1) / np.sqrt(n)
         ci_lower = means - 1.96 * stderr
         ci_upper = means + 1.96 * stderr
+        half_width = (ci_upper - ci_lower) / 2
         f.write("Max MSE\n")
         for col in maxmse_df.columns:
             f.write(
-                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}], CI half-width = {half_width[col]:.4f}\n"
             )
         f.write("\n")
 
@@ -261,10 +396,11 @@ if __name__ == "__main__":
         stderr = runtime_df.std(axis=0, ddof=1) / np.sqrt(n)
         ci_lower = means - 1.96 * stderr
         ci_upper = means + 1.96 * stderr
+        half_width = (ci_upper - ci_lower) / 2
         f.write("Runtime (seconds)\n")
         for col in runtime_df.columns:
             f.write(
-                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}]\n"
+                f"{col}: mean = {means[col]:.4f}, 95% CI = [{ci_lower[col]:.4f}, {ci_upper[col]:.4f}], CI half-width = {half_width[col]:.4f}\n"
             )
 
     # plot_max_mse_boxplot(maxmse_df, saveplot=True, out_dir=OUT_DIR)

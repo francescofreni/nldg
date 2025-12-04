@@ -1,41 +1,86 @@
+"""Simulation script to compare RF, MaxRM-RF, GroupDRO-NN, and Magging-RF
+over multiple heterogeneous environments.
+
+1. Generate synthetic source and target environments
+2. Fit:
+   - Pooled Random Forest
+   - MaxRM-RF
+   - GroupDRO
+   - Magging-RF
+3. Evaluate worst-case risk across target environments (MSE, negative reward, or regret).
+4. Save numeric results and plot
+
+Command-line arguments:
+--change_X_distr : if set, target covariate distribution differs from sources.
+--risk           : one of ['mse', 'reward', 'regret'] defining optimization/evaluation metric.
+--n_jobs         : parallel jobs for tree-based models
+
+Outputs placed under results/output_simulation/comparison_gdro_magging/.
+"""
+
 # code modified from https://github.com/zywang0701/DRoL/blob/main/simu1.py
 import os
-import argparse
 import numpy as np
-import pandas as pd
+import argparse
 from adaXT.random_forest import RandomForest
-from nldg.additional.data_CA import DataContainer
+from nldg.additional.data_GP import DataContainer
+from nldg.utils import min_reward, max_mse, max_regret
 from nldg.additional.gdro import GroupDRO
-from nldg.utils import max_mse, min_reward, max_regret
-import matplotlib.pyplot as plt
+from nldg.rf import MaggingRF
 from tqdm import tqdm
 from matplotlib.ticker import MaxNLocator
+import matplotlib.pyplot as plt
 
-N_SIM = 10
+
+N_SIM = 100
 N_ESTIMATORS = 100
-MIN_SAMPLES_LEAF = 5
+MIN_SAMPLES_LEAF = 30
+ETA_GDRO = 0.001
 SEED = 42
 COLORS = {
     "RF": "#5790FC",
     "MaxRM-RF": "#F89C20",
-    "GroupDRO-NN": "#964A8B",
+    "GroupDRO-NN": "#86C8DD",
+    "Magging-RF": "#964A8B",
 }
 
+NUM_COVARIATES = 5
+BETA_LOW = 0.5
+BETA_HIGH = 2.5
+
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "..", "results")
+RESULTS_DIR = os.path.join(SCRIPT_DIR, "..", "results")
 os.makedirs(RESULTS_DIR, exist_ok=True)
-OUT_DIR = os.path.join(RESULTS_DIR, "output_additional")
+OUT_DIR = os.path.join(RESULTS_DIR, "output_simulation")
 os.makedirs(OUT_DIR, exist_ok=True)
-OUT_DIR = os.path.join(OUT_DIR, "comparison_gdro")
+OUT_DIR = os.path.join(OUT_DIR, "comparison_gdro_magging")
 os.makedirs(OUT_DIR, exist_ok=True)
 
 
 def plot_maxrisk_vs_nenvs(
     results: dict[int, dict[str, float]],
+    change_X_distr: bool,
+    ylim: tuple[float, float] | None = None,
+    risk_eval: str = "mse",
     risk_label: str = "mse",
-    change_X_distr: bool = False,
-    unbalanced_envs: bool = False,
 ) -> None:
+    """Plot (with 95% normal-approx CI) the max env risk versus number of envs.
+
+    Parameters
+    ----------
+    results : dict[int, dict[str, list[float]]]
+    change_X_distr : bool
+        Whether target covariate distribution differs from training sources
+        (affects filename).
+    ylim : (float, float) | None
+        Optional y-axis limits.
+    risk_eval : str
+        Risk used for evaluation
+    risk_label : str
+        Short label of optimized risk for embedding in output filenames.
+    """
+    fontsize = 16
     methods = []
     for L in results:
         methods.extend(results[L].keys())
@@ -77,25 +122,39 @@ def plot_maxrisk_vs_nenvs(
         )
         ax.fill_between(xs, lowers, uppers, color=color, alpha=0.25)
 
-    ax.set_xlabel("Number of test environments")
-    if risk_label == "mse":
-        ax.set_ylabel("Maximum MSE across test environments")
-    elif risk_label == "nrw":
-        ax.set_ylabel("Maximum Negative Reward across test environments")
-    else:
-        ax.set_ylabel("Maximum Regret across test environments")
+    ax.set_xlabel("Number of environments $K$", fontsize=fontsize)
+    if risk_eval == "mse":
+        ax.set_ylabel("Maximum MSE across environments", fontsize=fontsize)
+    elif risk_eval == "reward":
+        ax.set_ylabel(
+            "Maximum negative reward\nacross environments", fontsize=fontsize
+        )
+    elif risk_eval == "regret":
+        ax.set_ylabel("Maximum regret across environments", fontsize=fontsize)
 
     ax.set_xticks(L_vals)
     ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+    ax.tick_params(axis="x", labelsize=14)
+    ax.tick_params(axis="y", labelsize=14)
 
     ax.grid(True, linewidth=0.2)
-    ax.legend(frameon=True, fontsize=12)
+    ax.legend(frameon=True, fontsize=fontsize)
+
+    if ylim is not None:
+        ax.set_ylim(*ylim)
+
+    ymin, ymax = ax.get_ylim()
+    start = np.ceil((ymin + 1e-9) / 0.1) * 0.1
+    ticks = np.arange(start, ymax, 0.1)
+    ticks = [t for t in ticks if ymin < t < ymax]
+    ax.set_yticks(ticks)
+
     plt.tight_layout()
 
     plt.savefig(
         os.path.join(
             OUT_DIR,
-            f"comparison_gdro_{risk_label}_changeXdistr{str(change_X_distr)}_unbalanced{str(unbalanced_envs)}.pdf",
+            f"opt{risk_label}_eval{risk_eval}_changeXdistr{str(change_X_distr)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.pdf",
         ),
         dpi=300,
         bbox_inches="tight",
@@ -110,11 +169,6 @@ if __name__ == "__main__":
         help="Whether the target covariate distribution differs from the training ones (default: False).",
     )
     parser.add_argument(
-        "--unbalanced_envs",
-        action="store_true",
-        help="Whether the environments should be unbalanced (default: False).",
-    )
-    parser.add_argument(
         "--risk",
         type=str,
         default="mse",
@@ -125,12 +179,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--n_jobs",
         type=int,
-        default=1,
+        default=5,
         help="Number of jobs (default: 1).",
     )
     args = parser.parse_args()
     change_X_distr = args.change_X_distr
-    unbalanced_envs = args.unbalanced_envs
     risk = args.risk
     n_jobs = args.n_jobs
 
@@ -141,30 +194,30 @@ if __name__ == "__main__":
     else:
         risk_label = "reg"
 
-    Ls = [3, 4, 5, 6, 7, 8, 9, 10]  # number of environments
+    # evaluate on the same risk as optimized
+    risk_eval = risk
+
+    Ls = [2, 3, 4, 5, 6, 7, 8]  # number of environments
     results = {L: {} for L in Ls}
     for L in tqdm(Ls):
-        if not unbalanced_envs:
-            data = DataContainer(
-                n=2000, N=2000, change_X_distr=change_X_distr, risk=risk
-            )
-        else:
-            data = DataContainer(
-                n=1000,
-                N=1000,
-                change_X_distr=change_X_distr,
-                risk=risk,
-                unbalanced_envs=unbalanced_envs,
-            )
-
-        data.generate_funcs_list(L=L, seed=SEED)
-        max_risks = np.zeros((N_SIM, 4))  # RF, MaxRM-RF, GroupDRO, Mean
-
-        overall_vars = np.zeros(N_SIM)
-        per_env_vars = np.zeros((N_SIM, L))
+        # max_risks columns: [RF, MaxRM-RF, GroupDRO-NN, Magging-RF]
+        max_risks = np.zeros((N_SIM, 4))
 
         for sim in tqdm(range(N_SIM), leave=False):
-            data.generate_data(seed=sim)
+            # 1. data generation per simulation
+            data = DataContainer(
+                n=2000,
+                N=2000,
+                L=L,
+                d=NUM_COVARIATES,
+                change_X_distr=change_X_distr,
+                risk=risk,
+                beta_low=BETA_LOW,
+                beta_high=BETA_HIGH,
+            )
+
+            # resample functions for each simulation
+            data.generate_dataset(seed=sim)
 
             Xtr = np.vstack(data.X_sources_list)
             Ytr = np.concatenate(data.Y_sources_list)
@@ -173,6 +226,10 @@ if __name__ == "__main__":
             Yte = np.concatenate(data.Y_target_potential_list)
             Ete = np.concatenate(data.E_target_potential_list)
 
+            fitted_erm = None
+            fitted_erm_trees = None
+            pred_erm = None
+            # 2. Regret-specific per-env ERM baselines (only if risk == "regret")
             if risk == "regret":
                 fitted_erm = np.zeros(len(Etr))
                 fitted_erm_trees = np.zeros((N_ESTIMATORS, len(Etr)))
@@ -197,11 +254,7 @@ if __name__ == "__main__":
                     mask_te = Ete == env
                     pred_erm[mask_te] = rf_e.predict(Xte[mask_te])
 
-            overall_vars[sim] = np.var(Yte)
-            for i, Y_target in enumerate(data.Y_target_potential_list):
-                per_env_vars[sim, i] = np.var(Y_target)
-
-            # RF
+            # 3. Fit pooled RF
             rf = RandomForest(
                 "Regression",
                 n_estimators=N_ESTIMATORS,
@@ -211,9 +264,31 @@ if __name__ == "__main__":
             )
             rf.fit(Xtr, Ytr)
             pred_rf = rf.predict(Xte)
+            # ---------------------------------------------------------------
 
-            # MaxRM-RF
-            solvers = ["ECOS", "SCS"]
+            # 4. fit Magging-RF
+            rf_magging = MaggingRF(
+                n_estimators=N_ESTIMATORS,
+                min_samples_leaf=MIN_SAMPLES_LEAF,
+                random_state=SEED,
+                backend="adaXT",
+                risk=risk_label,
+                sols_erm=fitted_erm,
+            )
+            fitted_magging = rf_magging.fit(Xtr, Ytr, Etr)
+            pred_magging = rf_magging.predict(Xte)
+            # ---------------------------------------------------------------
+
+            # 5. Fit GroupDRO
+            gdro = GroupDRO(
+                data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk=risk
+            )
+            gdro.fit(epochs=500, eta=ETA_GDRO, device="cpu")
+            pred_gdro = gdro.predict(Xte)
+            # ---------------------------------------------------------------
+
+            # 6. Modify RF predictions to obtain MaxRM-RF
+            solvers = ["ECOS", "CLARABEL", "SCS"]
             success = False
             kwargs = {"n_jobs": n_jobs}
             if risk == "regret":
@@ -240,106 +315,59 @@ if __name__ == "__main__":
                 )
             pred_maxrmrf = rf.predict(Xte)
 
-            # GroupDRO-NN
-            gdro = GroupDRO(
-                data, hidden_dims=[4, 8, 16, 32, 8], seed=SEED, risk=risk
-            )
-            gdro.fit(epochs=500)
-            pred_gdro = gdro.predict(Xte)
-            if risk == "regret":
-                pred_erm_gdro = gdro.predict_per_group(Xte, Ete)
+            # 7. Replace any infinite MaxRM-RF predictions (solver fallback safeguard).
+            # sometimes convex solver fails
+            # -> replace any bad MaxRM-RF predictions with mean of Ytr
+            infty = ~np.isfinite(pred_maxrmrf)
+            if np.any(infty):
+                mean_ytr = float(np.mean(Ytr))
+                print(
+                    f"[WARN] Replacing {infty.sum()} infinite MaxRM-RF preds at L={L}, sim={sim} with mean(Ytr)={mean_ytr:.4f}"
+                )
+                pred_maxrmrf[infty] = mean_ytr
+            # ---------------------------------------------------------------
 
-            # Mean
-            pred_mean = np.full(len(Yte), np.mean(Ytr))
-            if risk == "regret":
-                pred_erm_mean = np.zeros(len(Ete))
-                for env in np.unique(Ete):
-                    mask_tr = Etr == env
-                    mask_te = Ete == env
-                    pred_erm_mean[mask_te] = np.full(
-                        np.sum(mask_te), np.mean(Ytr[mask_tr])
-                    )
-
-            # Evaluate the maximum risk
-            if risk == "mse":
+            # 8. Evaluate worst-case risk across target envs
+            if risk_eval == "mse":
                 max_risks[sim, 0] = max_mse(Yte, pred_rf, Ete)
                 max_risks[sim, 1] = max_mse(Yte, pred_maxrmrf, Ete)
                 max_risks[sim, 2] = max_mse(Yte, pred_gdro, Ete)
-                max_risks[sim, 3] = max_mse(Yte, pred_mean, Ete)
-            elif risk == "reward":
+                max_risks[sim, 3] = max_mse(Yte, pred_magging, Ete)
+
+            elif risk_eval == "reward":
                 max_risks[sim, 0] = -min_reward(Yte, pred_rf, Ete)
                 max_risks[sim, 1] = -min_reward(Yte, pred_maxrmrf, Ete)
                 max_risks[sim, 2] = -min_reward(Yte, pred_gdro, Ete)
-                max_risks[sim, 3] = -min_reward(Yte, pred_mean, Ete)
-            else:
+                max_risks[sim, 3] = -min_reward(Yte, pred_magging, Ete)
+
+            elif risk_eval == "regret":
                 max_risks[sim, 0] = max_regret(Yte, pred_rf, pred_erm, Ete)
                 max_risks[sim, 1] = max_regret(
                     Yte, pred_maxrmrf, pred_erm, Ete
                 )
-                max_risks[sim, 2] = max_regret(
-                    Yte, pred_gdro, pred_erm_gdro, Ete
-                )
+                max_risks[sim, 2] = max_regret(Yte, pred_gdro, pred_erm, Ete)
                 max_risks[sim, 3] = max_regret(
-                    Yte, pred_mean, pred_erm_mean, Ete
+                    Yte, pred_magging, pred_erm, Ete
                 )
 
+        # Aggregate replicate results into results dict
         results[L]["RF"] = max_risks[:, 0].tolist()
         results[L][f"MaxRM-RF({risk_label})"] = max_risks[:, 1].tolist()
         results[L][f"GroupDRO-NN({risk_label})"] = max_risks[:, 2].tolist()
-        results[L][f"Mean"] = max_risks[:, 3].tolist()
+        results[L][f"Magging-RF({risk_label})"] = max_risks[:, 3].tolist()
 
-        print(
-            f"Overall variance: {np.mean(overall_vars):.3f} +- {np.std(overall_vars):.3f}"
-        )
-        for i in range(L):
-            print(
-                f"Variance target {i}: {np.mean(per_env_vars[:, i]):.3f} +- {np.std(per_env_vars[:, i]):.3f}"
-            )
-
-    # print(results)
-
-    rows = []
-    for L, methods in results.items():
-        for method, vals in methods.items():
-            arr = np.asarray(vals, dtype=float)
-            n = arr.size
-            mu = arr.mean()
-            stderr = arr.std(ddof=1) / np.sqrt(n) if n > 1 else 0.0
-            width = 1.96 * stderr
-            rows.append(
-                {
-                    "L": L,
-                    "method": method,
-                    "n": n,
-                    "mean": mu,
-                    "lower": mu - width,
-                    "upper": mu + width,
-                }
-            )
-    df_stats = pd.DataFrame(rows)
-    df_stats.to_csv(
+    np.save(
         os.path.join(
             OUT_DIR,
-            f"comparison_gdro_{risk_label}_changeXdistr{str(change_X_distr)}_unbalanced{str(unbalanced_envs)}.csv",
+            f"opt{risk_label}_eval{risk_eval}_changeXdistr{str(change_X_distr)}_leaf{MIN_SAMPLES_LEAF}_reps{N_SIM}_p{NUM_COVARIATES}.npy",
         ),
-        index=False,
+        results,
     )
-
-    # rows = []
-    # for L, methods in results.items():
-    #     for method, value in methods.items():
-    #         rows.append({"L": L, "method": method, "risk": value})
-    # df = pd.DataFrame(rows)
-    # df.to_csv(
-    #     os.path.join(
-    #         OUT_DIR, f"comparison_gdro_{risk_label}_{str(change_X_distr)}.csv"
-    #     ),
-    #     index=False,
-    # )
 
     plot_maxrisk_vs_nenvs(
         results,
+        change_X_distr,
+        # ylim=(0.7, 1.35),
+        risk_eval=risk_eval,
         risk_label=risk_label,
-        change_X_distr=change_X_distr,
-        unbalanced_envs=unbalanced_envs,
     )
