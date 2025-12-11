@@ -78,6 +78,10 @@ The results are saved in `results/output_simulation/comparison_equal_envs/`.
 
 
 ### Section 6 and Appendix E
+First, load the data by running:
+```bash
+python experiments/ca_housing_data_import.py
+```
 To reproduce Fig. 6, Table 2, and Table 6:
 ```bash
 python experiments/ca_housing_counties.py --leave-5-out --use-geo-clusters
