@@ -6,6 +6,8 @@
 <a href="https://github.com/astral-sh/ruff"><img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json" alt="Linted with ruff"></a>
 </p>
 
+This repository contains the code for the research paper [*Maximum Risk Minimization with Random Forests*](https://www.arxiv.org/abs/2512.10445).
+
 ## ⚙️ Installation
 
 First, create a Python environment:
@@ -149,3 +151,17 @@ python experiments/comparison_gdro_magging.py --risk "reward" --change_X_distr
 python experiments/comparison_gdro_magging.py --risk "regret" --change_X_distr
 ```
 The results are saved in `results/output_simulation/comparison_gdro_magging/`.
+
+
+## 📜 Citation
+```bibtex
+@misc{Freni2025,
+      title         = {Maximum Risk Minimization with Random Forests}, 
+      author        = {Francesco Freni and Anya Fries and Linus K{\"u}hne and Markus Reichstein and Jonas Peters},
+      year          = {2025},
+      eprint        = {2512.10445},
+      archivePrefix = {arXiv},
+      primaryClass  = {stat.ML},
+      url           = {https://arxiv.org/abs/2512.10445}, 
+}
+```
